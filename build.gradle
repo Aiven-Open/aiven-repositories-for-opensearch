@@ -30,9 +30,6 @@ plugins {
 
 }
 
-group 'io.aiven'
-version '1.0-SNAPSHOT'
-
 ext {
     elasticVersion = "7.8.0"
     gcsVerison = "1.111.0"
@@ -149,16 +146,22 @@ configurations {
 }
 
 dependencies {
-    implementation "com.google.cloud:google-cloud-storage:$gcsVerison"
+    implementation("com.google.cloud:google-cloud-storage:$gcsVerison") {
+        exclude group: "com.fasterxml.jackson.core", module: "jackson-core"
+    }
 
     implementation "com.github.luben:zstd-jni:$zstdVersion"
     implementation "org.bouncycastle:bcprov-jdk15on:$bcVersion"
-    implementation "org.apache.logging.log4j:log4j-slf4j-impl:2.11.1"
     implementation("com.fasterxml.jackson.core:jackson-databind:$jacksonDatabind") {
         exclude group: "com.fasterxml.jackson.core", module: "jackson-core"
     }
 
     compileOnly "org.elasticsearch:elasticsearch:$elasticVersion"
+    implementation("org.apache.logging.log4j:log4j-slf4j-impl:2.11.1") {
+        exclude group: "org.slf4j", module: "slf4j-api"
+        exclude group: "org.apache.logging.log4j", module: "log4j-api"
+        exclude group: "org.apache.logging.log4j", module: "log4j-core"
+    }
 
     compile "org.slf4j:slf4j-api:$slf4jVersion"
 
