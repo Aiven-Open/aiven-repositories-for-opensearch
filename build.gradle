@@ -127,9 +127,9 @@ publishing {
                     }
                 }
                 scm {
-                    connection = "scm:git:git://github.com/aiven/aiven-elasticsearch-encrypted-plugin.git"
-                    developerConnection = "scm:git:git@github.com:aiven/aiven-elasticsearch-encrypted-plugin.git"
-                    url = "https://github.com/aiven/aiven-elasticsearch-encrypted-plugin.git"
+                    connection = "scm:git:git@github.com:aiven/aiven-elasticsearch-repositories.git"
+                    developerConnection = "scm:git:git@github.com:aiven/aiven-elasticsearch-repositories.git"
+                    url = "https://github.com/aiven/aiven-elasticsearch-repositories.git"
                     tag = "HEAD"
                 }
             }
