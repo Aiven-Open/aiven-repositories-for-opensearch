@@ -33,13 +33,13 @@ public class GcsStorageSettings {
     private static final Logger LOGGER = LoggerFactory.getLogger(GcsStorageSettings.class);
 
     public static final Setting<InputStream> CREDENTIALS_FILE_SETTING =
-            SecureSetting.secureFile("gcs.client.credentials_file", null);
+            SecureSetting.secureFile("aiven.gcs.client.credentials_file", null);
     public static final Setting<String> PROJECT_ID =
-            Setting.simpleString("gcs.client.project_id", Setting.Property.NodeScope);
+            Setting.simpleString("aiven.gcs.client.project_id", Setting.Property.NodeScope);
     public static final Setting<Integer> CONNECTION_TIMEOUT =
-            Setting.intSetting("gcs.client.connection_timeout", -1, -1, Setting.Property.NodeScope);
+            Setting.intSetting("aiven.gcs.client.connection_timeout", -1, -1, Setting.Property.NodeScope);
     public static final Setting<Integer> READ_TIMEOUT =
-            Setting.intSetting("gcs.client.read_timeout", -1, -1, Setting.Property.NodeScope);
+            Setting.intSetting("aiven.gcs.client.read_timeout", -1, -1, Setting.Property.NodeScope);
 
     private final String projectId;
 
