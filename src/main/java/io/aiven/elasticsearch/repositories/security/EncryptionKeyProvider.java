@@ -43,10 +43,10 @@ public final class EncryptionKeyProvider
     public static final int KEY_SIZE = 256;
 
     public static final Setting<InputStream> PUBLIC_KEY_FILE =
-            SecureSetting.secureFile("gcs.public_key_file", null);
+            SecureSetting.secureFile("aiven.public_key_file", null);
 
     public static final Setting<InputStream> PRIVATE_KEY_FILE =
-            SecureSetting.secureFile("gcs.private_key_file", null);
+            SecureSetting.secureFile("aiven.private_key_file", null);
 
     private static final String CIPHER_TRANSFORMATION = "RSA/NONE/OAEPWithSHA3-512AndMGF1Padding";
 
