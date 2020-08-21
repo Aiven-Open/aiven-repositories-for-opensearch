@@ -21,7 +21,6 @@ import java.io.InputStream;
 import java.util.concurrent.TimeUnit;
 
 import com.google.auth.oauth2.GoogleCredentials;
-import com.google.auth.oauth2.UserCredentials;
 import org.elasticsearch.common.settings.SecureSetting;
 import org.elasticsearch.common.settings.Setting;
 import org.elasticsearch.common.settings.Settings;
