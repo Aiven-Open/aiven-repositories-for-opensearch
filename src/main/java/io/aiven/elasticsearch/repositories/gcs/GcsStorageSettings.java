@@ -72,7 +72,7 @@ public class GcsStorageSettings {
 
     private static GoogleCredentials loadCredentials(final Settings settings) throws IOException {
         try (final var in = getStreamFor(CREDENTIALS_FILE_SETTING, settings)) {
-            return UserCredentials.fromStream(in);
+            return GoogleCredentials.fromStream(in);
         }
     }
 
