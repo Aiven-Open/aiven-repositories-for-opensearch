@@ -69,6 +69,5 @@ public class DummySecureSettings implements SecureSettings {
 
     @Override
     public void close() throws IOException {
-
     }
 }

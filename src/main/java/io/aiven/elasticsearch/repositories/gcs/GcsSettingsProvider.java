@@ -28,28 +28,26 @@ import com.google.cloud.storage.StorageOptions;
 import com.google.common.base.Strings;
 import com.google.common.net.HttpHeaders;
 import org.elasticsearch.common.settings.Settings;
-import org.elasticsearch.common.util.LazyInitializable;
 
 public class GcsSettingsProvider {
 
     static final String HTTP_USER_AGENT = "Aiven Google Cloud Storage repository";
 
-    private volatile LazyInitializable<Tuple<Storage, EncryptionKeyProvider>, IOException> cachedSettings =
-            new LazyInitializable<>(() -> cachedSettingsFrom(Settings.EMPTY));
+    private volatile Tuple<Storage, EncryptionKeyProvider> cachedSettings;
 
     public Storage gcsClient() throws IOException {
-        return cachedSettings.getOrCompute().x();
+        return cachedSettings.x();
     }
 
     public EncryptionKeyProvider encryptionKeyProvider() throws IOException {
-        return cachedSettings.getOrCompute().y();
+        return cachedSettings.y();
     }
 
-    public void reload(final Settings settings) {
-        cachedSettings = new LazyInitializable<>(() -> cachedSettingsFrom(settings));
+    public void reload(final Settings settings) throws IOException {
+        cachedSettings = makeCacheFrom(settings);
     }
 
-    private Tuple<Storage, EncryptionKeyProvider> cachedSettingsFrom(final Settings settings) throws IOException {
+    private Tuple<Storage, EncryptionKeyProvider> makeCacheFrom(final Settings settings) throws IOException {
         return Tuple.of(
                 createGcsClient(GcsStorageSettings.load(settings)),
                 EncryptionKeyProvider.of(settings)
