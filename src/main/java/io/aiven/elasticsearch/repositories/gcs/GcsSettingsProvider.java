@@ -19,6 +19,7 @@ package io.aiven.elasticsearch.repositories.gcs;
 import java.io.IOException;
 import java.util.Map;
 
+import io.aiven.elasticsearch.repositories.Permissions;
 import io.aiven.elasticsearch.repositories.security.EncryptionKeyProvider;
 
 import com.google.cloud.Tuple;
@@ -35,11 +36,11 @@ public class GcsSettingsProvider {
 
     private volatile Tuple<Storage, EncryptionKeyProvider> cachedSettings;
 
-    public Storage gcsClient() throws IOException {
+    public Storage gcsClient() {
         return cachedSettings.x();
     }
 
-    public EncryptionKeyProvider encryptionKeyProvider() throws IOException {
+    public EncryptionKeyProvider encryptionKeyProvider() {
         return cachedSettings.y();
     }
 
@@ -54,21 +55,23 @@ public class GcsSettingsProvider {
         );
     }
 
-    private Storage createGcsClient(final GcsStorageSettings gcsStorageSettings) {
-        final StorageOptions.Builder storageOptionsBuilder = StorageOptions.newBuilder();
-        if (!Strings.isNullOrEmpty(gcsStorageSettings.projectId())) {
-            storageOptionsBuilder.setProjectId(gcsStorageSettings.projectId());
-        }
-        storageOptionsBuilder
-                .setTransportOptions(
-                        HttpTransportOptions.newBuilder()
-                                .setConnectTimeout(gcsStorageSettings.connectionTimeout())
-                                .setReadTimeout(gcsStorageSettings.readTimeout())
-                                .build())
-                .setHeaderProvider(() -> Map.of(HttpHeaders.USER_AGENT, HTTP_USER_AGENT))
-                .setCredentials(gcsStorageSettings.gcsCredentials());
+    private Storage createGcsClient(final GcsStorageSettings gcsStorageSettings) throws IOException {
+        return Permissions.doPrivileged(() -> {
+            final StorageOptions.Builder storageOptionsBuilder = StorageOptions.newBuilder();
+            if (!Strings.isNullOrEmpty(gcsStorageSettings.projectId())) {
+                storageOptionsBuilder.setProjectId(gcsStorageSettings.projectId());
+            }
+            storageOptionsBuilder
+                    .setTransportOptions(
+                            HttpTransportOptions.newBuilder()
+                                    .setConnectTimeout(gcsStorageSettings.connectionTimeout())
+                                    .setReadTimeout(gcsStorageSettings.readTimeout())
+                                    .build())
+                    .setHeaderProvider(() -> Map.of(HttpHeaders.USER_AGENT, HTTP_USER_AGENT))
+                    .setCredentials(gcsStorageSettings.gcsCredentials());
 
-        return storageOptionsBuilder.build().getService();
+            return storageOptionsBuilder.build().getService();
+        });
     }
 
 }

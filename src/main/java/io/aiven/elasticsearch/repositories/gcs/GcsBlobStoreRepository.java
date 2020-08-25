@@ -21,6 +21,7 @@ import javax.crypto.SecretKey;
 import java.io.IOException;
 import java.util.Objects;
 
+import io.aiven.elasticsearch.repositories.Permissions;
 import io.aiven.elasticsearch.repositories.io.CryptoIOProvider;
 import io.aiven.elasticsearch.repositories.metadata.EncryptedRepositoryMetadata;
 
@@ -130,21 +131,23 @@ public class GcsBlobStoreRepository extends BlobStoreRepository {
     }
 
     private SecretKey createOrRestoreEncryptionKey(final Storage storage) throws IOException {
-        final var encryptedKeyBlobId = BlobId.of(bucketName(), repositoryMetadataFilePath);
-        final var encryptedKeyBlob = storage.get(encryptedKeyBlobId);
-        final var repositoryMetadata = new EncryptedRepositoryMetadata(gcsSettingsProvider.encryptionKeyProvider());
-        final SecretKey encryptionKey;
-        if (Objects.nonNull(encryptedKeyBlob) && encryptedKeyBlob.exists()) {
-            LOGGER.info("Restore encryption key for repository. Path: {}", encryptedKeyBlobId.getName());
-            encryptionKey = repositoryMetadata.deserialize(encryptedKeyBlob.getContent());
-        } else {
-            LOGGER.info("Create new encryption key for repository. Path: {}", encryptedKeyBlobId.getName());
-            encryptionKey = gcsSettingsProvider.encryptionKeyProvider().createKey();
-            storage.create(
-                BlobInfo.newBuilder(encryptedKeyBlobId).build(), repositoryMetadata.serialize(encryptionKey)
-            );
-        }
-        return encryptionKey;
+        return Permissions.doPrivileged(() -> {
+            final var encryptedKeyBlobId = BlobId.of(bucketName(), repositoryMetadataFilePath);
+            final var encryptedKeyBlob = storage.get(encryptedKeyBlobId);
+            final var repositoryMetadata = new EncryptedRepositoryMetadata(gcsSettingsProvider.encryptionKeyProvider());
+            final SecretKey encryptionKey;
+            if (Objects.nonNull(encryptedKeyBlob) && encryptedKeyBlob.exists()) {
+                LOGGER.info("Restore encryption key for repository. Path: {}", encryptedKeyBlobId.getName());
+                encryptionKey = repositoryMetadata.deserialize(encryptedKeyBlob.getContent());
+            } else {
+                LOGGER.info("Create new encryption key for repository. Path: {}", encryptedKeyBlobId.getName());
+                encryptionKey = gcsSettingsProvider.encryptionKeyProvider().createKey();
+                storage.create(
+                        BlobInfo.newBuilder(encryptedKeyBlobId).build(), repositoryMetadata.serialize(encryptionKey)
+                );
+            }
+            return encryptionKey;
+        });
     }
 
 }
