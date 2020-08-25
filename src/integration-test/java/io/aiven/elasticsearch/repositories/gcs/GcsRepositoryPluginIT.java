@@ -92,7 +92,7 @@ class GcsRepositoryPluginIT extends RsaKeyAwareTest {
         }).build(
             newConfigs()
                 .clusterName("TestCluster")
-                .numOfNode(1)
+                .numOfNode(3)
                 .pluginTypes("io.aiven.elasticsearch.repositories.gcs.GcsRepositoryPlugin")
         );
         clusterRunner.ensureYellow();
@@ -126,29 +126,33 @@ class GcsRepositoryPluginIT extends RsaKeyAwareTest {
     @Test
     @Order(1)
     void registerRepository() throws Exception {
-        final var node = clusterRunner.getNode(0);
 
-        final var enableRepositoryRequest =
-            "{ \"type\": \""
-                + GcsBlobStoreRepository.TYPE + "\", "
-                + "\"settings\": { \"bucket_name\": \""
-                + bucketName + "\", \"base_path\": \"test_backup\" } "
-                + "}";
-        try (final var response = EcrCurl.put(node, "/_snapshot/backup")
-            .header(HttpHeaders.CONTENT_TYPE, MediaType.JSON_UTF_8.toString())
-            .body(enableRepositoryRequest)
-            .execute()) {
-            assertEquals(200, response.getHttpStatusCode());
-        }
+        for (var i = 0; i < clusterRunner.getNodeSize(); i++) {
 
-        try (final var response = EcrCurl.get(node, "_snapshot/backup").execute()) {
-            assertEquals(200, response.getHttpStatusCode());
-            final Map<String, Object> content = response.getContent(EcrCurl.jsonParser());
-            assertEquals(
-                "{backup={settings={bucket_name=ples-test, base_path=" + BASE_PATH + "}, "
-                    + "type=" + GcsBlobStoreRepository.TYPE + "}}",
-                content.toString()
-            );
+            final var node = clusterRunner.getNode(i);
+
+            final var enableRepositoryRequest =
+                    "{ \"type\": \""
+                            + GcsBlobStoreRepository.TYPE + "\", "
+                            + "\"settings\": { \"bucket_name\": \""
+                            + bucketName + "\", \"base_path\": \"test_backup\" } "
+                            + "}";
+            try (final var response = EcrCurl.put(node, "/_snapshot/backup")
+                    .header(HttpHeaders.CONTENT_TYPE, MediaType.JSON_UTF_8.toString())
+                    .body(enableRepositoryRequest)
+                    .execute()) {
+                assertEquals(200, response.getHttpStatusCode());
+            }
+
+            try (final var response = EcrCurl.get(node, "_snapshot/backup").execute()) {
+                assertEquals(200, response.getHttpStatusCode());
+                final Map<String, Object> content = response.getContent(EcrCurl.jsonParser());
+                assertEquals(
+                        "{backup={settings={bucket_name=ples-test, base_path=" + BASE_PATH + "}, "
+                                + "type=" + GcsBlobStoreRepository.TYPE + "}}",
+                        content.toString()
+                );
+            }
         }
 
     }
@@ -156,27 +160,31 @@ class GcsRepositoryPluginIT extends RsaKeyAwareTest {
     @Test
     @Order(2)
     void createSnapshot() throws Exception {
-        final var node = clusterRunner.getNode(0);
+        for (var idx = 0; idx < clusterRunner.getNodeSize(); idx++) {
+            final var node = clusterRunner.getNode(idx);
 
-        for (int i = 0; i < 10; i++) {
-            try (final var curlResponse = EcrCurl.post(node, "/" + INDEX + "/_doc/")
-                .header("Content-Type", "application/json")
-                .body("{\"id\":\"200" + i + "\",\"msg\":\"test 200" + i + "\"}")
-                .execute()) {
-                final Map<String, Object> content = curlResponse.getContent(EcrCurl.jsonParser());
-                assertNotNull(content);
-                assertEquals("created", content.get("result"));
+            for (int i = 0; i < 10; i++) {
+                try (final var curlResponse = EcrCurl.post(node, "/" + INDEX + "/_doc/")
+                        .header("Content-Type", "application/json")
+                        .body("{\"id\":\"200" + i + "\",\"msg\":\"test 200" + i + "\"}")
+                        .execute()) {
+                    final Map<String, Object> content = curlResponse.getContent(EcrCurl.jsonParser());
+                    assertNotNull(content);
+                    assertEquals("created", content.get("result"));
+                }
             }
         }
 
         try (final var response =
-                 EcrCurl.put(node, "/_snapshot/backup/snapshot_1?wait_for_completion=true")
-                     .execute()) {
+                     EcrCurl.put(clusterRunner.masterNode(), "/_snapshot/backup/snapshot_1?wait_for_completion=true")
+                             .execute()) {
             assertEquals(200, response.getHttpStatusCode());
         }
 
         final var metadataBlob =
-            storage.get(BlobId.of(bucketName, BASE_PATH + "/" + GcsBlobStoreRepository.REPOSITORY_METADATA_FILE_NAME));
+                storage.get(
+                        BlobId.of(bucketName, BASE_PATH + "/" + GcsBlobStoreRepository.REPOSITORY_METADATA_FILE_NAME)
+                );
         assertNotNull(metadataBlob);
         assertTrue(metadataBlob.exists());
 

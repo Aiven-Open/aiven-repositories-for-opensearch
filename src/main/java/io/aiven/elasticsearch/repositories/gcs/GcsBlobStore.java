@@ -47,7 +47,7 @@ public class GcsBlobStore implements BlobStore {
 
     @Override
     public BlobContainer blobContainer(final BlobPath path) {
-        LOGGER.debug("Create container for path: {}", path);
+        LOGGER.info("Create container for path: {}", path);
         return new GcsBlobContainer(path, this, bucketName);
     }
 

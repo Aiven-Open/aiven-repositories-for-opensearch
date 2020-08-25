@@ -16,6 +16,8 @@
 
 package io.aiven.elasticsearch.repositories.gcs;
 
+import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.util.List;
 import java.util.Map;
 
@@ -70,7 +72,11 @@ public class GcsRepositoryPlugin extends Plugin implements RepositoryPlugin, Rel
 
     @Override
     public void reload(final Settings settings) {
-        gcsSettingsProvider.reload(settings);
+        try {
+            gcsSettingsProvider.reload(settings);
+        } catch (final IOException e) {
+            throw new UncheckedIOException(e);
+        }
     }
 
 }
