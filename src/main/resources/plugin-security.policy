@@ -1,0 +1,12 @@
+grant {
+  permission java.lang.RuntimePermission "accessDeclaredMembers";
+  permission java.lang.RuntimePermission "loadLibrary.*";
+
+  permission java.lang.reflect.ReflectPermission "suppressAccessChecks";
+
+  permission java.net.SocketPermission "*", "connect,resolve";
+
+  permission java.security.SecurityPermission "putProviderProperty.BC";
+
+  permission java.io.FilePermission "<<ALL FILES>>", "read";
+};

@@ -22,11 +22,14 @@ import javax.crypto.KeyGenerator;
 import javax.crypto.SecretKey;
 import javax.crypto.spec.SecretKeySpec;
 
+import java.io.IOException;
 import java.io.InputStream;
 import java.security.KeyPair;
 import java.security.NoSuchAlgorithmException;
 import java.security.SecureRandom;
 import java.util.Objects;
+
+import io.aiven.elasticsearch.repositories.Permissions;
 
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
 import org.elasticsearch.common.settings.SecureSetting;
@@ -60,15 +63,19 @@ public final class EncryptionKeyProvider
         this.aesKeyGenerator = aesKeyGenerator;
     }
 
-    public static EncryptionKeyProvider of(final Settings settings) {
-        Objects.requireNonNull(settings, "settings hasn't been set");
-        if (!PUBLIC_KEY_FILE.exists(settings)) {
-            throw new IllegalArgumentException("Settings with name " + PUBLIC_KEY_FILE.getKey() + " hasn't been set");
-        }
-        if (!PRIVATE_KEY_FILE.exists(settings)) {
-            throw new IllegalArgumentException("Settings with name " + PRIVATE_KEY_FILE.getKey() + " hasn't been set");
-        }
-        return of(PUBLIC_KEY_FILE.get(settings), PRIVATE_KEY_FILE.get(settings));
+    public static EncryptionKeyProvider of(final Settings settings) throws IOException {
+        return Permissions.doPrivileged(() -> {
+            Objects.requireNonNull(settings, "settings hasn't been set");
+            if (!PUBLIC_KEY_FILE.exists(settings)) {
+                throw new IllegalArgumentException(
+                        "Settings with name " + PUBLIC_KEY_FILE.getKey() + " hasn't been set");
+            }
+            if (!PRIVATE_KEY_FILE.exists(settings)) {
+                throw new IllegalArgumentException(
+                        "Settings with name " + PRIVATE_KEY_FILE.getKey() + " hasn't been set");
+            }
+            return of(PUBLIC_KEY_FILE.get(settings), PRIVATE_KEY_FILE.get(settings));
+        });
     }
 
     public static EncryptionKeyProvider of(final InputStream rsaPublicKey,

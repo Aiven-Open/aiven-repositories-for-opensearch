@@ -20,6 +20,8 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.util.concurrent.TimeUnit;
 
+import io.aiven.elasticsearch.repositories.Permissions;
+
 import com.google.auth.oauth2.GoogleCredentials;
 import org.elasticsearch.common.settings.SecureSetting;
 import org.elasticsearch.common.settings.Setting;
@@ -70,9 +72,11 @@ public class GcsStorageSettings {
     }
 
     private static GoogleCredentials loadCredentials(final Settings settings) throws IOException {
-        try (final var in = getStreamFor(CREDENTIALS_FILE_SETTING, settings)) {
-            return GoogleCredentials.fromStream(in);
-        }
+        return Permissions.doPrivileged(() -> {
+            try (final var in = getStreamFor(CREDENTIALS_FILE_SETTING, settings)) {
+                return GoogleCredentials.fromStream(in);
+            }
+        });
     }
 
     private static InputStream getStreamFor(final Setting<InputStream> setting, final Settings settings) {

@@ -68,7 +68,7 @@ distributions {
             from configurations.runtimeClasspath
 
             from (sourceSets.main.output.resourcesDir) {
-                include "*.properties"
+                include "*.properties", "*.policy"
             }
             from (projectDir) {
                 include "README*", "LICENSE*", "NOTICE*"
