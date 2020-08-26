@@ -37,7 +37,7 @@ import org.elasticsearch.repositories.Repository;
 
 public class GcsRepositoryPlugin extends Plugin implements RepositoryPlugin, ReloadablePlugin {
 
-    private final GcsSettingsProvider gcsSettingsProvider;
+    final GcsSettingsProvider gcsSettingsProvider;
 
     public GcsRepositoryPlugin(final Settings settings) {
         this.gcsSettingsProvider = new GcsSettingsProvider();
@@ -76,10 +76,16 @@ public class GcsRepositoryPlugin extends Plugin implements RepositoryPlugin, Rel
 
     @Override
     public void reload(final Settings settings) {
-        try {
-            gcsSettingsProvider.reload(settings);
-        } catch (final IOException e) {
-            throw new UncheckedIOException(e);
+        // configure plugin only in case we have
+        // settings with prefix aiven
+        // FIXME maybe better approach exists, with getByPrefix()
+        final var hasAivenKeys = !settings.filter(key -> key.startsWith("aiven.")).isEmpty();
+        if (hasAivenKeys) {
+            try {
+                gcsSettingsProvider.reload(settings);
+            } catch (final IOException e) {
+                throw new UncheckedIOException(e);
+            }
         }
     }
 

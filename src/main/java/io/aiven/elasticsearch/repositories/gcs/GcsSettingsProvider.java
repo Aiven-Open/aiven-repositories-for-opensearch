@@ -18,6 +18,7 @@ package io.aiven.elasticsearch.repositories.gcs;
 
 import java.io.IOException;
 import java.util.Map;
+import java.util.Objects;
 
 import io.aiven.elasticsearch.repositories.Permissions;
 import io.aiven.elasticsearch.repositories.security.EncryptionKeyProvider;
@@ -36,11 +37,19 @@ public class GcsSettingsProvider {
 
     private volatile Tuple<Storage, EncryptionKeyProvider> cachedSettings;
 
-    public Storage gcsClient() {
+    public Storage gcsClient() throws IOException {
+        //we should throw IOException for such action. ES swallows others
+        if (Objects.isNull(cachedSettings) || Objects.isNull(cachedSettings.x())) {
+            throw new IOException("GCS client hasn't been configured");
+        }
         return cachedSettings.x();
     }
 
-    public EncryptionKeyProvider encryptionKeyProvider() {
+    public EncryptionKeyProvider encryptionKeyProvider() throws IOException {
+        //we should throw IOException for such action. ES swallows others
+        if (Objects.isNull(cachedSettings) || Objects.isNull(cachedSettings.y())) {
+            throw new IOException("EncryptionKeyProvider hasn't been configured");
+        }
         return cachedSettings.y();
     }
 
