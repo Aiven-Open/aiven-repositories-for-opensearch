@@ -36,6 +36,7 @@ import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.common.unit.ByteSizeUnit;
 import org.elasticsearch.common.unit.ByteSizeValue;
 import org.elasticsearch.common.xcontent.NamedXContentRegistry;
+import org.elasticsearch.indices.recovery.RecoverySettings;
 import org.elasticsearch.threadpool.ThreadPool;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -66,6 +67,9 @@ class GcsBlobStoreRepositoryTest extends RsaKeyAwareTest {
     @Mock
     Storage storage;
 
+    @Mock
+    RecoverySettings mockedRecoverySettings;
+
     EncryptionKeyProvider encryptionKeyProvider;
 
     @BeforeEach
@@ -93,7 +97,7 @@ class GcsBlobStoreRepositoryTest extends RsaKeyAwareTest {
                 new RepositoryMetadata("dummy_name", GcsBlobStoreRepository.TYPE, settings);
         final var repository =
                 new GcsBlobStoreRepository(
-                        repositoryMeta, mockedNamedXContentRegistry, mockedClusterService,
+                        repositoryMeta, mockedNamedXContentRegistry, mockedClusterService, mockedRecoverySettings,
                         gcsSettingsProvider
                 );
 
@@ -133,7 +137,7 @@ class GcsBlobStoreRepositoryTest extends RsaKeyAwareTest {
                 new RepositoryMetadata("dummy_name", GcsBlobStoreRepository.TYPE, settings);
         final var repository =
                 new GcsBlobStoreRepository(
-                        repositoryMeta, mockedNamedXContentRegistry, mockedClusterService,
+                        repositoryMeta, mockedNamedXContentRegistry, mockedClusterService, mockedRecoverySettings,
                         gcsSettingsProvider
                 );
 
@@ -178,7 +182,7 @@ class GcsBlobStoreRepositoryTest extends RsaKeyAwareTest {
         final var repositoryMeta = new RepositoryMetadata("dummy_name", GcsBlobStoreRepository.TYPE, settings);
         final var repository =
                 new GcsBlobStoreRepository(
-                        repositoryMeta, mockedNamedXContentRegistry, mockedClusterService,
+                        repositoryMeta, mockedNamedXContentRegistry, mockedClusterService, mockedRecoverySettings,
                         gcsSettingsProvider
                 );
         assertEquals("some_bucket_name", repository.bucketName());
@@ -211,7 +215,7 @@ class GcsBlobStoreRepositoryTest extends RsaKeyAwareTest {
         final var negativeChunkSizeRepository =
                 new GcsBlobStoreRepository(
                         new RepositoryMetadata("dummy_name", GcsBlobStoreRepository.TYPE, settings),
-                        mockedNamedXContentRegistry, mockedClusterService,
+                        mockedNamedXContentRegistry, mockedClusterService, mockedRecoverySettings,
                         gcsSettingsProvider
                 );
 
@@ -235,7 +239,7 @@ class GcsBlobStoreRepositoryTest extends RsaKeyAwareTest {
         final var zeroChunkSizeRepository =
                 new GcsBlobStoreRepository(
                         new RepositoryMetadata("dummy_name", GcsBlobStoreRepository.TYPE, settings),
-                        mockedNamedXContentRegistry, mockedClusterService,
+                        mockedNamedXContentRegistry, mockedClusterService, mockedRecoverySettings,
                         gcsSettingsProvider
                 );
         assertThrows(IllegalArgumentException.class, () -> zeroChunkSizeRepository.chunkSize());
@@ -258,7 +262,7 @@ class GcsBlobStoreRepositoryTest extends RsaKeyAwareTest {
         final var biggerThanMaxChunkSizeRepository =
                 new GcsBlobStoreRepository(
                         new RepositoryMetadata("dummy_name", GcsBlobStoreRepository.TYPE, settings),
-                        mockedNamedXContentRegistry, mockedClusterService,
+                        mockedNamedXContentRegistry, mockedClusterService, mockedRecoverySettings,
                         gcsSettingsProvider
                 );
         assertThrows(IllegalArgumentException.class, () -> biggerThanMaxChunkSizeRepository.chunkSize());
@@ -285,7 +289,7 @@ class GcsBlobStoreRepositoryTest extends RsaKeyAwareTest {
         final var repositoryMeta = new RepositoryMetadata("dummy_name", GcsBlobStoreRepository.TYPE, settings);
         final var repository =
                 new GcsBlobStoreRepository(
-                        repositoryMeta, mockedNamedXContentRegistry, mockedClusterService,
+                        repositoryMeta, mockedNamedXContentRegistry, mockedClusterService, mockedRecoverySettings,
                         gcsSettingsProvider
                 );
 

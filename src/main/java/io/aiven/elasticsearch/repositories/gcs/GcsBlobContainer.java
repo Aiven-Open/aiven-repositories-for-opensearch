@@ -38,6 +38,7 @@ import com.google.common.collect.ImmutableMap;
 import org.elasticsearch.common.blobstore.BlobContainer;
 import org.elasticsearch.common.blobstore.BlobMetadata;
 import org.elasticsearch.common.blobstore.BlobPath;
+import org.elasticsearch.common.blobstore.BlobStoreException;
 import org.elasticsearch.common.blobstore.DeleteResult;
 import org.elasticsearch.common.blobstore.support.AbstractBlobContainer;
 import org.elasticsearch.common.blobstore.support.PlainBlobMetadata;
@@ -70,6 +71,17 @@ public class GcsBlobContainer extends AbstractBlobContainer {
                                 final long position,
                                 final long length) throws IOException {
         throw new UnsupportedOperationException("Couldn't decrypt by position");
+    }
+
+    @Override
+    public boolean blobExists(final String blobName) throws IOException {
+        try {
+            final BlobId blobId = BlobId.of(bucketName, blobPath(blobName));
+            final Blob blob = Permissions.doPrivileged(() -> gcsBlobStore.client().get(blobId));
+            return blob != null;
+        } catch (final Exception e) {
+            throw new BlobStoreException("Failed to check if blob [" + blobName + "] exists", e);
+        }
     }
 
     @Override
