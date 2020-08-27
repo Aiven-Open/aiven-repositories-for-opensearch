@@ -13,200 +13,126 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-plugins {
+
+allprojects {
     // https://docs.gradle.org/current/userguide/java_library_plugin.html
-    id 'java'
+    apply plugin: 'java'
 
     // https://docs.gradle.org/current/userguide/distribution_plugin.html
-    id 'distribution'
+    apply plugin: 'distribution'
 
     // https://docs.gradle.org/current/userguide/checkstyle_plugin.html
-    id 'checkstyle'
+    apply plugin: 'checkstyle'
 
     // https://docs.gradle.org/current/userguide/publishing_maven.html
-    id "maven-publish"
+    apply plugin: "maven-publish"
 
-    id "idea"
+    apply plugin: "idea"
 
-}
-
-ext {
-    elasticVersion = "7.9.0"
-    gcsVerison = "1.111.0"
-    slf4jVersion = "1.7.30"
-    zstdVersion = "1.4.5-2"
-    bcVersion = "1.65"
-    elasticClusterRunnerVersion = "7.9.0.0"
-    // since jackson-core is in the main classpath
-    // plz keep the same version as for elasticsearch
-    jacksonDatabind = "2.10.4"
-}
-
-java {
-    sourceCompatibility = JavaVersion.VERSION_11
-    targetCompatibility = JavaVersion.VERSION_11
-}
-
-repositories {
-    mavenCentral()
-}
-
-processResources {
-    filesMatching('plugin-descriptor.properties') {
-        expand(version: project.version,
-               javaVersion: java.sourceCompatibility,
-               elasticVersion: elasticVersion
-        )
+    ext {
+        slf4jVersion = "1.7.30"
+        elasticVersion = "7.9.0"
+        elasticClusterRunnerVersion = "7.9.0.0"
+        // since jackson-core is in the main classpath
+        // plz keep the same version as for elasticsearch
+        jacksonDatabind = "2.10.4"
     }
-}
 
-distributions {
 
-    main {
-        contents {
-            from jar
-            from configurations.runtimeClasspath
-
-            from (sourceSets.main.output.resourcesDir) {
-                include "*.properties", "*.policy"
-            }
-            from (projectDir) {
-                include "README*", "LICENSE*", "NOTICE*"
-            }
-
-            into '/'
-        }
+    java {
+        sourceCompatibility = JavaVersion.VERSION_11
+        targetCompatibility = JavaVersion.VERSION_11
     }
-}
 
-sourceSets {
-    integrationTest {
-        java.srcDir file('src/integration-test/java')
-        resources.srcDir file('src/integration-test/resources')
-        compileClasspath += sourceSets.main.output + configurations.testRuntime
-        runtimeClasspath += output + compileClasspath
+    repositories {
+        mavenCentral()
     }
-}
 
-idea {
-    module {
-        testSourceDirs += project.sourceSets.integrationTest.java.srcDirs
-        testSourceDirs += project.sourceSets.integrationTest.resources.srcDirs
-    }
-}
+    distributions {
 
-checkstyle {
-    toolVersion "8.33"
-    configDir rootProject.file("checkstyle/")
-}
+        main {
+            contents {
+                from jar
+                from configurations.runtimeClasspath
 
-publishing {
-    publications {
-        maven(MavenPublication) {
-            // Defaults, for clarity
-            groupId = getGroup()
-            artifactId = getName()
-            version = getVersion()
-
-            pom {
-                name = "Aiven Google Cloud Storage repository plugin"
-                description = "Aiven Google Cloud Storage repository plugin"
-                url = "https://aiven.io"
-                organization {
-                    name = "Aiven Oy"
-                    url = "https://aiven.io"
+                from(sourceSets.main.output.resourcesDir) {
+                    include "*.properties", "*.policy"
                 }
-                licenses {
-                    license {
-                        name = "Apache License 2.0"
-                        url = "http://www.apache.org/licenses/LICENSE-2.0.html"
-                        distribution = "repo"
-                    }
+                from(projectDir) {
+                    include "README*", "LICENSE*", "NOTICE*"
                 }
-                scm {
-                    connection = "scm:git:git@github.com:aiven/aiven-elasticsearch-repositories.git"
-                    developerConnection = "scm:git:git@github.com:aiven/aiven-elasticsearch-repositories.git"
-                    url = "https://github.com/aiven/aiven-elasticsearch-repositories.git"
-                    tag = "HEAD"
-                }
+
+                into '/'
             }
         }
     }
+
+    processResources {
+        filesMatching('plugin-descriptor.properties') {
+            expand(version: project.version,
+                    javaVersion: java.sourceCompatibility,
+                    elasticVersion: elasticVersion
+            )
+        }
+    }
+
+    sourceSets {
+        integrationTest {
+            java.srcDir file('src/integration-test/java')
+            resources.srcDir file('src/integration-test/resources')
+            compileClasspath += sourceSets.main.output + configurations.testRuntime
+            runtimeClasspath += output + compileClasspath
+        }
+    }
+
+    idea {
+        module {
+            testSourceDirs += project.sourceSets.integrationTest.java.srcDirs
+            testSourceDirs += project.sourceSets.integrationTest.resources.srcDirs
+        }
+    }
+
+    checkstyle {
+        toolVersion "8.36"
+        configDir rootProject.file("checkstyle/")
+    }
+
+    test {
+        useJUnitPlatform()
+        minHeapSize = "1024m"
+        maxHeapSize = "1024m"
+    }
+
+    configurations {
+        integrationTestImplementation.extendsFrom testImplementation
+        integrationTestRuntime.extendsFrom testRuntime
+    }
+
+    dependencies {
+        implementation("com.fasterxml.jackson.core:jackson-databind:$jacksonDatabind") {
+            exclude group: "com.fasterxml.jackson.core", module: "jackson-core"
+        }
+
+        compileOnly "org.elasticsearch:elasticsearch:$elasticVersion"
+        implementation("org.apache.logging.log4j:log4j-slf4j-impl:2.11.1") {
+            exclude group: "org.slf4j", module: "slf4j-api"
+            exclude group: "org.apache.logging.log4j", module: "log4j-api"
+            exclude group: "org.apache.logging.log4j", module: "log4j-core"
+        }
+
+        compile "org.slf4j:slf4j-api:$slf4jVersion"
+
+        testCompile "org.mockito:mockito-core:3.5.7"
+        testCompile "org.mockito:mockito-junit-jupiter:3.5.7"
+        testCompile "org.codelibs:elasticsearch-cluster-runner:$elasticClusterRunnerVersion"
+
+        testImplementation 'org.junit.jupiter:junit-jupiter:5.6.2'
+        testRuntimeOnly 'org.junit.jupiter:junit-jupiter-engine:5.6.2'
+
+        // Make test utils from 'test' available in 'integration-test'
+        integrationTestImplementation "org.codelibs:elasticsearch-cluster-runner:$elasticClusterRunnerVersion"
+
+        integrationTestImplementation sourceSets.test.output
+    }
+
 }
-
-test {
-    useJUnitPlatform()
-    minHeapSize = "1024m"
-    maxHeapSize = "1024m"
-}
-
-configurations {
-    integrationTestImplementation.extendsFrom testImplementation
-    integrationTestRuntime.extendsFrom testRuntime
-}
-
-dependencies {
-    implementation("com.google.cloud:google-cloud-storage:$gcsVerison") {
-        exclude group: "com.fasterxml.jackson.core", module: "jackson-core"
-    }
-
-    implementation "com.github.luben:zstd-jni:$zstdVersion"
-    implementation "org.bouncycastle:bcprov-jdk15on:$bcVersion"
-    implementation("com.fasterxml.jackson.core:jackson-databind:$jacksonDatabind") {
-        exclude group: "com.fasterxml.jackson.core", module: "jackson-core"
-    }
-
-    compileOnly "org.elasticsearch:elasticsearch:$elasticVersion"
-    implementation("org.apache.logging.log4j:log4j-slf4j-impl:2.11.1") {
-        exclude group: "org.slf4j", module: "slf4j-api"
-        exclude group: "org.apache.logging.log4j", module: "log4j-api"
-        exclude group: "org.apache.logging.log4j", module: "log4j-core"
-    }
-
-    compile "org.slf4j:slf4j-api:$slf4jVersion"
-
-    testCompile "org.mockito:mockito-core:3.3.3"
-    testCompile "org.mockito:mockito-junit-jupiter:3.3.3"
-    testCompile "org.codelibs:elasticsearch-cluster-runner:$elasticClusterRunnerVersion"
-
-    testImplementation 'org.junit.jupiter:junit-jupiter:5.6.2'
-    testRuntimeOnly 'org.junit.jupiter:junit-jupiter-engine:5.6.2'
-
-    integrationTestImplementation "com.google.cloud:google-cloud-storage:$gcsVerison"
-    integrationTestImplementation "org.codelibs:elasticsearch-cluster-runner:$elasticClusterRunnerVersion"
-
-    // Make test utils from 'test' available in 'integration-test'
-    integrationTestImplementation sourceSets.test.output
-}
-
-task integrationTest(type: Test) {
-    description = 'Runs the integration tests.'
-    group = 'verification'
-    testClassesDirs = sourceSets.integrationTest.output.classesDirs
-    classpath = sourceSets.integrationTest.runtimeClasspath
-
-    dependsOn test, distTar
-
-    useJUnitPlatform()
-
-    // Run always.
-    outputs.upToDateWhen { false }
-
-    //set bucket name
-    if (project.hasProperty('testGcsBucket')) {
-        systemProperty("integration-test.gcs.bucket.name", project.findProperty('testGcsBucket'));
-    }
-
-    // Pass the GCS credentials path to the tests.
-    if (project.hasProperty('gcsCredentialsPath')) {
-        systemProperty("integration-test.gcs.credentials.path", project.findProperty('gcsCredentialsPath'))
-    }
-    // Pass the GCS bucket name to the tests.
-    systemProperty("integration-test.gcs.bucket", project.findProperty('testGcsBucket'))
-
-    doFirst {
-        assert project.findProperty('testGcsBucket') != null
-        assert !(project.findProperty('testGcsBucket').allWhitespace)
-    }
-}
-

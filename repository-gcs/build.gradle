@@ -1,0 +1,81 @@
+ext {
+    gcsVerison = "1.111.2"
+}
+
+dependencies {
+    compile project(':repository-commons')
+
+    implementation("com.google.cloud:google-cloud-storage:$gcsVerison") {
+        exclude group: "com.fasterxml.jackson.core", module: "jackson-core"
+    }
+
+    integrationTestImplementation "com.google.cloud:google-cloud-storage:$gcsVerison"
+
+    testCompile project(':repository-commons').sourceSets.test.output
+}
+
+publishing {
+    publications {
+        maven(MavenPublication) {
+            // Defaults, for clarity
+            groupId = getGroup()
+            artifactId = getName()
+            version = getVersion()
+
+            pom {
+                name = "Aiven Google Cloud Storage repository plugin"
+                description = "Aiven Google Cloud Storage repository plugin"
+                url = "https://aiven.io"
+                organization {
+                    name = "Aiven Oy"
+                    url = "https://aiven.io"
+                }
+                licenses {
+                    license {
+                        name = "Apache License 2.0"
+                        url = "http://www.apache.org/licenses/LICENSE-2.0.html"
+                        distribution = "repo"
+                    }
+                }
+                scm {
+                    connection = "scm:git:git@github.com:aiven/aiven-elasticsearch-repositories.git"
+                    developerConnection = "scm:git:git@github.com:aiven/aiven-elasticsearch-repositories.git"
+                    url = "https://github.com/aiven/aiven-elasticsearch-repositories.git"
+                    tag = "HEAD"
+                }
+            }
+        }
+    }
+}
+
+task integrationTest(type: Test) {
+    description = 'Runs the integration tests.'
+    group = 'verification'
+    testClassesDirs = sourceSets.integrationTest.output.classesDirs
+    classpath = sourceSets.integrationTest.runtimeClasspath
+
+    dependsOn test, distTar
+
+    useJUnitPlatform()
+
+    // Run always.
+    outputs.upToDateWhen { false }
+
+    //set bucket name
+    if (project.hasProperty('testGcsBucket')) {
+        systemProperty("integration-test.gcs.bucket.name", project.findProperty('testGcsBucket'));
+    }
+
+    // Pass the GCS credentials path to the tests.
+    if (project.hasProperty('gcsCredentialsPath')) {
+        systemProperty("integration-test.gcs.credentials.path", project.findProperty('gcsCredentialsPath'))
+    }
+    // Pass the GCS bucket name to the tests.
+    systemProperty("integration-test.gcs.bucket", project.findProperty('testGcsBucket'))
+
+    doFirst {
+        assert project.findProperty('testGcsBucket') != null
+        assert !(project.findProperty('testGcsBucket').allWhitespace)
+    }
+}
+
