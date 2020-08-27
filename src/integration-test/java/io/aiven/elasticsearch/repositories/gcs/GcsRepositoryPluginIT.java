@@ -110,7 +110,7 @@ class GcsRepositoryPluginIT extends RsaKeyAwareTest {
         }
     }
 
-    static void clearBucket() {
+    static void  clearBucket() {
         final var batch = storage.batch();
         listOfFileForBackupFolder()
             .forEach(blob -> batch.delete(blob.getBlobId()));

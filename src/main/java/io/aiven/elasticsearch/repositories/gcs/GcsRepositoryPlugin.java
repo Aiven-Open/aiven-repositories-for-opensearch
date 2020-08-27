@@ -29,6 +29,7 @@ import org.elasticsearch.common.settings.Setting;
 import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.common.xcontent.NamedXContentRegistry;
 import org.elasticsearch.env.Environment;
+import org.elasticsearch.indices.recovery.RecoverySettings;
 import org.elasticsearch.plugins.Plugin;
 import org.elasticsearch.plugins.ReloadablePlugin;
 import org.elasticsearch.plugins.RepositoryPlugin;
@@ -57,17 +58,20 @@ public class GcsRepositoryPlugin extends Plugin implements RepositoryPlugin, Rel
 
     public Map<String, Repository.Factory> getRepositories(final Environment env,
                                                            final NamedXContentRegistry namedXContentRegistry,
-                                                           final ClusterService clusterService) {
+                                                           final ClusterService clusterService,
+                                                           final RecoverySettings recoverySettings) {
         return Map.of(
             GcsBlobStoreRepository.TYPE,
-            metadata -> createBlobStore(metadata, namedXContentRegistry, clusterService)
+            metadata -> createBlobStoreRepository(metadata, namedXContentRegistry, clusterService, recoverySettings)
         );
     }
 
-    private GcsBlobStoreRepository createBlobStore(final RepositoryMetadata metadata,
-                                                   final NamedXContentRegistry namedXContentRegistry,
-                                                   final ClusterService clusterService) {
-        return new GcsBlobStoreRepository(metadata, namedXContentRegistry, clusterService, gcsSettingsProvider);
+    private GcsBlobStoreRepository createBlobStoreRepository(final RepositoryMetadata metadata,
+                                                             final NamedXContentRegistry namedXContentRegistry,
+                                                             final ClusterService clusterService,
+                                                             final RecoverySettings recoverySettings) {
+        return new GcsBlobStoreRepository(metadata, namedXContentRegistry, 
+                clusterService, recoverySettings, gcsSettingsProvider);
     }
 
     @Override

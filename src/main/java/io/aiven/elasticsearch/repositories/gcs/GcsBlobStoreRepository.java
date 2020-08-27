@@ -36,6 +36,7 @@ import org.elasticsearch.common.settings.Setting;
 import org.elasticsearch.common.unit.ByteSizeUnit;
 import org.elasticsearch.common.unit.ByteSizeValue;
 import org.elasticsearch.common.xcontent.NamedXContentRegistry;
+import org.elasticsearch.indices.recovery.RecoverySettings;
 import org.elasticsearch.repositories.RepositoryException;
 import org.elasticsearch.repositories.blobstore.BlobStoreRepository;
 import org.slf4j.Logger;
@@ -79,9 +80,10 @@ public class GcsBlobStoreRepository extends BlobStoreRepository {
     public GcsBlobStoreRepository(final org.elasticsearch.cluster.metadata.RepositoryMetadata metadata,
                                   final NamedXContentRegistry namedXContentRegistry,
                                   final ClusterService clusterService,
+                                  final RecoverySettings recoverySettings,
                                   final GcsSettingsProvider gcsSettingsProvider) {
         //we forbid compression on elastic search level ...
-        super(metadata, false, namedXContentRegistry, clusterService);
+        super(metadata, false, namedXContentRegistry, clusterService, recoverySettings);
         this.gcsSettingsProvider = gcsSettingsProvider;
         this.basePath = buildBasePath(metadata);
         this.repositoryMetadataFilePath = this.basePath().buildAsString() + REPOSITORY_METADATA_FILE_NAME;

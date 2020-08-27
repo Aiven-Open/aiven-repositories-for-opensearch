@@ -31,12 +31,12 @@ plugins {
 }
 
 ext {
-    elasticVersion = "7.8.1"
+    elasticVersion = "7.9.0"
     gcsVerison = "1.111.0"
     slf4jVersion = "1.7.30"
     zstdVersion = "1.4.5-2"
     bcVersion = "1.65"
-    elasticClusterRunnerVersion = "7.8.1.0"
+    elasticClusterRunnerVersion = "7.9.0.0"
     // since jackson-core is in the main classpath
     // plz keep the same version as for elasticsearch
     jacksonDatabind = "2.10.4"
