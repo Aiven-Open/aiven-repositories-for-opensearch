@@ -14,3 +14,6 @@
  * limitations under the License.
  */
 rootProject.name = 'aiven-elasticsearch-repositories'
+
+include 'repository-commons'
+include 'repository-gcs'
