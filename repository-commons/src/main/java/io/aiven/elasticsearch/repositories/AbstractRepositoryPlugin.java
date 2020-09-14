@@ -1,0 +1,99 @@
+/*
+ * Copyright 2020 Aiven Oy
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package io.aiven.elasticsearch.repositories;
+
+import java.io.IOException;
+import java.io.UncheckedIOException;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
+
+import io.aiven.elasticsearch.repositories.security.EncryptionKeyProvider;
+
+import org.elasticsearch.cluster.metadata.RepositoryMetadata;
+import org.elasticsearch.cluster.service.ClusterService;
+import org.elasticsearch.common.settings.Setting;
+import org.elasticsearch.common.settings.Settings;
+import org.elasticsearch.common.xcontent.NamedXContentRegistry;
+import org.elasticsearch.env.Environment;
+import org.elasticsearch.indices.recovery.RecoverySettings;
+import org.elasticsearch.plugins.Plugin;
+import org.elasticsearch.plugins.ReloadablePlugin;
+import org.elasticsearch.plugins.RepositoryPlugin;
+import org.elasticsearch.repositories.Repository;
+
+public abstract class AbstractRepositoryPlugin<C>
+        extends Plugin implements RepositoryPlugin, ReloadablePlugin {
+
+    private final String repositoryType;
+
+    private final RepositorySettingsProvider<C> repositorySettingsProvider;
+
+    private final Set<String> pluginSettingKeys;
+
+    protected AbstractRepositoryPlugin(final String repositoryType,
+                                       final Settings settings,
+                                       final RepositorySettingsProvider<C> repositorySettingsProvider) {
+        this.repositoryType = repositoryType;
+        this.repositorySettingsProvider = repositorySettingsProvider;
+        this.pluginSettingKeys = getSettings().stream().map(Setting::getKey).collect(Collectors.toSet());
+        reload(settings);
+    }
+
+    @Override
+    public final List<Setting<?>> getSettings() {
+        final var encKeysSettings =
+                List.of(EncryptionKeyProvider.PUBLIC_KEY_FILE, EncryptionKeyProvider.PRIVATE_KEY_FILE);
+        return Stream.concat(
+                encKeysSettings.stream(),
+                getPluginSettings().stream()
+        ).collect(Collectors.toList());
+    }
+
+    @Override
+    public Map<String, Repository.Factory> getRepositories(final Environment env,
+                                                           final NamedXContentRegistry namedXContentRegistry,
+                                                           final ClusterService clusterService,
+                                                           final RecoverySettings recoverySettings) {
+        return Map.of(repositoryType, metadata ->
+                createRepository(metadata, namedXContentRegistry, clusterService, recoverySettings));
+    }
+
+    private org.elasticsearch.repositories.blobstore.BlobStoreRepository createRepository(
+            final RepositoryMetadata metadata, final NamedXContentRegistry namedXContentRegistry,
+            final ClusterService clusterService, final RecoverySettings recoverySettings) {
+        return new BlobStoreRepository<>(metadata, namedXContentRegistry,
+                clusterService, recoverySettings, repositorySettingsProvider);
+    }
+
+    @Override
+    public void reload(final Settings settings) {
+        try {
+            final var pluginKeys = settings.filter(pluginSettingKeys::contains);
+            if (!pluginKeys.isEmpty()) {
+                repositorySettingsProvider.reload(pluginKeys);
+            }
+        } catch (final IOException ioe) {
+            throw new UncheckedIOException(ioe);
+        }
+    }
+
+    protected abstract List<Setting<?>> getPluginSettings();
+
+}
