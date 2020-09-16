@@ -16,20 +16,17 @@
 
 package io.aiven.elasticsearch.repositories.gcs;
 
-import javax.crypto.SecretKey;
-
 import java.io.IOException;
 import java.io.InputStream;
+import java.nio.channels.Channels;
 import java.nio.file.FileAlreadyExistsException;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.atomic.AtomicReference;
 
-import io.aiven.elasticsearch.repositories.Permissions;
 import io.aiven.elasticsearch.repositories.RepositoryStorageIOProvider;
 import io.aiven.elasticsearch.repositories.io.CryptoIOProvider;
-import io.aiven.elasticsearch.repositories.metadata.EncryptedRepositoryMetadata;
 import io.aiven.elasticsearch.repositories.security.EncryptionKeyProvider;
 
 import com.google.cloud.BatchResult;
@@ -43,7 +40,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.elasticsearch.common.blobstore.BlobStoreException;
 import org.elasticsearch.common.collect.Tuple;
-import org.elasticsearch.common.settings.Settings;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -54,44 +50,26 @@ public class GcsRepositoryStorageIOProvider
 
     private static final Logger LOGGER = LoggerFactory.getLogger(GcsRepositoryStorageIOProvider.class);
 
-    public GcsRepositoryStorageIOProvider(final Storage client, final EncryptionKeyProvider encryptionKeyProvider) {
-        super(client, encryptionKeyProvider);
+    public GcsRepositoryStorageIOProvider(final String repositoryType,
+                                          final Storage client,
+                                          final EncryptionKeyProvider encryptionKeyProvider) {
+        super(repositoryType, client, encryptionKeyProvider);
     }
 
     @Override
-    public StorageIO createStorageIO(final String basePath,
-                                     final Settings repositorySettings) throws IOException {
-        checkSettings(GcsRepositoryPlugin.REPOSITORY_TYPE, repositorySettings, BUCKET_NAME);
-        final var bucketName = BUCKET_NAME.get(repositorySettings);
-        final var encKey = createOrRestoreEncryptionKey(bucketName, basePath);
-        return new GcsStorageIO(bucketName, new CryptoIOProvider(encKey));
+    protected StorageIO createStorageIOFor(final String bucketName, final CryptoIOProvider cryptoIOProvider) {
+        return new GcsStorageIO(bucketName, cryptoIOProvider);
     }
 
-    private SecretKey createOrRestoreEncryptionKey(final String bucketName, final String basePath) throws IOException {
-        final var repositoryMetadataFilePath = metadataFilePath(basePath);
-        return Permissions.doPrivileged(() -> {
-            final var encryptedKeyBlobId = BlobId.of(bucketName, repositoryMetadataFilePath);
-            final var encryptedKeyBlob = client.get(encryptedKeyBlobId);
-            final var repositoryMetadata = new EncryptedRepositoryMetadata(encryptionKeyProvider);
-            final SecretKey encryptionKey;
-            if (Objects.nonNull(encryptedKeyBlob) && encryptedKeyBlob.exists()) {
-                LOGGER.info("Restore encryption key for repository. Path: {}", encryptedKeyBlobId.getName());
-                encryptionKey = repositoryMetadata.deserialize(encryptedKeyBlob.getContent());
-            } else {
-                LOGGER.info("Create new encryption key for repository. Path: {}", encryptedKeyBlobId.getName());
-                encryptionKey = encryptionKeyProvider.createKey();
-                client.create(
-                        BlobInfo.newBuilder(encryptedKeyBlobId).build(), repositoryMetadata.serialize(encryptionKey)
-                );
-            }
-            return encryptionKey;
-        });
-    }
+    private class GcsStorageIO implements StorageIO {
 
-    private class GcsStorageIO extends StorageIO {
+        private final String bucketName;
+
+        private final CryptoIOProvider cryptoIOProvider;
 
         public GcsStorageIO(final String bucketName, final CryptoIOProvider cryptoIOProvider) {
-            super(bucketName, cryptoIOProvider);
+            this.bucketName = bucketName;
+            this.cryptoIOProvider = cryptoIOProvider;
         }
 
         @Override
@@ -108,7 +86,7 @@ public class GcsRepositoryStorageIOProvider
         @Override
         public InputStream read(final String blobName) throws IOException {
             final var reader = client.reader(BlobId.of(bucketName, blobName));
-            return cryptoIOProvider.decryptAndDecompress(reader);
+            return cryptoIOProvider.decryptAndDecompress(Channels.newInputStream(reader));
         }
 
         @Override
@@ -122,7 +100,7 @@ public class GcsRepositoryStorageIOProvider
                         ? new Storage.BlobWriteOption[]{Storage.BlobWriteOption.doesNotExist()}
                         : new Storage.BlobWriteOption[0];
                 final var writeChannel = client.writer(blobInfo, writeOptions);
-                cryptoIOProvider.compressAndEncrypt(inputStream, writeChannel);
+                cryptoIOProvider.compressAndEncrypt(inputStream, Channels.newOutputStream(writeChannel));
             } catch (final StorageException ex) {
                 if (failIfAlreadyExists && ex.getCode() == HTTP_PRECON_FAILED) {
                     throw new FileAlreadyExistsException(blobInfo.getBlobId().getName(), null, ex.getMessage());

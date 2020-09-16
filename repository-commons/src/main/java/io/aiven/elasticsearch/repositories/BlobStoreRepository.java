@@ -70,7 +70,7 @@ public class BlobStoreRepository<C>
         final var storageIo =
                 repositorySettingsProvider
                         .repositoryStorageIOProvider()
-                        .createStorageIO(basePath.buildAsString(), metadata.settings());
+                        .createStorageIO(basePath().buildAsString(), metadata.settings());
 
         return new BlobStore() {
             @Override

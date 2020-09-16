@@ -87,7 +87,7 @@ public abstract class AbstractRepositoryPlugin<C>
         try {
             final var pluginKeys = settings.filter(pluginSettingKeys::contains);
             if (!pluginKeys.isEmpty()) {
-                repositorySettingsProvider.reload(pluginKeys);
+                repositorySettingsProvider.reload(repositoryType, pluginKeys);
             }
         } catch (final IOException ioe) {
             throw new UncheckedIOException(ioe);

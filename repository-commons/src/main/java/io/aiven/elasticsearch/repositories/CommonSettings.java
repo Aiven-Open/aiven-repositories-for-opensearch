@@ -59,7 +59,7 @@ public interface CommonSettings {
                         Setting.Property.Dynamic
                 );
 
-        default void checkSettings(final String repoType, final Settings settings, final Setting<String> setting) {
+        default void checkSettings(final String repoType, final Setting<String> setting, final Settings settings) {
             if (!setting.exists(settings)) {
                 throw new RepositoryException(repoType, setting.getKey() + " hasn't been defined");
             }

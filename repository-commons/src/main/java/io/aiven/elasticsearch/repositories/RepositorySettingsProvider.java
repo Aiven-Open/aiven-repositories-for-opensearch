@@ -22,8 +22,12 @@ import java.util.Objects;
 import io.aiven.elasticsearch.repositories.security.EncryptionKeyProvider;
 
 import org.elasticsearch.common.settings.Settings;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public abstract class RepositorySettingsProvider<T> {
+
+    private static final Logger LOGGER = LoggerFactory.getLogger(RepositorySettingsProvider.class);
 
     private volatile RepositoryStorageIOProvider<T> repositoryStorageIOProvider;
 
@@ -34,19 +38,26 @@ public abstract class RepositorySettingsProvider<T> {
         return repositoryStorageIOProvider;
     }
 
-    public synchronized void reload(final Settings settings) throws IOException {
+    public synchronized void reload(final String repositoryType, final Settings settings) throws IOException {
         if (settings.isEmpty()) {
             return;
         }
         try {
+            LOGGER.info("Reload settings for repository type: {}", repositoryType);
             final var encryptionKeyProvider = EncryptionKeyProvider.of(settings);
-            this.repositoryStorageIOProvider = createRepositoryStorageIOProvider(settings, encryptionKeyProvider);
+            this.repositoryStorageIOProvider =
+                    createRepositoryStorageIOProvider(
+                            repositoryType,
+                            settings,
+                            encryptionKeyProvider
+                    );
         } catch (final Exception e) {
             throw new IOException(e.getMessage(), e);
         }
     }
 
     protected abstract RepositoryStorageIOProvider<T> createRepositoryStorageIOProvider(
-            final Settings settings, final EncryptionKeyProvider encryptionKeyProvider) throws IOException;
+            final String repositoryType, final Settings settings, final EncryptionKeyProvider encryptionKeyProvider)
+                throws IOException;
 
 }
