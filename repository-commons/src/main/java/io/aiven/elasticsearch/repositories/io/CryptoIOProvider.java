@@ -16,7 +16,6 @@
 
 package io.aiven.elasticsearch.repositories.io;
 
-import javax.crypto.Cipher;
 import javax.crypto.CipherInputStream;
 import javax.crypto.CipherOutputStream;
 import javax.crypto.SecretKey;
@@ -41,15 +40,18 @@ public class CryptoIOProvider implements Encryption, Decryption {
 
     private final SecretKey encryptionKey;
 
-    public CryptoIOProvider(final SecretKey encryptionKey) {
+    private final int bufferSize;
+
+    public CryptoIOProvider(final SecretKey encryptionKey, final int bufferSize) {
         this.encryptionKey = encryptionKey;
+        this.bufferSize = bufferSize;
     }
 
     public long compressAndEncrypt(final InputStream in,
                                    final OutputStream out) throws IOException {
         final var cipher = createEncryptingCipher(encryptionKey, CIPHER_TRANSFORMATION);
         out.write(cipher.getIV());
-        return Streams.copy(in, compressAndEncrypt(cipher, out));
+        return Streams.copy(in, new ZstdOutputStream(new CipherOutputStream(out, cipher)), new byte[bufferSize]);
     }
 
     public InputStream decryptAndDecompress(final InputStream in) throws IOException {
@@ -59,10 +61,5 @@ public class CryptoIOProvider implements Encryption, Decryption {
                 CIPHER_TRANSFORMATION);
         return new ZstdInputStream(new CipherInputStream(in, cipher));
     }
-
-    private OutputStream compressAndEncrypt(final Cipher cipher, final OutputStream out) throws IOException {
-        return new ZstdOutputStream(new CipherOutputStream(out, cipher));
-    }
-
 
 }
