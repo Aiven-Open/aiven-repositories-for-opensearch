@@ -44,7 +44,7 @@ class GcsStorageSettingsTest extends RsaKeyAwareTest {
                         )
                 ).build();
 
-        final var gcsStorageSettings = GcsStorageSettings.load(settings);
+        final var gcsStorageSettings = GcsStorageSettings.create(settings);
         assertEquals("some_project", gcsStorageSettings.projectId());
         assertEquals(1, gcsStorageSettings.connectionTimeout());
         assertEquals(2, gcsStorageSettings.readTimeout());
@@ -56,7 +56,7 @@ class GcsStorageSettingsTest extends RsaKeyAwareTest {
     void throwsIllegalArgumentExceptionForEmptyCredentials() {
         final var e = assertThrows(
                 IllegalArgumentException.class,
-                () -> GcsStorageSettings.load(Settings.EMPTY)
+                () -> GcsStorageSettings.create(Settings.EMPTY)
         );
 
         assertEquals(

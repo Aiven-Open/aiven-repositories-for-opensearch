@@ -23,6 +23,7 @@ import java.nio.file.Paths;
 import java.util.Map;
 
 import io.aiven.elasticsearch.repositories.DummySecureSettings;
+import io.aiven.elasticsearch.repositories.RepositoryStorageIOProvider;
 import io.aiven.elasticsearch.repositories.RsaKeyAwareTest;
 import io.aiven.elasticsearch.repositories.security.EncryptionKeyProvider;
 
@@ -128,7 +129,7 @@ class GcsRepositoryPluginIT extends RsaKeyAwareTest {
     void registerRepository() throws Exception {
         final var enableRepositoryRequest =
                 "{ \"type\": \""
-                        + GcsBlobStoreRepository.TYPE + "\", "
+                        + GcsRepositoryPlugin.REPOSITORY_TYPE + "\", "
                         + "\"settings\": { \"bucket_name\": \""
                         + bucketName + "\", \"base_path\": \"test_backup\" } "
                         + "}";
@@ -144,7 +145,7 @@ class GcsRepositoryPluginIT extends RsaKeyAwareTest {
             final Map<String, Object> content = response.getContent(EcrCurl.jsonParser());
             assertEquals(
                     "{backup={settings={bucket_name=ples-test, base_path=" + BASE_PATH + "}, "
-                            + "type=" + GcsBlobStoreRepository.TYPE + "}}",
+                            + "type=" + GcsRepositoryPlugin.REPOSITORY_TYPE + "}}",
                     content.toString()
             );
         }
@@ -171,7 +172,9 @@ class GcsRepositoryPluginIT extends RsaKeyAwareTest {
 
         final var metadataBlob =
                 storage.get(
-                        BlobId.of(bucketName, BASE_PATH + "/" + GcsBlobStoreRepository.REPOSITORY_METADATA_FILE_NAME)
+                        BlobId.of(
+                                bucketName,
+                                BASE_PATH + "/" + RepositoryStorageIOProvider.REPOSITORY_METADATA_FILE_NAME)
                 );
         assertNotNull(metadataBlob);
         assertTrue(metadataBlob.exists());

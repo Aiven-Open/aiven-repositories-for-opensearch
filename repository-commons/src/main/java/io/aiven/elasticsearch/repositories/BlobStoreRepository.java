@@ -75,7 +75,7 @@ public class BlobStoreRepository<C>
         return new BlobStore() {
             @Override
             public BlobContainer blobContainer(final BlobPath path) {
-                return new RepositoryBlobContainer<>(path, storageIo);
+                return new RepositoryBlobContainer(path, storageIo);
             }
 
             @Override
