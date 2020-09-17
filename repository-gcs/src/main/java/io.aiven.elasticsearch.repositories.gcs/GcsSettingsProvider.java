@@ -18,12 +18,12 @@ package io.aiven.elasticsearch.repositories.gcs;
 
 import java.io.IOException;
 import java.util.Map;
-import java.util.Objects;
 
 import io.aiven.elasticsearch.repositories.Permissions;
+import io.aiven.elasticsearch.repositories.RepositorySettingsProvider;
+import io.aiven.elasticsearch.repositories.RepositoryStorageIOProvider;
 import io.aiven.elasticsearch.repositories.security.EncryptionKeyProvider;
 
-import com.google.cloud.Tuple;
 import com.google.cloud.http.HttpTransportOptions;
 import com.google.cloud.storage.Storage;
 import com.google.cloud.storage.StorageOptions;
@@ -31,56 +31,33 @@ import com.google.common.base.Strings;
 import com.google.common.net.HttpHeaders;
 import org.elasticsearch.common.settings.Settings;
 
-public class GcsSettingsProvider {
+public class GcsSettingsProvider extends RepositorySettingsProvider<Storage> {
 
-    static final String HTTP_USER_AGENT = "Aiven Google Cloud Storage repository";
+    static final String HTTP_USER_AGENT = "Aiven GCS Repository";
 
-    private volatile Tuple<Storage, EncryptionKeyProvider> cachedSettings;
-
-    public Storage gcsClient() throws IOException {
-        //we should throw IOException for such action. ES swallows others
-        if (Objects.isNull(cachedSettings) || Objects.isNull(cachedSettings.x())) {
-            throw new IOException("GCS client hasn't been configured");
-        }
-        return cachedSettings.x();
-    }
-
-    public EncryptionKeyProvider encryptionKeyProvider() throws IOException {
-        //we should throw IOException for such action. ES swallows others
-        if (Objects.isNull(cachedSettings) || Objects.isNull(cachedSettings.y())) {
-            throw new IOException("EncryptionKeyProvider hasn't been configured");
-        }
-        return cachedSettings.y();
-    }
-
-    public void reload(final Settings settings) throws IOException {
-        cachedSettings = makeCacheFrom(settings);
-    }
-
-    private Tuple<Storage, EncryptionKeyProvider> makeCacheFrom(final Settings settings) throws IOException {
-        return Tuple.of(
-                createGcsClient(GcsStorageSettings.load(settings)),
-                EncryptionKeyProvider.of(settings)
-        );
+    @Override
+    protected RepositoryStorageIOProvider<Storage> createRepositoryStorageIOProvider(
+            final Settings settings, final EncryptionKeyProvider encryptionKeyProvider) throws IOException {
+        final var client = Permissions.doPrivileged(() -> createGcsClient(GcsStorageSettings.create(settings)));
+        return new GcsRepositoryStorageIOProvider(client, encryptionKeyProvider);
     }
 
     private Storage createGcsClient(final GcsStorageSettings gcsStorageSettings) throws IOException {
-        return Permissions.doPrivileged(() -> {
-            final StorageOptions.Builder storageOptionsBuilder = StorageOptions.newBuilder();
-            if (!Strings.isNullOrEmpty(gcsStorageSettings.projectId())) {
-                storageOptionsBuilder.setProjectId(gcsStorageSettings.projectId());
-            }
-            storageOptionsBuilder
-                    .setTransportOptions(
-                            HttpTransportOptions.newBuilder()
-                                    .setConnectTimeout(gcsStorageSettings.connectionTimeout())
-                                    .setReadTimeout(gcsStorageSettings.readTimeout())
-                                    .build())
-                    .setHeaderProvider(() -> Map.of(HttpHeaders.USER_AGENT, HTTP_USER_AGENT))
-                    .setCredentials(gcsStorageSettings.gcsCredentials());
+        final StorageOptions.Builder storageOptionsBuilder = StorageOptions.newBuilder();
+        if (!Strings.isNullOrEmpty(gcsStorageSettings.projectId())) {
+            storageOptionsBuilder.setProjectId(gcsStorageSettings.projectId());
+        }
+        storageOptionsBuilder
+                .setTransportOptions(
+                        HttpTransportOptions.newBuilder()
+                                .setConnectTimeout(gcsStorageSettings.connectionTimeout())
+                                .setReadTimeout(gcsStorageSettings.readTimeout())
+                                .build())
+                .setHeaderProvider(() -> Map.of(HttpHeaders.USER_AGENT, HTTP_USER_AGENT))
+                .setCredentials(gcsStorageSettings.gcsCredentials());
 
-            return storageOptionsBuilder.build().getService();
-        });
+        return storageOptionsBuilder.build().getService();
     }
+
 
 }

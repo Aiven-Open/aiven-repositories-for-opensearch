@@ -46,11 +46,11 @@ class RepositoryBlobContainerTest {
     @Mock
     StorageIO mockedStorageIO;
 
-    RepositoryBlobContainer<Object> repositoryBlobContainer;
+    RepositoryBlobContainer repositoryBlobContainer;
 
     @BeforeEach
     void setUp() {
-        repositoryBlobContainer = new RepositoryBlobContainer<>(DEFAULT_PATH, mockedStorageIO);
+        repositoryBlobContainer = new RepositoryBlobContainer(DEFAULT_PATH, mockedStorageIO);
     }
 
     @Test

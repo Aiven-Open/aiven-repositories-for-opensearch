@@ -35,7 +35,7 @@ import org.slf4j.LoggerFactory;
 
 import static io.aiven.elasticsearch.repositories.RepositoryStorageIOProvider.StorageIO;
 
-public class RepositoryBlobContainer<C> extends AbstractBlobContainer {
+public class RepositoryBlobContainer extends AbstractBlobContainer {
 
     private final Logger logger = LoggerFactory.getLogger(RepositoryBlobContainer.class);
 
@@ -115,7 +115,7 @@ public class RepositoryBlobContainer<C> extends AbstractBlobContainer {
                 .stream()
                 .map(d -> new AbstractMap.SimpleEntry<String, BlobContainer>(
                         d,
-                        new RepositoryBlobContainer<>(path().add(d), storageIO))
+                        new RepositoryBlobContainer(path().add(d), storageIO))
                 )
                 .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
     }

@@ -20,6 +20,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.util.concurrent.TimeUnit;
 
+import io.aiven.elasticsearch.repositories.CommonSettings;
 import io.aiven.elasticsearch.repositories.Permissions;
 
 import com.google.auth.oauth2.GoogleCredentials;
@@ -29,18 +30,22 @@ import org.elasticsearch.common.settings.Settings;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-public class GcsStorageSettings {
+import static io.aiven.elasticsearch.repositories.CommonSettings.KeystoreSettings.withPrefix;
+
+public class GcsStorageSettings implements CommonSettings.KeystoreSettings {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(GcsStorageSettings.class);
 
     public static final Setting<InputStream> CREDENTIALS_FILE_SETTING =
-            SecureSetting.secureFile("aiven.gcs.client.credentials_file", null);
+            SecureSetting.secureFile(withPrefix("gcs.client.credentials_file"), null);
     public static final Setting<String> PROJECT_ID =
-            Setting.simpleString("aiven.gcs.client.project_id", Setting.Property.NodeScope);
+            Setting.simpleString(withPrefix("gcs.client.project_id"), Setting.Property.NodeScope);
     public static final Setting<Integer> CONNECTION_TIMEOUT =
-            Setting.intSetting("aiven.gcs.client.connection_timeout", -1, -1, Setting.Property.NodeScope);
+            Setting.intSetting(withPrefix("gcs.client.connection_timeout"), -1, -1,
+                    Setting.Property.NodeScope);
     public static final Setting<Integer> READ_TIMEOUT =
-            Setting.intSetting("aiven.gcs.client.read_timeout", -1, -1, Setting.Property.NodeScope);
+            Setting.intSetting(withPrefix("gcs.client.read_timeout"), -1, -1,
+                    Setting.Property.NodeScope);
 
     private final String projectId;
 
@@ -60,7 +65,7 @@ public class GcsStorageSettings {
         this.readTimeout = readTimeout;
     }
 
-    public static GcsStorageSettings load(final Settings settings) throws IOException {
+    public static GcsStorageSettings create(final Settings settings) throws IOException {
         if (settings.isEmpty()) {
             throw new IllegalArgumentException("Settings for GC storage hasn't been set");
         }

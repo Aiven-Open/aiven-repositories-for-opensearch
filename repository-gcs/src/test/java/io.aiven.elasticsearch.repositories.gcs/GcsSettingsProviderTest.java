@@ -19,38 +19,45 @@ package io.aiven.elasticsearch.repositories.gcs;
 import java.io.IOException;
 import java.nio.file.Files;
 
+import io.aiven.elasticsearch.repositories.CommonSettings;
 import io.aiven.elasticsearch.repositories.DummySecureSettings;
+import io.aiven.elasticsearch.repositories.RepositoryStorageIOProvider;
 import io.aiven.elasticsearch.repositories.RsaKeyAwareTest;
 import io.aiven.elasticsearch.repositories.security.EncryptionKeyProvider;
 
 import com.google.auth.oauth2.GoogleCredentials;
 import com.google.auth.oauth2.UserCredentials;
 import com.google.cloud.http.HttpTransportOptions;
+import com.google.cloud.storage.Storage;
 import org.elasticsearch.common.settings.Settings;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
+import org.junit.platform.commons.support.HierarchyTraversalMode;
+import org.junit.platform.commons.support.ReflectionSupport;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-@Disabled
 class GcsSettingsProviderTest extends RsaKeyAwareTest {
 
     @Test
-    void providerInitialization() throws IOException {
+    void providerInitialization() throws Exception {
         final var gcsSettingsProvider = new GcsSettingsProvider();
         final var settings = Settings.builder()
+                .put(CommonSettings.RepositorySettings.BASE_PATH.getKey(), "base_path/")
                 .put(GcsStorageSettings.CONNECTION_TIMEOUT.getKey(), 1)
                 .put(GcsStorageSettings.READ_TIMEOUT.getKey(), 2)
                 .put(GcsStorageSettings.PROJECT_ID.getKey(), "some_project")
                 .setSecureSettings(createFullSecureSettings()).build();
         gcsSettingsProvider.reload(settings);
 
-        final var client = gcsSettingsProvider.gcsClient();
-        assertNotNull(client);
+        final var repoIOProvider = gcsSettingsProvider.repositoryStorageIOProvider();
+        assertNotNull(repoIOProvider);
+
+
+        final var client = extractClient(repoIOProvider);
+
         assertTrue(client.getOptions().getTransportOptions() instanceof HttpTransportOptions);
 
         final var httpTransportOptions = (HttpTransportOptions) client.getOptions().getTransportOptions();
@@ -63,13 +70,13 @@ class GcsSettingsProviderTest extends RsaKeyAwareTest {
     }
 
     @Test
-    void providerInitializationWithDefaultValues() throws IOException {
+    void providerInitializationWithDefaultValues() throws Exception {
         final var gcsSettingsProvider = new GcsSettingsProvider();
         final var settings = Settings.builder()
                 .setSecureSettings(createFullSecureSettings()).build();
         gcsSettingsProvider.reload(settings);
 
-        final var client = gcsSettingsProvider.gcsClient();
+        final var client = extractClient(gcsSettingsProvider.repositoryStorageIOProvider());
         assertNotNull(client);
         assertTrue(client.getOptions().getTransportOptions() instanceof HttpTransportOptions);
 
@@ -77,20 +84,20 @@ class GcsSettingsProviderTest extends RsaKeyAwareTest {
         assertEquals(-1, httpTransportOptions.getConnectTimeout());
         assertEquals(-1, httpTransportOptions.getReadTimeout());
         assertEquals(GcsSettingsProvider.HTTP_USER_AGENT, client.getOptions().getUserAgent());
-        assertNull(client.getOptions().getProjectId());
+        //skip project id since GCS client returns default one
 
         assertEquals(loadCredentials(), client.getOptions().getCredentials());
 
     }
 
     @Test
-    void providerReloadClient() throws IOException {
+    void providerReloadClient() throws Exception {
         final var gcsSettingsProvider = new GcsSettingsProvider();
         final var settings = Settings.builder()
                 .setSecureSettings(createFullSecureSettings()).build();
         gcsSettingsProvider.reload(settings);
 
-        var client = gcsSettingsProvider.gcsClient();
+        var client = extractClient(gcsSettingsProvider.repositoryStorageIOProvider());
         assertNotNull(client);
         assertTrue(client.getOptions().getTransportOptions() instanceof HttpTransportOptions);
 
@@ -98,7 +105,7 @@ class GcsSettingsProviderTest extends RsaKeyAwareTest {
         assertEquals(-1, httpTransportOptions.getConnectTimeout());
         assertEquals(-1, httpTransportOptions.getReadTimeout());
         assertEquals(GcsSettingsProvider.HTTP_USER_AGENT, client.getOptions().getUserAgent());
-        assertNull(client.getOptions().getProjectId());
+        //skip project id since GCS client returns default one
 
         assertEquals(loadCredentials(), client.getOptions().getCredentials());
 
@@ -110,7 +117,7 @@ class GcsSettingsProviderTest extends RsaKeyAwareTest {
                 .build();
         gcsSettingsProvider.reload(newSettings);
 
-        client = gcsSettingsProvider.gcsClient();
+        client = extractClient(gcsSettingsProvider.repositoryStorageIOProvider());
         assertNotNull(client);
         assertTrue(client.getOptions().getTransportOptions() instanceof HttpTransportOptions);
 
@@ -127,23 +134,11 @@ class GcsSettingsProviderTest extends RsaKeyAwareTest {
     void throwsIllegalArgumentExceptionForEmptySettings() throws IOException {
         final var gcsSettingsProvider = new GcsSettingsProvider();
 
-        var e = assertThrows(IllegalArgumentException.class, () -> {
-            gcsSettingsProvider.reload(Settings.EMPTY);
-            gcsSettingsProvider.encryptionKeyProvider();
-        });
+        gcsSettingsProvider.reload(Settings.EMPTY);
+        var e = assertThrows(IOException.class, gcsSettingsProvider::repositoryStorageIOProvider);
         assertEquals(
-                "Settings for GC storage hasn't been set",
+                "Cloud storage client haven't been configured",
                 e.getMessage());
-
-        e = assertThrows(IllegalArgumentException.class, () -> {
-            gcsSettingsProvider.reload(Settings.EMPTY);
-            gcsSettingsProvider.gcsClient();
-        });
-        assertEquals(
-                "Settings for GC storage hasn't been set",
-                e.getMessage());
-
-
 
         final var anySettings = Settings.builder().put("foo", "bar").build();
         final var publicRsaKeyOnlySettings =
@@ -155,24 +150,29 @@ class GcsSettingsProviderTest extends RsaKeyAwareTest {
                         .setSecureSettings(createPrivateRsaKeyOnlySecureSettings())
                         .build();
 
-        gcsSettingsProvider.reload(anySettings);
-        e = assertThrows(IllegalArgumentException.class, gcsSettingsProvider::gcsClient);
+        e = assertThrows(IOException.class, () -> gcsSettingsProvider.reload(anySettings));
         assertEquals(
-                "Settings with name gcs.client.credentials_file hasn't been set",
+                "Settings with name aiven.public_key_file hasn't been set",
                 e.getMessage());
 
-        gcsSettingsProvider.reload(privateRsaKeyOnlySettings);
-        e = assertThrows(IllegalArgumentException.class, gcsSettingsProvider::encryptionKeyProvider);
+        e = assertThrows(IOException.class, () -> gcsSettingsProvider.reload(privateRsaKeyOnlySettings));
         assertEquals(
-                "Settings with name gcs.public_key_file hasn't been set",
+                "Settings with name aiven.public_key_file hasn't been set",
                 e.getMessage());
 
-        gcsSettingsProvider.reload(publicRsaKeyOnlySettings);
-        e = assertThrows(IllegalArgumentException.class, gcsSettingsProvider::encryptionKeyProvider);
+        e = assertThrows(IOException.class, () -> gcsSettingsProvider.reload(publicRsaKeyOnlySettings));
         assertEquals(
-                "Settings with name gcs.private_key_file hasn't been set",
+                "Settings with name aiven.private_key_file hasn't been set",
                 e.getMessage());
 
+    }
+
+    private Storage extractClient(final RepositoryStorageIOProvider<Storage> storageIOProvider) throws Exception {
+        final var field = ReflectionSupport.findFields(RepositoryStorageIOProvider.class, f -> f
+                .getName().equals("client"),
+                HierarchyTraversalMode.TOP_DOWN).get(0);
+        field.setAccessible(true);
+        return (Storage) field.get(storageIOProvider);
     }
 
     private DummySecureSettings createFullSecureSettings() throws IOException {
