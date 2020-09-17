@@ -43,12 +43,17 @@ public interface CommonSettings {
                         Setting.Property.Dynamic
                 );
 
+        // For default settings of AES/CTR which we use the maximum size of the file
+        // with the same IV is 64GB (2^32 * 128 bit per block)
+        // to use 5TB maximum storage limit we need to improve our logic and use more than one IV
+        // In case of AES/GCM maximum size is teh same since it is extension of CTR with hashing,
+        // but from security point of view GCM better
         Setting<ByteSizeValue> CHUNK_SIZE =
                 Setting.byteSizeSetting(
                         "chunk_size",
                         new ByteSizeValue(100, ByteSizeUnit.MB),
-                        new ByteSizeValue(1, ByteSizeUnit.BYTES),
                         new ByteSizeValue(100, ByteSizeUnit.MB),
+                        new ByteSizeValue(64, ByteSizeUnit.GB),
                         Setting.Property.NodeScope
                 );
 
