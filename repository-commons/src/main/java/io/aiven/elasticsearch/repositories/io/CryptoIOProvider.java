@@ -25,9 +25,6 @@ import javax.crypto.spec.IvParameterSpec;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
-import java.nio.channels.Channels;
-import java.nio.channels.ReadableByteChannel;
-import java.nio.channels.WritableByteChannel;
 
 import io.aiven.elasticsearch.repositories.security.Decryption;
 import io.aiven.elasticsearch.repositories.security.Encryption;
@@ -35,7 +32,6 @@ import io.aiven.elasticsearch.repositories.security.Encryption;
 import com.github.luben.zstd.ZstdInputStream;
 import com.github.luben.zstd.ZstdOutputStream;
 import org.elasticsearch.common.io.Streams;
-
 
 public class CryptoIOProvider implements Encryption, Decryption {
 
@@ -49,40 +45,24 @@ public class CryptoIOProvider implements Encryption, Decryption {
         this.encryptionKey = encryptionKey;
     }
 
-    public void compressAndEncrypt(final InputStream chunk,
-                                   final WritableByteChannel writer) throws IOException {
-        final var out = Channels.newOutputStream(writer);
-        Streams.copy(
-                chunk,
-                new ZstdOutputStream(
-                        new CipherOutputStream(
-                                out,
-                                createEncryptingCipherAndWriteIv(out)
-                        )
-                )
-        );
-    }
-
-    private Cipher createEncryptingCipherAndWriteIv(final OutputStream out) throws IOException {
+    public long compressAndEncrypt(final InputStream in,
+                                   final OutputStream out) throws IOException {
         final var cipher = createEncryptingCipher(encryptionKey, CIPHER_TRANSFORMATION);
         out.write(cipher.getIV());
-        return cipher;
+        return Streams.copy(in, compressAndEncrypt(cipher, out));
     }
 
-    public InputStream decryptAndDecompress(final ReadableByteChannel reader) throws IOException {
-        final var in = Channels.newInputStream(reader);
-        return new ZstdInputStream(
-                new CipherInputStream(
-                        in,
-                        readIvAndCreateDecryptingCipher(in)));
-    }
-
-    private Cipher readIvAndCreateDecryptingCipher(final InputStream in) throws IOException {
-        return createDecryptingCipher(
+    public InputStream decryptAndDecompress(final InputStream in) throws IOException {
+        final var cipher = createDecryptingCipher(
                 encryptionKey,
                 new IvParameterSpec(in.readNBytes(ENCODED_PARAMETERS_LENGTH)),
-                CIPHER_TRANSFORMATION
-        );
+                CIPHER_TRANSFORMATION);
+        return new ZstdInputStream(new CipherInputStream(in, cipher));
     }
+
+    private OutputStream compressAndEncrypt(final Cipher cipher, final OutputStream out) throws IOException {
+        return new ZstdOutputStream(new CipherOutputStream(out, cipher));
+    }
+
 
 }

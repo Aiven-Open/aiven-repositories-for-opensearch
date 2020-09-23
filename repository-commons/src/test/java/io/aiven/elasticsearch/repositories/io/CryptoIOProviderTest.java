@@ -17,7 +17,6 @@
 package io.aiven.elasticsearch.repositories.io;
 
 import java.nio.ByteBuffer;
-import java.nio.channels.Channels;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Random;
@@ -75,15 +74,13 @@ public class CryptoIOProviderTest extends RsaKeyAwareTest {
         }
 
         try (final var in = Files.newInputStream(testFile);
-             final var encryptedFileOut = Files.newOutputStream(encryptedFile);
-             final var writeChannel = Channels.newChannel(encryptedFileOut)) {
-            cryptoIOProvider.compressAndEncrypt(in, writeChannel);
+             final var encryptedFileOut = Files.newOutputStream(encryptedFile)) {
+            cryptoIOProvider.compressAndEncrypt(in, encryptedFileOut);
         }
 
         try (final var encryptedFileStream = Files.newInputStream(encryptedFile);
-             final var readChannel = Channels.newChannel(encryptedFileStream);
              final var out = Files.newOutputStream(decryptedFile)) {
-            Streams.copy(cryptoIOProvider.decryptAndDecompress(readChannel), out);
+            Streams.copy(cryptoIOProvider.decryptAndDecompress(encryptedFileStream), out);
         }
 
         final var decryptedBytes = ByteBuffer.allocate(BUFFER_SIZE * MESSAGE_AMOUNT);

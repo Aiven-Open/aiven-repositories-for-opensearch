@@ -37,9 +37,10 @@ public class GcsSettingsProvider extends RepositorySettingsProvider<Storage> {
 
     @Override
     protected RepositoryStorageIOProvider<Storage> createRepositoryStorageIOProvider(
-            final Settings settings, final EncryptionKeyProvider encryptionKeyProvider) throws IOException {
+            final String repositoryType, final Settings settings, final EncryptionKeyProvider encryptionKeyProvider)
+                throws IOException {
         final var client = Permissions.doPrivileged(() -> createGcsClient(GcsStorageSettings.create(settings)));
-        return new GcsRepositoryStorageIOProvider(client, encryptionKeyProvider);
+        return new GcsRepositoryStorageIOProvider(repositoryType, client, encryptionKeyProvider);
     }
 
     private Storage createGcsClient(final GcsStorageSettings gcsStorageSettings) throws IOException {
