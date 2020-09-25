@@ -76,6 +76,7 @@ allprojects {
         }
     }
 
+
     sourceSets {
         integrationTest {
             java.srcDir file('src/integration-test/java')
