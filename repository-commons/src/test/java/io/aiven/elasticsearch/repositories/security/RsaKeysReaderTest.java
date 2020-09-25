@@ -38,10 +38,10 @@ class RsaKeysReaderTest extends RsaKeyAwareTest {
     public void failsForUnknownPaths() {
 
         assertThrows(
-                IllegalArgumentException.class,
-                () -> RsaKeysReader.readRsaKeyPair(
-                        Files.newInputStream(Paths.get(".")),
-                        Files.newInputStream(Paths.get(".")))
+                IllegalArgumentException.class, () ->
+                        RsaKeysReader.readRsaKeyPair(
+                                Files.newInputStream(Paths.get(".")),
+                                Files.newInputStream(Paths.get(".")))
         );
     }
 
@@ -54,11 +54,12 @@ class RsaKeysReaderTest extends RsaKeyAwareTest {
         writePemFile(dsaPublicKeyPem, new X509EncodedKeySpec(dsaKeyPair.getPublic().getEncoded()));
         writePemFile(dsaPrivateKeyPem, new PKCS8EncodedKeySpec(dsaKeyPair.getPrivate().getEncoded()));
 
-        final var e = assertThrows(IllegalArgumentException.class, () ->
-            RsaKeysReader.readRsaKeyPair(
-                Files.newInputStream(dsaPublicKeyPem),
-                Files.newInputStream(dsaPrivateKeyPem)
-            ));
+        final var e =
+                assertThrows(IllegalArgumentException.class, () ->
+                        RsaKeysReader.readRsaKeyPair(
+                                Files.newInputStream(dsaPublicKeyPem),
+                                Files.newInputStream(dsaPrivateKeyPem)
+                        ));
 
         assertEquals(
             "Couldn't generate RSA key pair",
@@ -73,10 +74,10 @@ class RsaKeysReaderTest extends RsaKeyAwareTest {
             Files.createFile(tmpDir.resolve("empty_public_key.pem"));
 
         final var e = assertThrows(
-                IllegalArgumentException.class,
-                () -> RsaKeysReader.readRsaKeyPair(
-                        Files.newInputStream(emptyPublicKeyPemFile),
-                        Files.newInputStream(privateKeyPem))
+                IllegalArgumentException.class, () ->
+                        RsaKeysReader.readRsaKeyPair(
+                                Files.newInputStream(emptyPublicKeyPemFile),
+                                Files.newInputStream(privateKeyPem))
         );
 
         assertEquals(
@@ -91,10 +92,10 @@ class RsaKeysReaderTest extends RsaKeyAwareTest {
             Files.createFile(tmpDir.resolve("empty_private_key.pem"));
 
         final var e = assertThrows(
-                IllegalArgumentException.class,
-                () -> RsaKeysReader.readRsaKeyPair(
-                        Files.newInputStream(publicKeyPem),
-                        Files.newInputStream(emptyPrivateKeyPemFile))
+                IllegalArgumentException.class, () ->
+                        RsaKeysReader.readRsaKeyPair(
+                                Files.newInputStream(publicKeyPem),
+                                Files.newInputStream(emptyPrivateKeyPemFile))
         );
 
         assertEquals(

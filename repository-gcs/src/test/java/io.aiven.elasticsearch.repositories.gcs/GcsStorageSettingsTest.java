@@ -54,10 +54,9 @@ class GcsStorageSettingsTest extends RsaKeyAwareTest {
 
     @Test
     void throwsIllegalArgumentExceptionForEmptyCredentials() {
-        final var e = assertThrows(
-                IllegalArgumentException.class,
-                () -> GcsStorageSettings.create(Settings.EMPTY)
-        );
+        final var e =
+                assertThrows(
+                        IllegalArgumentException.class, () -> GcsStorageSettings.create(Settings.EMPTY));
 
         assertEquals(
                 "Settings for GC storage hasn't been set",
