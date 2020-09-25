@@ -37,6 +37,8 @@ import org.elasticsearch.common.settings.Settings;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import static io.aiven.elasticsearch.repositories.BlobStoreRepository.BUFFER_SIZE_SETTING;
+
 public abstract class RepositoryStorageIOProvider<C>
         implements CommonSettings.RepositorySettings, Closeable {
 
@@ -63,15 +65,20 @@ public abstract class RepositoryStorageIOProvider<C>
     public StorageIO createStorageIO(final String basePath, final Settings repositorySettings) throws IOException {
         checkSettings(repositoryType, BUCKET_NAME, repositorySettings);
         final var bucketName = BUCKET_NAME.get(repositorySettings);
+        final var bufferSize = Math.toIntExact(BUFFER_SIZE_SETTING.get(repositorySettings).getBytes());
         Permissions.doPrivileged(() -> createOrRestoreEncryptionKey(basePath, bucketName));
-        return createStorageIOFor(bucketName, new CryptoIOProvider(encryptionKey));
+        return createStorageIOFor(bucketName, new CryptoIOProvider(encryptionKey, bufferSize));
     }
 
     private void createOrRestoreEncryptionKey(final String basePath, final String bucketName) throws IOException {
         if (Objects.isNull(encryptionKey)) {
             final var repositoryMetadataFilePath = basePath + REPOSITORY_METADATA_FILE_NAME;
             final var encKeyRepoMetadata =
-                    createStorageIOFor(bucketName, new CryptoIOProvider(null) {
+                    // restore a repository metadata file which contains the encryption key
+                    // which encrypted without compression and use different Cipher compare to
+                    // regular backup files, that's why CryptoIOProvider reads/writes directly to
+                    // the storage without compression and encryption, and it doesn't use encryption key and buffer size
+                    createStorageIOFor(bucketName, new CryptoIOProvider(null, 0) {
                         @Override
                         public long compressAndEncrypt(final InputStream in,
                                                        final OutputStream out) throws IOException {

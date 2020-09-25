@@ -49,7 +49,7 @@ public class CryptoIOProviderTest extends RsaKeyAwareTest {
                         Files.newInputStream(privateKeyPem)
                 );
         final var encryptionKey = encProvider.createKey();
-        cryptoIOProvider = new CryptoIOProvider(encryptionKey);
+        cryptoIOProvider = new CryptoIOProvider(encryptionKey, BUFFER_SIZE);
     }
 
     @Test
