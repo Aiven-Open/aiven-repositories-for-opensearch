@@ -18,7 +18,6 @@ package io.aiven.elasticsearch.repositories.gcs;
 
 import java.io.IOException;
 import java.nio.file.Files;
-import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.Map;
 
@@ -59,15 +58,13 @@ class GcsRepositoryPluginIT extends RsaKeyAwareTest {
 
     static ElasticsearchClusterRunner clusterRunner;
 
-    private static Path gcsCredentialsPath;
-
     private static String bucketName;
 
     private static Storage storage;
 
     @BeforeAll
     static void setUp() throws IOException {
-        gcsCredentialsPath = Paths.get(System.getProperty("integration-test.gcs.credentials.path"));
+        final var gcsCredentialsPath = Paths.get(System.getProperty("integration-test.gcs.credentials.path"));
         bucketName = System.getProperty("integration-test.gcs.bucket.name");
         final var credentials =
                 UserCredentials.fromStream(Files.newInputStream(gcsCredentialsPath));

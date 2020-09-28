@@ -19,6 +19,4 @@
         "https://checkstyle.org/dtds/suppressions_1_2.dtd">
 
 <suppressions>
-    <suppress checks="(Indentation)"
-              files="(GcsStoragePlugin|GcsStorageSettingsTest|RsaKeysReaderTest.java)"/>
 </suppressions>
