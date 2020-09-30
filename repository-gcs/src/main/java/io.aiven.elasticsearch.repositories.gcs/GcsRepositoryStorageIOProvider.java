@@ -50,10 +50,9 @@ public class GcsRepositoryStorageIOProvider
 
     private static final Logger LOGGER = LoggerFactory.getLogger(GcsRepositoryStorageIOProvider.class);
 
-    public GcsRepositoryStorageIOProvider(final String repositoryType,
-                                          final Storage client,
+    public GcsRepositoryStorageIOProvider(final Storage client,
                                           final EncryptionKeyProvider encryptionKeyProvider) {
-        super(repositoryType, client, encryptionKeyProvider);
+        super(GcsRepositoryPlugin.REPOSITORY_TYPE, client, encryptionKeyProvider);
     }
 
     @Override

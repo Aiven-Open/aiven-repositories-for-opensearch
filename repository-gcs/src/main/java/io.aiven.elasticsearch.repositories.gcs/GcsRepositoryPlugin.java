@@ -33,8 +33,10 @@ public class GcsRepositoryPlugin extends AbstractRepositoryPlugin<Storage>  {
     }
 
     @Override
-    protected List<Setting<?>> getPluginSettings() {
+    public List<Setting<?>> getSettings() {
         return List.of(
+                GcsStorageSettings.PRIVATE_KEY_FILE,
+                GcsStorageSettings.PUBLIC_KEY_FILE,
                 GcsStorageSettings.CREDENTIALS_FILE_SETTING,
                 GcsStorageSettings.PROJECT_ID,
                 GcsStorageSettings.CONNECTION_TIMEOUT,

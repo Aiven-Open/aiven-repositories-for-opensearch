@@ -23,7 +23,6 @@ import io.aiven.elasticsearch.repositories.CommonSettings;
 import io.aiven.elasticsearch.repositories.DummySecureSettings;
 import io.aiven.elasticsearch.repositories.RepositoryStorageIOProvider;
 import io.aiven.elasticsearch.repositories.RsaKeyAwareTest;
-import io.aiven.elasticsearch.repositories.security.EncryptionKeyProvider;
 
 import com.google.auth.oauth2.GoogleCredentials;
 import com.google.auth.oauth2.UserCredentials;
@@ -153,19 +152,19 @@ class GcsSettingsProviderTest extends RsaKeyAwareTest {
         e = assertThrows(IOException.class, () ->
                 gcsSettingsProvider.reload(GcsRepositoryPlugin.REPOSITORY_TYPE, anySettings));
         assertEquals(
-                "Settings with name aiven.public_key_file hasn't been set",
+                "Settings with name aiven.gcs.public_key_file hasn't been set",
                 e.getMessage());
 
         e = assertThrows(IOException.class, () ->
                 gcsSettingsProvider.reload(GcsRepositoryPlugin.REPOSITORY_TYPE, privateRsaKeyOnlySettings));
         assertEquals(
-                "Settings with name aiven.public_key_file hasn't been set",
+                "Settings with name aiven.gcs.public_key_file hasn't been set",
                 e.getMessage());
 
         e = assertThrows(IOException.class, () ->
                 gcsSettingsProvider.reload(GcsRepositoryPlugin.REPOSITORY_TYPE, publicRsaKeyOnlySettings));
         assertEquals(
-                "Settings with name aiven.private_key_file hasn't been set",
+                "Settings with name aiven.gcs.private_key_file hasn't been set",
                 e.getMessage());
 
     }
@@ -183,8 +182,8 @@ class GcsSettingsProviderTest extends RsaKeyAwareTest {
                 .setFile(
                         GcsStorageSettings.CREDENTIALS_FILE_SETTING.getKey(),
                         getClass().getClassLoader().getResourceAsStream("test_gcs_creds.json"))
-                .setFile(EncryptionKeyProvider.PRIVATE_KEY_FILE.getKey(), Files.newInputStream(privateKeyPem))
-                .setFile(EncryptionKeyProvider.PUBLIC_KEY_FILE.getKey(), Files.newInputStream(publicKeyPem));
+                .setFile(GcsStorageSettings.PRIVATE_KEY_FILE.getKey(), Files.newInputStream(privateKeyPem))
+                .setFile(GcsStorageSettings.PUBLIC_KEY_FILE.getKey(), Files.newInputStream(publicKeyPem));
     }
 
     private DummySecureSettings createPublicRsaKeyOnlySecureSettings() throws IOException {
@@ -192,7 +191,7 @@ class GcsSettingsProviderTest extends RsaKeyAwareTest {
                 .setFile(
                         GcsStorageSettings.CREDENTIALS_FILE_SETTING.getKey(),
                         getClass().getClassLoader().getResourceAsStream("test_gcs_creds.json"))
-                .setFile(EncryptionKeyProvider.PUBLIC_KEY_FILE.getKey(), Files.newInputStream(publicKeyPem));
+                .setFile(GcsStorageSettings.PUBLIC_KEY_FILE.getKey(), Files.newInputStream(publicKeyPem));
     }
 
     private DummySecureSettings createPrivateRsaKeyOnlySecureSettings() throws IOException {
@@ -200,7 +199,7 @@ class GcsSettingsProviderTest extends RsaKeyAwareTest {
                 .setFile(
                         GcsStorageSettings.CREDENTIALS_FILE_SETTING.getKey(),
                         getClass().getClassLoader().getResourceAsStream("test_gcs_creds.json"))
-                .setFile(EncryptionKeyProvider.PRIVATE_KEY_FILE.getKey(), Files.newInputStream(privateKeyPem));
+                .setFile(GcsStorageSettings.PRIVATE_KEY_FILE.getKey(), Files.newInputStream(privateKeyPem));
     }
 
     GoogleCredentials loadCredentials() throws IOException {

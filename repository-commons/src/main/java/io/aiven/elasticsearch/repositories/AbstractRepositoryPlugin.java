@@ -18,13 +18,9 @@ package io.aiven.elasticsearch.repositories;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
-import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
-import java.util.stream.Stream;
-
-import io.aiven.elasticsearch.repositories.security.EncryptionKeyProvider;
 
 import org.elasticsearch.cluster.metadata.RepositoryMetadata;
 import org.elasticsearch.cluster.service.ClusterService;
@@ -57,16 +53,6 @@ public abstract class AbstractRepositoryPlugin<C>
     }
 
     @Override
-    public final List<Setting<?>> getSettings() {
-        final var encKeysSettings =
-                List.of(EncryptionKeyProvider.PUBLIC_KEY_FILE, EncryptionKeyProvider.PRIVATE_KEY_FILE);
-        return Stream.concat(
-                encKeysSettings.stream(),
-                getPluginSettings().stream()
-        ).collect(Collectors.toList());
-    }
-
-    @Override
     public Map<String, Repository.Factory> getRepositories(final Environment env,
                                                            final NamedXContentRegistry namedXContentRegistry,
                                                            final ClusterService clusterService,
@@ -93,7 +79,5 @@ public abstract class AbstractRepositoryPlugin<C>
             throw new UncheckedIOException(ioe);
         }
     }
-
-    protected abstract List<Setting<?>> getPluginSettings();
 
 }

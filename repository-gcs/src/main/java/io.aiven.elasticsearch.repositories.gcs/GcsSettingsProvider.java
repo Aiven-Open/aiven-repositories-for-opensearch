@@ -36,11 +36,19 @@ public class GcsSettingsProvider extends RepositorySettingsProvider<Storage> {
     static final String HTTP_USER_AGENT = "Aiven GCS Repository";
 
     @Override
-    protected RepositoryStorageIOProvider<Storage> createRepositoryStorageIOProvider(
-            final String repositoryType, final Settings settings, final EncryptionKeyProvider encryptionKeyProvider)
-                throws IOException {
-        final var client = Permissions.doPrivileged(() -> createGcsClient(GcsStorageSettings.create(settings)));
-        return new GcsRepositoryStorageIOProvider(repositoryType, client, encryptionKeyProvider);
+    protected RepositoryStorageIOProvider<Storage> createRepositoryStorageIOProvider(final Settings settings)
+            throws IOException {
+        final var gcsStorageSettings =
+                Permissions.doPrivileged(() -> GcsStorageSettings.create(settings));
+        final var encryptionKeyProvider =
+                Permissions.doPrivileged(() ->
+                        EncryptionKeyProvider.of(
+                                gcsStorageSettings.publicKey(),
+                                gcsStorageSettings.privateKey()
+                        )
+                );
+        final var client = Permissions.doPrivileged(() -> createGcsClient(gcsStorageSettings));
+        return new GcsRepositoryStorageIOProvider(client, encryptionKeyProvider);
     }
 
     private Storage createGcsClient(final GcsStorageSettings gcsStorageSettings) throws IOException {
