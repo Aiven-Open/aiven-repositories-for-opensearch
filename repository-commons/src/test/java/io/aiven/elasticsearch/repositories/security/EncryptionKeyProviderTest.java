@@ -19,10 +19,8 @@ package io.aiven.elasticsearch.repositories.security;
 import java.io.IOException;
 import java.nio.file.Files;
 
-import io.aiven.elasticsearch.repositories.DummySecureSettings;
 import io.aiven.elasticsearch.repositories.RsaKeyAwareTest;
 
-import org.elasticsearch.common.settings.Settings;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -51,23 +49,6 @@ public class EncryptionKeyProviderTest extends RsaKeyAwareTest {
                         Files.newInputStream(publicKeyPem),
                         Files.newInputStream(privateKeyPem)
                 );
-        final var secretKey = ekProvider.createKey();
-        final var encryptedKey = ekProvider.encryptKey(secretKey);
-        final var restoredKey = ekProvider.decryptKey(encryptedKey);
-
-        assertEquals(secretKey, restoredKey);
-    }
-
-    @Test
-    public void canBeBuildFromElasticSettings() throws IOException {
-        final var settings = Settings.builder().setSecureSettings(
-                new DummySecureSettings()
-                        .setFile(EncryptionKeyProvider.PUBLIC_KEY_FILE.getKey(), Files.newInputStream(publicKeyPem))
-                        .setFile(EncryptionKeyProvider.PRIVATE_KEY_FILE.getKey(), Files.newInputStream(privateKeyPem))
-        ).build();
-
-
-        final var ekProvider = EncryptionKeyProvider.of(settings);
         final var secretKey = ekProvider.createKey();
         final var encryptedKey = ekProvider.encryptKey(secretKey);
         final var restoredKey = ekProvider.decryptKey(encryptedKey);

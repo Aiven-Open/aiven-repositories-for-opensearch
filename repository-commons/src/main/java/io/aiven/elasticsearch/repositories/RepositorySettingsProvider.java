@@ -19,8 +19,6 @@ package io.aiven.elasticsearch.repositories;
 import java.io.IOException;
 import java.util.Objects;
 
-import io.aiven.elasticsearch.repositories.security.EncryptionKeyProvider;
-
 import org.elasticsearch.common.settings.Settings;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -42,22 +40,16 @@ public abstract class RepositorySettingsProvider<T> {
         if (settings.isEmpty()) {
             return;
         }
+
         try {
             LOGGER.info("Reload settings for repository type: {}", repositoryType);
-            final var encryptionKeyProvider = EncryptionKeyProvider.of(settings);
-            this.repositoryStorageIOProvider =
-                    createRepositoryStorageIOProvider(
-                            repositoryType,
-                            settings,
-                            encryptionKeyProvider
-                    );
+            this.repositoryStorageIOProvider = createRepositoryStorageIOProvider(settings);
         } catch (final Exception e) {
             throw new IOException(e.getMessage(), e);
         }
     }
 
-    protected abstract RepositoryStorageIOProvider<T> createRepositoryStorageIOProvider(
-            final String repositoryType, final Settings settings, final EncryptionKeyProvider encryptionKeyProvider)
-                throws IOException;
+    protected abstract RepositoryStorageIOProvider<T> createRepositoryStorageIOProvider(final Settings settings)
+            throws IOException;
 
 }

@@ -75,7 +75,10 @@ class GcsStorageSettingsTest extends RsaKeyAwareTest {
                                         final InputStream publicKey,
                                         final InputStream privateKey) throws IOException {
         return new DummySecureSettings()
-                .setFile(GcsStorageSettings.CREDENTIALS_FILE_SETTING.getKey(), googleCredential);
+                .setFile(GcsStorageSettings.CREDENTIALS_FILE_SETTING.getKey(), googleCredential)
+                .setFile(GcsStorageSettings.PUBLIC_KEY_FILE.getKey(), publicKey)
+                .setFile(GcsStorageSettings.PRIVATE_KEY_FILE.getKey(), privateKey);
+
     }
 
 }

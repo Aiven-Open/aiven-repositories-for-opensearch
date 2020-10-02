@@ -22,19 +22,13 @@ import javax.crypto.KeyGenerator;
 import javax.crypto.SecretKey;
 import javax.crypto.spec.SecretKeySpec;
 
-import java.io.IOException;
 import java.io.InputStream;
 import java.security.KeyPair;
 import java.security.NoSuchAlgorithmException;
 import java.security.SecureRandom;
 import java.util.Objects;
 
-import io.aiven.elasticsearch.repositories.Permissions;
-
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
-import org.elasticsearch.common.settings.SecureSetting;
-import org.elasticsearch.common.settings.Setting;
-import org.elasticsearch.common.settings.Settings;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -44,12 +38,6 @@ public final class EncryptionKeyProvider
     private static final Logger LOGGER = LoggerFactory.getLogger(EncryptionKeyProvider.class);
 
     public static final int KEY_SIZE = 256;
-
-    public static final Setting<InputStream> PUBLIC_KEY_FILE =
-            SecureSetting.secureFile("aiven.public_key_file", null);
-
-    public static final Setting<InputStream> PRIVATE_KEY_FILE =
-            SecureSetting.secureFile("aiven.private_key_file", null);
 
     private static final String CIPHER_TRANSFORMATION = "RSA/NONE/OAEPWithSHA3-512AndMGF1Padding";
 
@@ -61,21 +49,6 @@ public final class EncryptionKeyProvider
                                   final KeyGenerator aesKeyGenerator) {
         this.rsaKeyPair = rsaKeyPair;
         this.aesKeyGenerator = aesKeyGenerator;
-    }
-
-    public static EncryptionKeyProvider of(final Settings settings) throws IOException {
-        return Permissions.doPrivileged(() -> {
-            Objects.requireNonNull(settings, "settings hasn't been set");
-            if (!PUBLIC_KEY_FILE.exists(settings)) {
-                throw new IllegalArgumentException(
-                        "Settings with name " + PUBLIC_KEY_FILE.getKey() + " hasn't been set");
-            }
-            if (!PRIVATE_KEY_FILE.exists(settings)) {
-                throw new IllegalArgumentException(
-                        "Settings with name " + PRIVATE_KEY_FILE.getKey() + " hasn't been set");
-            }
-            return of(PUBLIC_KEY_FILE.get(settings), PRIVATE_KEY_FILE.get(settings));
-        });
     }
 
     public static EncryptionKeyProvider of(final InputStream rsaPublicKey,

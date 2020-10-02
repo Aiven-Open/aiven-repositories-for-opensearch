@@ -24,7 +24,6 @@ import java.util.Map;
 import io.aiven.elasticsearch.repositories.DummySecureSettings;
 import io.aiven.elasticsearch.repositories.RepositoryStorageIOProvider;
 import io.aiven.elasticsearch.repositories.RsaKeyAwareTest;
-import io.aiven.elasticsearch.repositories.security.EncryptionKeyProvider;
 
 import com.google.auth.oauth2.UserCredentials;
 import com.google.cloud.storage.Blob;
@@ -81,8 +80,8 @@ class GcsRepositoryPluginIT extends RsaKeyAwareTest {
                 securitySettings
                         .setFile(GcsStorageSettings.CREDENTIALS_FILE_SETTING.getKey(),
                                 Files.newInputStream(gcsCredentialsPath))
-                        .setFile(EncryptionKeyProvider.PUBLIC_KEY_FILE.getKey(), Files.newInputStream(publicKeyPem))
-                        .setFile(EncryptionKeyProvider.PRIVATE_KEY_FILE.getKey(), Files.newInputStream(privateKeyPem));
+                        .setFile(GcsStorageSettings.PUBLIC_KEY_FILE.getKey(), Files.newInputStream(publicKeyPem))
+                        .setFile(GcsStorageSettings.PRIVATE_KEY_FILE.getKey(), Files.newInputStream(privateKeyPem));
             } catch (final IOException e) {
                 throw new RuntimeException(e);
             }
