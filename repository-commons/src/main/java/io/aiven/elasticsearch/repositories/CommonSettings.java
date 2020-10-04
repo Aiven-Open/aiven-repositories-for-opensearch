@@ -32,6 +32,12 @@ public interface CommonSettings {
             return String.format("%s.%s", AIVEN_PREFIX, key);
         }
 
+        static <T> void checkSettings(final Setting<T> setting, Settings keystoreSettings) {
+            if (!setting.exists(keystoreSettings)) {
+                throw new IllegalArgumentException("Settings with name " + setting.getKey() + " hasn't been set");
+            }
+        }
+
     }
 
     interface RepositorySettings {
@@ -55,13 +61,6 @@ public interface CommonSettings {
                         new ByteSizeValue(100, ByteSizeUnit.MB),
                         new ByteSizeValue(64, ByteSizeUnit.GB),
                         Setting.Property.NodeScope
-                );
-
-        Setting<String> BUCKET_NAME =
-                Setting.simpleString(
-                        "bucket_name",
-                        Setting.Property.NodeScope,
-                        Setting.Property.Dynamic
                 );
 
         default void checkSettings(final String repoType, final Setting<String> setting, final Settings settings) {

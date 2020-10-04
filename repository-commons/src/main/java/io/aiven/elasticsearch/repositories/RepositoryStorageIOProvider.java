@@ -46,31 +46,26 @@ public abstract class RepositoryStorageIOProvider<C>
 
     public static final String REPOSITORY_METADATA_FILE_NAME = "repository_metadata.json";
 
-    protected final String repositoryType;
-
     protected final C client;
 
     private SecretKey encryptionKey;
 
     private final EncryptionKeyProvider encryptionKeyProvider;
 
-    public RepositoryStorageIOProvider(final String repositoryType,
-                                       final C client,
+    public RepositoryStorageIOProvider(final C client,
                                        final EncryptionKeyProvider encryptionKeyProvider) {
-        this.repositoryType = repositoryType;
         this.client = client;
         this.encryptionKeyProvider = encryptionKeyProvider;
     }
 
     public StorageIO createStorageIO(final String basePath, final Settings repositorySettings) throws IOException {
-        checkSettings(repositoryType, BUCKET_NAME, repositorySettings);
-        final var bucketName = BUCKET_NAME.get(repositorySettings);
         final var bufferSize = Math.toIntExact(BUFFER_SIZE_SETTING.get(repositorySettings).getBytes());
-        Permissions.doPrivileged(() -> createOrRestoreEncryptionKey(basePath, bucketName));
-        return createStorageIOFor(bucketName, new CryptoIOProvider(encryptionKey, bufferSize));
+        Permissions.doPrivileged(() -> createOrRestoreEncryptionKey(basePath, repositorySettings));
+        return createStorageIOFor(repositorySettings, new CryptoIOProvider(encryptionKey, bufferSize));
     }
 
-    private void createOrRestoreEncryptionKey(final String basePath, final String bucketName) throws IOException {
+    private void createOrRestoreEncryptionKey(final String basePath,
+                                              final Settings repositorySettings) throws IOException {
         if (Objects.isNull(encryptionKey)) {
             final var repositoryMetadataFilePath = basePath + REPOSITORY_METADATA_FILE_NAME;
             final var encKeyRepoMetadata =
@@ -78,7 +73,7 @@ public abstract class RepositoryStorageIOProvider<C>
                     // which encrypted without compression and use different Cipher compare to
                     // regular backup files, that's why CryptoIOProvider reads/writes directly to
                     // the storage without compression and encryption, and it doesn't use encryption key and buffer size
-                    createStorageIOFor(bucketName, new CryptoIOProvider(null, 0) {
+                    createStorageIOFor(repositorySettings, new CryptoIOProvider(null, 0) {
                         @Override
                         public long compressAndEncrypt(final InputStream in,
                                                        final OutputStream out) throws IOException {
@@ -106,7 +101,12 @@ public abstract class RepositoryStorageIOProvider<C>
         }
     }
 
-    protected abstract StorageIO createStorageIOFor(final String bucketName, final CryptoIOProvider cryptoIOProvider);
+    @Override
+    public void close() throws IOException {
+    }
+
+    protected abstract StorageIO createStorageIOFor(final Settings repositorySettings,
+                                                    final CryptoIOProvider cryptoIOProvider);
 
     public interface StorageIO {
 

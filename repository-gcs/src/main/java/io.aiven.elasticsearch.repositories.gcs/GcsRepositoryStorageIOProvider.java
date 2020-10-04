@@ -40,6 +40,8 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.elasticsearch.common.blobstore.BlobStoreException;
 import org.elasticsearch.common.collect.Tuple;
+import org.elasticsearch.common.settings.Setting;
+import org.elasticsearch.common.settings.Settings;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -48,15 +50,23 @@ import static java.net.HttpURLConnection.HTTP_PRECON_FAILED;
 public class GcsRepositoryStorageIOProvider
         extends RepositoryStorageIOProvider<Storage> {
 
+    static final Setting<String> BUCKET_NAME =
+            Setting.simpleString(
+                    "bucket_name",
+                    Setting.Property.NodeScope,
+                    Setting.Property.Dynamic);
+
     private static final Logger LOGGER = LoggerFactory.getLogger(GcsRepositoryStorageIOProvider.class);
 
     public GcsRepositoryStorageIOProvider(final Storage client,
                                           final EncryptionKeyProvider encryptionKeyProvider) {
-        super(GcsRepositoryPlugin.REPOSITORY_TYPE, client, encryptionKeyProvider);
+        super(client, encryptionKeyProvider);
     }
 
     @Override
-    protected StorageIO createStorageIOFor(final String bucketName, final CryptoIOProvider cryptoIOProvider) {
+    protected StorageIO createStorageIOFor(final Settings repositorySettings, final CryptoIOProvider cryptoIOProvider) {
+        checkSettings(GcsRepositoryPlugin.REPOSITORY_TYPE, BUCKET_NAME, repositorySettings);
+        final var bucketName = BUCKET_NAME.get(repositorySettings);
         return new GcsStorageIO(bucketName, cryptoIOProvider);
     }
 
@@ -84,8 +94,12 @@ public class GcsRepositoryStorageIOProvider
 
         @Override
         public InputStream read(final String blobName) throws IOException {
-            final var reader = client.reader(BlobId.of(bucketName, blobName));
-            return cryptoIOProvider.decryptAndDecompress(Channels.newInputStream(reader));
+            try {
+                final var reader = client.reader(BlobId.of(bucketName, blobName));
+                return cryptoIOProvider.decryptAndDecompress(Channels.newInputStream(reader));
+            } catch (final StorageException e) {
+                throw new IOException("Failed to read blob [" + blobName + "]");
+            }
         }
 
         @Override
@@ -110,94 +124,106 @@ public class GcsRepositoryStorageIOProvider
 
         @Override
         public Tuple<Integer, Long> deleteDirectories(final String path) throws IOException {
-            var page = getBucket().list(Storage.BlobListOption.prefix(path));
-            var deletedBlobs = 0;
-            var deletedBytes = 0L;
-            do {
-                final var blobsToDeleteBuilder = ImmutableList.<String>builder();
-                for (final var blob : page.getValues()) {
-                    deletedBytes += blob.getSize();
-                    blobsToDeleteBuilder.add(blob.getName());
-                }
-                final var blobsToDelete = blobsToDeleteBuilder.build();
-                deleteFiles(blobsToDelete, true);
-                deletedBlobs += blobsToDelete.size();
-                page = page.getNextPage();
-            } while (Objects.nonNull(page));
-            return Tuple.tuple(deletedBlobs, deletedBytes);
+            try {
+                var page = getBucket().list(Storage.BlobListOption.prefix(path));
+                var deletedBlobs = 0;
+                var deletedBytes = 0L;
+                do {
+                    final var blobsToDeleteBuilder = ImmutableList.<String>builder();
+                    for (final var blob : page.getValues()) {
+                        deletedBytes += blob.getSize();
+                        blobsToDeleteBuilder.add(blob.getName());
+                    }
+                    final var blobsToDelete = blobsToDeleteBuilder.build();
+                    deleteFiles(blobsToDelete, true);
+                    deletedBlobs += blobsToDelete.size();
+                    page = page.getNextPage();
+                } while (Objects.nonNull(page));
+                return Tuple.tuple(deletedBlobs, deletedBytes);
+            } catch (final StorageException e) {
+                throw new IOException("Filed to delete blobs by [" + path + "]", e);
+            }
         }
 
         @Override
         public void deleteFiles(final List<String> blobNames, final boolean ignoreIfNotExists) throws IOException {
-            final var storageBatch = client.batch();
-            final var storageExceptionHandler = new AtomicReference<StorageException>();
-            blobNames.forEach(name ->
-                    storageBatch
-                            .delete(BlobId.of(bucketName, name))
-                            .notify(new BatchResult.Callback<>() {
-                                @Override
-                                public void success(final Boolean result) {
-                                }
-
-                                @Override
-                                public void error(final StorageException exception) {
-                                    LOGGER.warn("Couldn't delete blob: {}", name, exception);
-                                    if (!storageExceptionHandler.compareAndSet(null, exception)) {
-                                        storageExceptionHandler.get().addSuppressed(exception);
+            try {
+                final var storageBatch = client.batch();
+                final var storageExceptionHandler = new AtomicReference<StorageException>();
+                blobNames.forEach(name ->
+                        storageBatch
+                                .delete(BlobId.of(bucketName, name))
+                                .notify(new BatchResult.Callback<>() {
+                                    @Override
+                                    public void success(final Boolean result) {
                                     }
-                                }
 
-                            })
-            );
-            storageBatch.submit();
-            if (Objects.nonNull(storageExceptionHandler.get())) {
-                throw storageExceptionHandler.get();
+                                    @Override
+                                    public void error(final StorageException exception) {
+                                        LOGGER.warn("Couldn't delete blob: {}", name, exception);
+                                        if (!storageExceptionHandler.compareAndSet(null, exception)) {
+                                            storageExceptionHandler.get().addSuppressed(exception);
+                                        }
+                                    }
+
+                                })
+                );
+                storageBatch.submit();
+                if (Objects.nonNull(storageExceptionHandler.get())) {
+                    throw storageExceptionHandler.get();
+                }
+            } catch (final StorageException e) {
+                throw new IOException("Filed to delete blobs [" + blobNames + "]", e);
             }
         }
 
         @Override
         public List<String> listDirectories(final String path) throws IOException {
-            final var listBuilder = ImmutableList.<String>builder();
-            for (final var blob : bucketBlobsIterator(path)) {
-                if (blob.isDirectory()) {
-                    listBuilder.add(
-                            blob.getName()
-                                    .substring(path.length(), blob.getName().length() - 1)
-                    );
+            try {
+                final var listBuilder = ImmutableList.<String>builder();
+                for (final var blob : bucketBlobsIterator(path)) {
+                    if (blob.isDirectory()) {
+                        listBuilder.add(
+                                blob.getName()
+                                        .substring(path.length(), blob.getName().length() - 1)
+                        );
+                    }
                 }
+                return listBuilder.build();
+            } catch (final StorageException e) {
+                throw new IOException("Filed to get list of directories by [" + path + "]", e);
             }
-            return listBuilder.build();
         }
 
         @Override
         public Map<String, Long> listFiles(final String path, final String prefix) throws IOException {
-            final var mapBuilder =
-                    ImmutableMap.<String, Long>builder();
-            for (final var blob : bucketBlobsIterator(path + prefix)) {
-                if (!blob.isDirectory()) {
-                    final var fileName = blob.getName().substring(path.length());
-                    mapBuilder.put(fileName, blob.getSize());
+            try {
+                final var mapBuilder =
+                        ImmutableMap.<String, Long>builder();
+                for (final var blob : bucketBlobsIterator(path + prefix)) {
+                    if (!blob.isDirectory()) {
+                        final var fileName = blob.getName().substring(path.length());
+                        mapBuilder.put(fileName, blob.getSize());
+                    }
                 }
+                return mapBuilder.build();
+            } catch (final StorageException e) {
+                throw new IOException("Filed to get list of files by path [" + path + "] "
+                        + "and prefix [" + prefix + "]", e);
             }
-            return mapBuilder.build();
         }
 
-        private Bucket getBucket() throws IOException {
+        private Bucket getBucket() {
             return client.get(bucketName);
         }
 
-        private Iterable<Blob> bucketBlobsIterator(final String path) throws IOException {
+        private Iterable<Blob> bucketBlobsIterator(final String path) {
             return getBucket()
                     .list(
                             Storage.BlobListOption.currentDirectory(),
                             Storage.BlobListOption.prefix(path)
                     ).iterateAll();
         }
-    }
-
-    @Override
-    public void close() throws IOException {
-        //do nothing here
     }
 
 }

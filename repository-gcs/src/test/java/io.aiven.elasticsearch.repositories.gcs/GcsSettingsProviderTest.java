@@ -139,7 +139,10 @@ class GcsSettingsProviderTest extends RsaKeyAwareTest {
                 "Cloud storage client haven't been configured",
                 e.getMessage());
 
-        final var anySettings = Settings.builder().put("foo", "bar").build();
+        final var noCredentialFileSettings =
+                Settings.builder()
+                        .setSecureSettings(createNoGcsCredentialFileSettings())
+                        .build();
         final var publicRsaKeyOnlySettings =
                 Settings.builder()
                         .setSecureSettings(createPublicRsaKeyOnlySecureSettings())
@@ -150,9 +153,9 @@ class GcsSettingsProviderTest extends RsaKeyAwareTest {
                         .build();
 
         e = assertThrows(IOException.class, () ->
-                gcsSettingsProvider.reload(GcsRepositoryPlugin.REPOSITORY_TYPE, anySettings));
+                gcsSettingsProvider.reload(GcsRepositoryPlugin.REPOSITORY_TYPE, noCredentialFileSettings));
         assertEquals(
-                "Settings with name aiven.gcs.public_key_file hasn't been set",
+                "Settings with name aiven.gcs.client.credentials_file hasn't been set",
                 e.getMessage());
 
         e = assertThrows(IOException.class, () ->
@@ -184,6 +187,12 @@ class GcsSettingsProviderTest extends RsaKeyAwareTest {
                         getClass().getClassLoader().getResourceAsStream("test_gcs_creds.json"))
                 .setFile(GcsStorageSettings.PRIVATE_KEY_FILE.getKey(), Files.newInputStream(privateKeyPem))
                 .setFile(GcsStorageSettings.PUBLIC_KEY_FILE.getKey(), Files.newInputStream(publicKeyPem));
+    }
+
+    private DummySecureSettings createNoGcsCredentialFileSettings() throws IOException {
+        return new DummySecureSettings()
+                .setFile(GcsStorageSettings.PUBLIC_KEY_FILE.getKey(), Files.newInputStream(publicKeyPem))
+                .setFile(GcsStorageSettings.PRIVATE_KEY_FILE.getKey(), Files.newInputStream(privateKeyPem));
     }
 
     private DummySecureSettings createPublicRsaKeyOnlySecureSettings() throws IOException {
