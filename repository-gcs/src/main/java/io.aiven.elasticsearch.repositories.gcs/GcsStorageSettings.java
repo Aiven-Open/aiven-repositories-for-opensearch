@@ -21,7 +21,6 @@ import java.io.InputStream;
 import java.util.concurrent.TimeUnit;
 
 import io.aiven.elasticsearch.repositories.CommonSettings;
-import io.aiven.elasticsearch.repositories.Permissions;
 
 import com.google.auth.oauth2.GoogleCredentials;
 import org.elasticsearch.common.settings.SecureSetting;
@@ -30,6 +29,7 @@ import org.elasticsearch.common.settings.Settings;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import static io.aiven.elasticsearch.repositories.CommonSettings.KeystoreSettings.checkSettings;
 import static io.aiven.elasticsearch.repositories.CommonSettings.KeystoreSettings.withPrefix;
 
 public class GcsStorageSettings implements CommonSettings.KeystoreSettings {
@@ -86,12 +86,9 @@ public class GcsStorageSettings implements CommonSettings.KeystoreSettings {
         if (settings.isEmpty()) {
             throw new IllegalArgumentException("Settings for GC storage hasn't been set");
         }
-        if (!PUBLIC_KEY_FILE.exists(settings)) {
-            throw new IllegalArgumentException("Settings with name " + PUBLIC_KEY_FILE.getKey() + " hasn't been set");
-        }
-        if (!PRIVATE_KEY_FILE.exists(settings)) {
-            throw new IllegalArgumentException("Settings with name " + PRIVATE_KEY_FILE.getKey() + " hasn't been set");
-        }
+        checkSettings(CREDENTIALS_FILE_SETTING, settings);
+        checkSettings(PUBLIC_KEY_FILE, settings);
+        checkSettings(PRIVATE_KEY_FILE, settings);
         return new GcsStorageSettings(
                 PUBLIC_KEY_FILE.get(settings),
                 PRIVATE_KEY_FILE.get(settings),
@@ -102,19 +99,9 @@ public class GcsStorageSettings implements CommonSettings.KeystoreSettings {
     }
 
     private static GoogleCredentials loadCredentials(final Settings settings) throws IOException {
-        return Permissions.doPrivileged(() -> {
-            try (final var in = getStreamFor(CREDENTIALS_FILE_SETTING, settings)) {
-                return GoogleCredentials.fromStream(in);
-            }
-        });
-    }
-
-    private static InputStream getStreamFor(final Setting<InputStream> setting, final Settings settings) {
-        if (setting.exists(settings)) {
-            LOGGER.info("Load settings with name: {}", setting.getKey());
-            return setting.get(settings);
+        try (final var in = CREDENTIALS_FILE_SETTING.get(settings)) {
+            return GoogleCredentials.fromStream(in);
         }
-        throw new IllegalArgumentException("Settings with name " + setting.getKey() + " hasn't been set");
     }
 
     public InputStream publicKey() {

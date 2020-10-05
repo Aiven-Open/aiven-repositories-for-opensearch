@@ -38,20 +38,19 @@ public class GcsSettingsProvider extends RepositorySettingsProvider<Storage> {
     @Override
     protected RepositoryStorageIOProvider<Storage> createRepositoryStorageIOProvider(final Settings settings)
             throws IOException {
-        final var gcsStorageSettings =
-                Permissions.doPrivileged(() -> GcsStorageSettings.create(settings));
-        final var encryptionKeyProvider =
-                Permissions.doPrivileged(() ->
-                        EncryptionKeyProvider.of(
-                                gcsStorageSettings.publicKey(),
-                                gcsStorageSettings.privateKey()
-                        )
-                );
-        final var client = Permissions.doPrivileged(() -> createGcsClient(gcsStorageSettings));
-        return new GcsRepositoryStorageIOProvider(client, encryptionKeyProvider);
+        return Permissions.doPrivileged(() -> {
+            final var gcsStorageSettings = GcsStorageSettings.create(settings);
+            final var encryptionKeyProvider =
+                    EncryptionKeyProvider.of(
+                            gcsStorageSettings.publicKey(),
+                            gcsStorageSettings.privateKey()
+                    );
+            final var client = createGcsClient(gcsStorageSettings);
+            return new GcsRepositoryStorageIOProvider(client, encryptionKeyProvider);
+        });
     }
 
-    private Storage createGcsClient(final GcsStorageSettings gcsStorageSettings) throws IOException {
+    private Storage createGcsClient(final GcsStorageSettings gcsStorageSettings) {
         final StorageOptions.Builder storageOptionsBuilder = StorageOptions.newBuilder();
         if (!Strings.isNullOrEmpty(gcsStorageSettings.projectId())) {
             storageOptionsBuilder.setProjectId(gcsStorageSettings.projectId());

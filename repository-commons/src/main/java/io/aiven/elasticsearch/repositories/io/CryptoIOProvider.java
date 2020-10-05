@@ -36,7 +36,7 @@ public class CryptoIOProvider implements Encryption, Decryption {
 
     static final String CIPHER_TRANSFORMATION = "AES/CTR/NoPadding";
 
-    static final int ENCODED_PARAMETERS_LENGTH = 16;
+    static final int NONCE_LENGTH = 16;
 
     private final SecretKey encryptionKey;
 
@@ -57,7 +57,7 @@ public class CryptoIOProvider implements Encryption, Decryption {
     public InputStream decryptAndDecompress(final InputStream in) throws IOException {
         final var cipher = createDecryptingCipher(
                 encryptionKey,
-                new IvParameterSpec(in.readNBytes(ENCODED_PARAMETERS_LENGTH)),
+                new IvParameterSpec(in.readNBytes(NONCE_LENGTH)),
                 CIPHER_TRANSFORMATION);
         return new ZstdInputStream(new CipherInputStream(in, cipher));
     }
