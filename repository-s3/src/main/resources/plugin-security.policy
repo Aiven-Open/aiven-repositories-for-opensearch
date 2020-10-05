@@ -1,0 +1,15 @@
+grant {
+
+  permission java.lang.RuntimePermission "accessDeclaredMembers";
+
+  permission java.lang.RuntimePermission "getClassLoader";
+
+  permission java.lang.RuntimePermission "loadLibrary.*";
+
+  permission java.lang.reflect.ReflectPermission "suppressAccessChecks";
+
+  permission java.net.SocketPermission "*", "connect,resolve";
+
+  permission java.security.SecurityPermission "putProviderProperty.BC";
+
+};

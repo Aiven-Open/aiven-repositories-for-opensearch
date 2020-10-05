@@ -70,7 +70,7 @@ public abstract class RepositoryStorageIOProvider<C>
             final var repositoryMetadataFilePath = basePath + REPOSITORY_METADATA_FILE_NAME;
             final var encKeyRepoMetadata =
                     // restore a repository metadata file which contains the encryption key
-                    // which encrypted without compression and use different Cipher compare to
+                    // encrypted without compression and use different Cipher compare to
                     // regular backup files, that's why CryptoIOProvider reads/writes directly to
                     // the storage without compression and encryption, and it doesn't use encryption key and buffer size
                     createStorageIOFor(repositorySettings, new CryptoIOProvider(null, 0) {

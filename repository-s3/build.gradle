@@ -1,0 +1,112 @@
+/*
+ * Copyright 2020 Aiven Oy
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+ext {
+    awsVerison = "1.11.882"
+}
+
+dependencies {
+    compile project(':repository-commons')
+
+    implementation ("com.amazonaws:aws-java-sdk-s3:$awsVerison") {
+        exclude group: "com.fasterxml.jackson.core", module: "jackson-core"
+        exclude group: "com.fasterxml.jackson.dataformat", module: "jackson-dataformat-cbor"
+        exclude group: "joda-time", module: "joda-time"
+    }
+
+
+    testCompile project(':repository-commons').sourceSets.test.output
+    testCompile project(':repository-commons').sourceSets.integrationTest.java
+
+    integrationTestImplementation "com.amazonaws:aws-java-sdk-s3:$awsVerison"
+
+    integrationTestImplementation project(':repository-commons').sourceSets.integrationTest.output
+}
+
+publishing {
+    publications {
+        maven(MavenPublication) {
+            // Defaults, for clarity
+            groupId = getGroup()
+            artifactId = getName()
+            version = getVersion()
+
+            pom {
+                name = "Aiven AWS S3 repository plugin"
+                description = "Aiven AWS S3 repository plugin"
+                url = "https://aiven.io"
+                organization {
+                    name = "Aiven Oy"
+                    url = "https://aiven.io"
+                }
+                licenses {
+                    license {
+                        name = "Apache License 2.0"
+                        url = "http://www.apache.org/licenses/LICENSE-2.0.html"
+                        distribution = "repo"
+                    }
+                }
+                scm {
+                    connection = "scm:git:git@github.com:aiven/aiven-elasticsearch-repositories.git"
+                    developerConnection = "scm:git:git@github.com:aiven/aiven-elasticsearch-repositories.git"
+                    url = "https://github.com/aiven/aiven-elasticsearch-repositories.git"
+                    tag = "HEAD"
+                }
+            }
+        }
+    }
+}
+
+task integrationTest(type: Test) {
+    description = 'Runs Aiven S3 storage plugin integration test'
+    group = 'verification'
+    testClassesDirs = sourceSets.integrationTest.output.classesDirs
+    classpath = sourceSets.integrationTest.runtimeClasspath
+
+    dependsOn test, distTar
+
+    useJUnitPlatform()
+
+    // Run always.
+    outputs.upToDateWhen { false }
+
+    //set bucket name
+    if (project.hasProperty("awsS3Bucket")) {
+        systemProperty("integration-test.s3.bucket.name", project.findProperty("awsS3Bucket"))
+    }
+    // Pass the S3 credentials to the test
+    if (project.hasProperty("awsSecretAccessKey")) {
+        systemProperty("integration-test.aws.secret.key", project.findProperty("awsSecretAccessKey"))
+    }
+    if (project.hasProperty("awsAccessKeyId")) {
+        systemProperty("integration-test.aws.secret.id", project.findProperty("awsAccessKeyId"))
+    }
+    if (project.hasProperty("awsEndpoint")) {
+        systemProperty("integration-test.aws.endpoint", project.findProperty("awsEndpoint"))
+    }
+
+    doFirst {
+        assert project.findProperty("awsS3Bucket") != null
+        assert project.findProperty("awsAccessKeyId") != null
+        assert project.findProperty("awsSecretAccessKey") != null
+        assert project.findProperty("awsEndpoint") != null
+
+        assert !(project.findProperty("awsS3Bucket").allWhitespace)
+        assert !(project.findProperty("awsSecretAccessKey").allWhitespace)
+        assert !(project.findProperty("awsAccessKeyId").allWhitespace)
+        assert !(project.findProperty("awsEndpoint").allWhitespace)
+    }
+}
