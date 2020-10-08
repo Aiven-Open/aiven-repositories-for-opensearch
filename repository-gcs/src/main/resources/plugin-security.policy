@@ -1,5 +1,7 @@
 grant {
+
   permission java.lang.RuntimePermission "accessDeclaredMembers";
+
   permission java.lang.RuntimePermission "loadLibrary.*";
 
   permission java.lang.reflect.ReflectPermission "suppressAccessChecks";
