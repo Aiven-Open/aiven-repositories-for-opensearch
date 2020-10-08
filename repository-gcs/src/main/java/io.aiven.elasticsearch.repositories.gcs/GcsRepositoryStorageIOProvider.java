@@ -18,13 +18,16 @@ package io.aiven.elasticsearch.repositories.gcs;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.nio.ByteBuffer;
 import java.nio.channels.Channels;
+import java.nio.channels.WritableByteChannel;
 import java.nio.file.FileAlreadyExistsException;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.atomic.AtomicReference;
 
+import io.aiven.elasticsearch.repositories.Permissions;
 import io.aiven.elasticsearch.repositories.RepositoryStorageIOProvider;
 import io.aiven.elasticsearch.repositories.io.CryptoIOProvider;
 import io.aiven.elasticsearch.repositories.security.EncryptionKeyProvider;
@@ -113,7 +116,22 @@ public class GcsRepositoryStorageIOProvider
                         ? new Storage.BlobWriteOption[]{Storage.BlobWriteOption.doesNotExist()}
                         : new Storage.BlobWriteOption[0];
                 final var writeChannel = client.writer(blobInfo, writeOptions);
-                cryptoIOProvider.compressAndEncrypt(inputStream, Channels.newOutputStream(writeChannel));
+                cryptoIOProvider.compressAndEncrypt(inputStream, Channels.newOutputStream(new WritableByteChannel() {
+                    @Override
+                    public int write(final ByteBuffer src) throws IOException {
+                        return Permissions.doPrivileged(() -> writeChannel.write(src));
+                    }
+
+                    @Override
+                    public boolean isOpen() {
+                        return writeChannel.isOpen();
+                    }
+
+                    @Override
+                    public void close() throws IOException {
+                        Permissions.doPrivileged(writeChannel::close);
+                    }
+                }));
             } catch (final StorageException ex) {
                 if (failIfAlreadyExists && ex.getCode() == HTTP_PRECON_FAILED) {
                     throw new FileAlreadyExistsException(blobInfo.getBlobId().getName(), null, ex.getMessage());
