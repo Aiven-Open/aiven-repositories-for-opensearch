@@ -88,7 +88,7 @@ public class GcsRepositoryStorageIOProvider
         public boolean exists(final String blobName) throws IOException {
             try {
                 final BlobId blobId = BlobId.of(bucketName, blobName);
-                final Blob blob = client.get(blobId);
+                final Blob blob = Permissions.doPrivileged(() -> client.get(blobId));
                 return blob != null;
             } catch (final Exception e) {
                 throw new BlobStoreException("Failed to check if blob [" + blobName + "] exists", e);
@@ -97,12 +97,14 @@ public class GcsRepositoryStorageIOProvider
 
         @Override
         public InputStream read(final String blobName) throws IOException {
-            try {
-                final var reader = client.reader(BlobId.of(bucketName, blobName));
-                return cryptoIOProvider.decryptAndDecompress(Channels.newInputStream(reader));
-            } catch (final StorageException e) {
-                throw new IOException("Failed to read blob [" + blobName + "]");
-            }
+            return Permissions.doPrivileged(() -> {
+                try {
+                    final var reader = client.reader(BlobId.of(bucketName, blobName));
+                    return cryptoIOProvider.decryptAndDecompress(Channels.newInputStream(reader));
+                } catch (final StorageException e) {
+                    throw new IOException("Failed to read blob [" + blobName + "]");
+                }
+            });
         }
 
         @Override
@@ -115,23 +117,28 @@ public class GcsRepositoryStorageIOProvider
                 final var writeOptions = failIfAlreadyExists
                         ? new Storage.BlobWriteOption[]{Storage.BlobWriteOption.doesNotExist()}
                         : new Storage.BlobWriteOption[0];
-                final var writeChannel = client.writer(blobInfo, writeOptions);
-                cryptoIOProvider.compressAndEncrypt(inputStream, Channels.newOutputStream(new WritableByteChannel() {
-                    @Override
-                    public int write(final ByteBuffer src) throws IOException {
-                        return Permissions.doPrivileged(() -> writeChannel.write(src));
-                    }
+                Permissions.doPrivileged(() -> {
+                    final var writeChannel = client.writer(blobInfo, writeOptions);
+                    cryptoIOProvider.compressAndEncrypt(
+                            inputStream,
+                            Channels.newOutputStream(new WritableByteChannel() {
+                                @Override
+                                public int write(final ByteBuffer src) throws IOException {
+                                    return Permissions.doPrivileged(() -> writeChannel.write(src));
+                                }
 
-                    @Override
-                    public boolean isOpen() {
-                        return writeChannel.isOpen();
-                    }
+                                @Override
+                                public boolean isOpen() {
+                                    return writeChannel.isOpen();
+                                }
 
-                    @Override
-                    public void close() throws IOException {
-                        Permissions.doPrivileged(writeChannel::close);
-                    }
-                }));
+                                @Override
+                                public void close() throws IOException {
+                                    Permissions.doPrivileged(writeChannel::close);
+                                }
+                            })
+                    );
+                });
             } catch (final StorageException ex) {
                 if (failIfAlreadyExists && ex.getCode() == HTTP_PRECON_FAILED) {
                     throw new FileAlreadyExistsException(blobInfo.getBlobId().getName(), null, ex.getMessage());
@@ -143,7 +150,8 @@ public class GcsRepositoryStorageIOProvider
         @Override
         public Tuple<Integer, Long> deleteDirectories(final String path) throws IOException {
             try {
-                var page = getBucket().list(Storage.BlobListOption.prefix(path));
+                var page =
+                        Permissions.doPrivileged(() -> getBucket().list(Storage.BlobListOption.prefix(path)));
                 var deletedBlobs = 0;
                 var deletedBytes = 0L;
                 do {
@@ -165,34 +173,36 @@ public class GcsRepositoryStorageIOProvider
 
         @Override
         public void deleteFiles(final List<String> blobNames, final boolean ignoreIfNotExists) throws IOException {
-            try {
-                final var storageBatch = client.batch();
-                final var storageExceptionHandler = new AtomicReference<StorageException>();
-                blobNames.forEach(name ->
-                        storageBatch
-                                .delete(BlobId.of(bucketName, name))
-                                .notify(new BatchResult.Callback<>() {
-                                    @Override
-                                    public void success(final Boolean result) {
-                                    }
-
-                                    @Override
-                                    public void error(final StorageException exception) {
-                                        LOGGER.warn("Couldn't delete blob: {}", name, exception);
-                                        if (!storageExceptionHandler.compareAndSet(null, exception)) {
-                                            storageExceptionHandler.get().addSuppressed(exception);
+            Permissions.doPrivileged(() -> {
+                try {
+                    final var storageBatch = client.batch();
+                    final var storageExceptionHandler = new AtomicReference<StorageException>();
+                    blobNames.forEach(name ->
+                            storageBatch
+                                    .delete(BlobId.of(bucketName, name))
+                                    .notify(new BatchResult.Callback<>() {
+                                        @Override
+                                        public void success(final Boolean result) {
                                         }
-                                    }
 
-                                })
-                );
-                storageBatch.submit();
-                if (Objects.nonNull(storageExceptionHandler.get())) {
-                    throw storageExceptionHandler.get();
+                                        @Override
+                                        public void error(final StorageException exception) {
+                                            LOGGER.warn("Couldn't delete blob: {}", name, exception);
+                                            if (!storageExceptionHandler.compareAndSet(null, exception)) {
+                                                storageExceptionHandler.get().addSuppressed(exception);
+                                            }
+                                        }
+
+                                    })
+                    );
+                    storageBatch.submit();
+                    if (Objects.nonNull(storageExceptionHandler.get())) {
+                        throw storageExceptionHandler.get();
+                    }
+                } catch (final StorageException e) {
+                    throw new IOException("Filed to delete blobs [" + blobNames + "]", e);
                 }
-            } catch (final StorageException e) {
-                throw new IOException("Filed to delete blobs [" + blobNames + "]", e);
-            }
+            });
         }
 
         @Override
@@ -235,12 +245,12 @@ public class GcsRepositoryStorageIOProvider
             return client.get(bucketName);
         }
 
-        private Iterable<Blob> bucketBlobsIterator(final String path) {
-            return getBucket()
+        private Iterable<Blob> bucketBlobsIterator(final String path) throws IOException {
+            return Permissions.doPrivileged(() -> getBucket()
                     .list(
                             Storage.BlobListOption.currentDirectory(),
                             Storage.BlobListOption.prefix(path)
-                    ).iterateAll();
+                    ).iterateAll());
         }
     }
 
