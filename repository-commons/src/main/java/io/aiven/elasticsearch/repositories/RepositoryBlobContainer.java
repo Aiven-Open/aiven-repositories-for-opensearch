@@ -50,7 +50,7 @@ public class RepositoryBlobContainer extends AbstractBlobContainer {
     public boolean blobExists(final String blobName) throws IOException {
         try {
             logger.info("Check existing blob: {}", blobPath(blobName));
-            return Permissions.doPrivileged(() -> storageIO.exists(blobPath(blobName)));
+            return storageIO.exists(blobPath(blobName));
         } catch (final Exception e) {
             throw new BlobStoreException("Failed to check if blob [" + blobName + "] exists", e);
         }
@@ -59,7 +59,7 @@ public class RepositoryBlobContainer extends AbstractBlobContainer {
     @Override
     public InputStream readBlob(final String blobName) throws IOException {
         logger.info("Read blob: {}", blobPath(blobName));
-        return Permissions.doPrivileged(() -> storageIO.read(blobPath(blobName)));
+        return storageIO.read(blobPath(blobName));
     }
 
     @Override
@@ -83,15 +83,14 @@ public class RepositoryBlobContainer extends AbstractBlobContainer {
                           final long blobSize,
                           final boolean failIfAlreadyExists) throws IOException {
         logger.info("Write blob: {}", blobPath(blobName));
-        Permissions.doPrivileged(() -> storageIO
-                .write(blobPath(blobName), inputStream, blobSize, failIfAlreadyExists));
+        storageIO.write(blobPath(blobName), inputStream, blobSize, failIfAlreadyExists);
     }
 
     @Override
     public DeleteResult delete() throws IOException {
         logger.info("Delete: {}", path().buildAsString());
         final var result =
-                Permissions.doPrivileged(() -> storageIO.deleteDirectories(path().buildAsString()));
+                storageIO.deleteDirectories(path().buildAsString());
         return new DeleteResult(result.v1(), result.v2());
     }
 
@@ -105,13 +104,13 @@ public class RepositoryBlobContainer extends AbstractBlobContainer {
                         .map(this::blobPath)
                         .collect(Collectors.toUnmodifiableList());
         logger.info("Delete blobs: {}", blobLists);
-        Permissions.doPrivileged(() -> storageIO.deleteFiles(blobLists, true));
+        storageIO.deleteFiles(blobLists, true);
     }
 
     @Override
     public Map<String, BlobContainer> children() throws IOException {
         logger.info("Children for: {}", path().buildAsString());
-        return Permissions.doPrivileged(() -> storageIO.listDirectories(path().buildAsString()))
+        return storageIO.listDirectories(path().buildAsString())
                 .stream()
                 .map(d -> new AbstractMap.SimpleEntry<String, BlobContainer>(
                         d,
@@ -128,8 +127,8 @@ public class RepositoryBlobContainer extends AbstractBlobContainer {
     @Override
     public Map<String, BlobMetadata> listBlobsByPrefix(final String blobNamePrefix) throws IOException {
         logger.info("List of blobs by {}", blobNamePrefix);
-        return Permissions.doPrivileged(() -> storageIO
-                .listFiles(path().buildAsString(), blobNamePrefix))
+        return storageIO
+                .listFiles(path().buildAsString(), blobNamePrefix)
                 .entrySet().stream()
                 .map(e -> new AbstractMap.SimpleEntry<>(e.getKey(), new PlainBlobMetadata(e.getKey(), e.getValue())))
                 .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
