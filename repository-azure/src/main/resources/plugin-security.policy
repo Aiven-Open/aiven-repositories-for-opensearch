@@ -1,0 +1,19 @@
+grant {
+
+  permission java.lang.reflect.ReflectPermission "newProxyInPackage.com.azure.storage.blob.implementation";
+
+  permission java.security.SecurityPermission "putProviderProperty.BC";
+
+  permission java.net.NetPermission "getProxySelector";
+
+  permission java.lang.reflect.ReflectPermission "suppressAccessChecks";
+
+  permission java.lang.RuntimePermission "getClassLoader";
+
+  permission java.lang.RuntimePermission "accessDeclaredMembers";
+
+  permission java.lang.RuntimePermission "loadLibrary.*";
+
+  permission java.net.SocketPermission "*", "connect,resolve";
+
+};
