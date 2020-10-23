@@ -31,8 +31,8 @@ allprojects {
 
     ext {
         slf4jVersion = "1.7.30"
-        elasticVersion = "7.9.1"
-        elasticClusterRunnerVersion = "7.9.1.0"
+        elasticVersion = "7.9.3"
+        elasticClusterRunnerVersion = "7.9.3.0"
         // since jackson-core is in the main classpath
         // plz keep the same version as for elasticsearch
         jacksonDatabind = "2.10.4"
