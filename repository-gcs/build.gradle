@@ -15,7 +15,7 @@
  */
 
 ext {
-    gcsVerison = "1.111.2"
+    gcsVerison = "1.113.1"
 }
 
 dependencies {
