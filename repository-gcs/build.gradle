@@ -25,9 +25,11 @@ dependencies {
         exclude group: "com.fasterxml.jackson.core", module: "jackson-core"
     }
 
-    integrationTestImplementation "com.google.cloud:google-cloud-storage:$gcsVerison"
-
     testCompile project(':repository-commons').sourceSets.test.output
+    testCompile project(':repository-commons').sourceSets.integrationTest.java
+
+    integrationTestImplementation "com.google.cloud:google-cloud-storage:$gcsVerison"
+    integrationTestImplementation project(':repository-commons').sourceSets.integrationTest.output
 }
 
 publishing {
@@ -78,20 +80,20 @@ task integrationTest(type: Test) {
     outputs.upToDateWhen { false }
 
     //set bucket name
-    if (project.hasProperty('testGcsBucket')) {
-        systemProperty("integration-test.gcs.bucket.name", project.findProperty('testGcsBucket'));
+    if (project.hasProperty('gcsBucketName')) {
+        systemProperty("integration-test.gcs.bucket.name", project.findProperty('gcsBucketName'));
     }
 
     // Pass the GCS credentials path to the tests.
     if (project.hasProperty('gcsCredentialsPath')) {
         systemProperty("integration-test.gcs.credentials.path", project.findProperty('gcsCredentialsPath'))
     }
-    // Pass the GCS bucket name to the tests.
-    systemProperty("integration-test.gcs.bucket", project.findProperty('testGcsBucket'))
-
     doFirst {
-        assert project.findProperty('testGcsBucket') != null
-        assert !(project.findProperty('testGcsBucket').allWhitespace)
+        assert project.findProperty('gcsBucketName') != null
+        assert !(project.findProperty('gcsBucketName').allWhitespace)
+
+        assert project.findProperty('gcsCredentialsPath') != null
+        assert !(project.findProperty('gcsCredentialsPath').allWhitespace)
     }
 }
 
