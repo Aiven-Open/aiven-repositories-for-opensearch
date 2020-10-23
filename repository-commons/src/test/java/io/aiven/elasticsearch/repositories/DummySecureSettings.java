@@ -24,6 +24,8 @@ import java.security.GeneralSecurityException;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import org.elasticsearch.common.settings.SecureSettings;
 import org.elasticsearch.common.settings.SecureString;
@@ -32,6 +34,8 @@ public class DummySecureSettings implements SecureSettings {
 
     private Map<String, byte[]> files = new HashMap<>();
 
+    private Map<String, String> values = new HashMap<>();
+
     @Override
     public boolean isLoaded() {
         return true;
@@ -39,7 +43,12 @@ public class DummySecureSettings implements SecureSettings {
 
     @Override
     public Set<String> getSettingNames() {
-        return files.keySet();
+        return Stream.concat(files.keySet().stream(), values.keySet().stream()).collect(Collectors.toSet());
+    }
+
+    public DummySecureSettings setString(final String name, final String value) {
+        values.put(name, value);
+        return this;
     }
 
     public DummySecureSettings setFile(final String setting,
@@ -54,7 +63,7 @@ public class DummySecureSettings implements SecureSettings {
 
     @Override
     public SecureString getString(final String setting) throws GeneralSecurityException {
-        return null;
+        return new SecureString(values.get(setting).toCharArray());
     }
 
     @Override
