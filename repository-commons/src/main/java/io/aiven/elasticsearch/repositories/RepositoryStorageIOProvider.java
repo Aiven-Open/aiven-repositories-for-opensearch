@@ -48,8 +48,6 @@ public abstract class RepositoryStorageIOProvider<C>
 
     protected final C client;
 
-    private SecretKey encryptionKey;
-
     private final EncryptionKeyProvider encryptionKeyProvider;
 
     public RepositoryStorageIOProvider(final C client,
@@ -60,44 +58,44 @@ public abstract class RepositoryStorageIOProvider<C>
 
     public StorageIO createStorageIO(final String basePath, final Settings repositorySettings) throws IOException {
         final var bufferSize = Math.toIntExact(BUFFER_SIZE_SETTING.get(repositorySettings).getBytes());
-        Permissions.doPrivileged(() -> createOrRestoreEncryptionKey(basePath, repositorySettings));
+        final var encryptionKey =
+                Permissions.doPrivileged(() -> createOrRestoreEncryptionKey(basePath, repositorySettings));
         return createStorageIOFor(repositorySettings, new CryptoIOProvider(encryptionKey, bufferSize));
     }
 
-    private void createOrRestoreEncryptionKey(final String basePath,
-                                              final Settings repositorySettings) throws IOException {
-        if (Objects.isNull(encryptionKey)) {
-            final var repositoryMetadataFilePath = basePath + REPOSITORY_METADATA_FILE_NAME;
-            final var encKeyRepoMetadata =
-                    // restore a repository metadata file which contains the encryption key
-                    // encrypted without compression and use different Cipher compare to
-                    // regular backup files, that's why CryptoIOProvider reads/writes directly to
-                    // the storage without compression and encryption, and it doesn't use encryption key and buffer size
-                    createStorageIOFor(repositorySettings, new CryptoIOProvider(null, 0) {
-                        @Override
-                        public long compressAndEncrypt(final InputStream in,
-                                                       final OutputStream out) throws IOException {
-                            return Streams.copy(in, out);
-                        }
+    private SecretKey createOrRestoreEncryptionKey(final String basePath,
+                                                   final Settings repositorySettings) throws IOException {
+        final var repositoryMetadataFilePath = basePath + REPOSITORY_METADATA_FILE_NAME;
+        final var encKeyRepoMetadata =
+                // restore a repository metadata file which contains the encryption key
+                // encrypted without compression and use different Cipher compare to
+                // regular backup files, that's why CryptoIOProvider reads/writes directly to
+                // the storage without compression and encryption, and it doesn't use encryption key and buffer size
+                createStorageIOFor(repositorySettings, new CryptoIOProvider(null, 0) {
+                    @Override
+                    public long compressAndEncrypt(final InputStream in,
+                                                   final OutputStream out) throws IOException {
+                        return Streams.copy(in, out);
+                    }
 
-                        @Override
-                        public InputStream decryptAndDecompress(final InputStream in) throws IOException {
-                            return in;
-                        }
+                    @Override
+                    public InputStream decryptAndDecompress(final InputStream in) throws IOException {
+                        return in;
+                    }
 
-                    });
-            final var repositoryMetadata = new EncryptedRepositoryMetadata(encryptionKeyProvider);
-            if (encKeyRepoMetadata.exists(repositoryMetadataFilePath)) {
-                LOGGER.info("Restore encryption key for repository. Path: {}", repositoryMetadataFilePath);
-                final var in = encKeyRepoMetadata.read(repositoryMetadataFilePath);
-                encryptionKey = repositoryMetadata.deserialize(in.readAllBytes());
-            } else {
-                LOGGER.info("Create new encryption key for repository. Path: {}", repositoryMetadataFilePath);
-                encryptionKey = encryptionKeyProvider.createKey();
-                final var repoMetadata = repositoryMetadata.serialize(encryptionKey);
-                encKeyRepoMetadata.write(repositoryMetadataFilePath, new ByteArrayInputStream(repoMetadata),
-                        repoMetadata.length, true);
-            }
+                });
+        final var repositoryMetadata = new EncryptedRepositoryMetadata(encryptionKeyProvider);
+        if (encKeyRepoMetadata.exists(repositoryMetadataFilePath)) {
+            LOGGER.info("Restore encryption key for repository. Path: {}", repositoryMetadataFilePath);
+            final var in = encKeyRepoMetadata.read(repositoryMetadataFilePath);
+            return repositoryMetadata.deserialize(in.readAllBytes());
+        } else {
+            LOGGER.info("Create new encryption key for repository. Path: {}", repositoryMetadataFilePath);
+            final var encryptionKey = encryptionKeyProvider.createKey();
+            final var repoMetadata = repositoryMetadata.serialize(encryptionKey);
+            encKeyRepoMetadata.write(repositoryMetadataFilePath, new ByteArrayInputStream(repoMetadata),
+                    repoMetadata.length, true);
+            return encryptionKey;
         }
     }
 
