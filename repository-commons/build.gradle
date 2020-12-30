@@ -15,7 +15,7 @@
  */
 
 ext {
-    zstdVersion = "1.4.5-6"
+    zstdVersion = "1.4.5-12"
     bcVersion = "1.65"
 }
 
