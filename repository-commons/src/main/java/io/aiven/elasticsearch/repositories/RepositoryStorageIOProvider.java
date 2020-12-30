@@ -75,22 +75,23 @@ public abstract class RepositoryStorageIOProvider<C>
                     // the storage without compression and encryption, and it doesn't use encryption key and buffer size
                     createStorageIOFor(repositorySettings, new CryptoIOProvider(null, 0) {
                         @Override
-                        public long compressAndEncrypt(final InputStream in,
-                                                       final OutputStream out) throws IOException {
-                            return Streams.copy(in, out);
+                        public InputStream decryptAndDecompress(final InputStream in) throws IOException {
+                            return in;
                         }
 
                         @Override
-                        public InputStream decryptAndDecompress(final InputStream in) throws IOException {
-                            return in;
+                        public long compressAndEncrypt(final InputStream in,
+                                                       final OutputStream out) throws IOException {
+                            return Streams.copy(in, out);
                         }
 
                     });
             final var repositoryMetadata = new EncryptedRepositoryMetadata(encryptionKeyProvider);
             if (encKeyRepoMetadata.exists(repositoryMetadataFilePath)) {
                 LOGGER.info("Restore encryption key for repository. Path: {}", repositoryMetadataFilePath);
-                final var in = encKeyRepoMetadata.read(repositoryMetadataFilePath);
-                encryptionKey = repositoryMetadata.deserialize(in.readAllBytes());
+                try (final var in = encKeyRepoMetadata.read(repositoryMetadataFilePath)) {
+                    encryptionKey = repositoryMetadata.deserialize(in.readAllBytes());
+                }
             } else {
                 LOGGER.info("Create new encryption key for repository. Path: {}", repositoryMetadataFilePath);
                 encryptionKey = encryptionKeyProvider.createKey();
