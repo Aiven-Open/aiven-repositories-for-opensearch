@@ -46,7 +46,11 @@ public abstract class AbstractRepositoryPlugin<C>
     private final Set<String> pluginSettingKeys;
 
     static {
-        Security.addProvider(new BouncyCastleProvider());
+        try {
+            Permissions.doPrivileged(() -> Security.addProvider(new BouncyCastleProvider()));
+        } catch (final IOException e) {
+            throw new RuntimeException(e);
+        }
     }
 
     protected AbstractRepositoryPlugin(final String repositoryType,
