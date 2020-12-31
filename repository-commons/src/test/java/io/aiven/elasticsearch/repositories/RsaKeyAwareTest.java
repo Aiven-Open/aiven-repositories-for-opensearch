@@ -23,7 +23,9 @@ import java.nio.file.Paths;
 import java.security.KeyPair;
 import java.security.KeyPairGenerator;
 import java.security.NoSuchAlgorithmException;
+import java.security.NoSuchProviderException;
 import java.security.SecureRandom;
+import java.security.Security;
 import java.security.spec.EncodedKeySpec;
 import java.security.spec.PKCS8EncodedKeySpec;
 import java.security.spec.X509EncodedKeySpec;
@@ -42,9 +44,14 @@ public abstract class RsaKeyAwareTest {
 
     public static Path privateKeyPem;
 
+    static {
+        Security.addProvider(new BouncyCastleProvider());
+    }
+
     @BeforeAll
-    static void generateRsaKeyPair(@TempDir final Path tmpFolder) throws NoSuchAlgorithmException, IOException {
-        final var keyPair = KeyPairGenerator.getInstance("RSA", new BouncyCastleProvider());
+    static void generateRsaKeyPair(@TempDir final Path tmpFolder)
+            throws NoSuchAlgorithmException, IOException, NoSuchProviderException {
+        final var keyPair = KeyPairGenerator.getInstance("RSA", "BC");
         keyPair.initialize(2048, SecureRandom.getInstanceStrong());
         rsaKeyPair = keyPair.generateKeyPair();
 

@@ -25,10 +25,10 @@ import javax.crypto.spec.SecretKeySpec;
 import java.io.InputStream;
 import java.security.KeyPair;
 import java.security.NoSuchAlgorithmException;
+import java.security.NoSuchProviderException;
 import java.security.SecureRandom;
 import java.util.Objects;
 
-import org.bouncycastle.jce.provider.BouncyCastleProvider;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -58,10 +58,10 @@ public final class EncryptionKeyProvider
         Objects.requireNonNull(rsaPrivateKey, "rsaPrivateKey hasn't been set");
         try {
             final var rsaKeyPair = RsaKeysReader.readRsaKeyPair(rsaPublicKey, rsaPrivateKey);
-            final var kg = KeyGenerator.getInstance("AES", new BouncyCastleProvider());
+            final var kg = KeyGenerator.getInstance("AES", "BC");
             kg.init(KEY_SIZE, SecureRandom.getInstanceStrong());
             return new EncryptionKeyProvider(rsaKeyPair, kg);
-        } catch (final NoSuchAlgorithmException e) {
+        } catch (final NoSuchAlgorithmException | NoSuchProviderException e) {
             throw new RuntimeException("Couldn't create encrypt key provider", e);
         }
     }
