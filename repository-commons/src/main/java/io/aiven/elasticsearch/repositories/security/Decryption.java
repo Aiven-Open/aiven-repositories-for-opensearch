@@ -23,11 +23,10 @@ import java.security.InvalidAlgorithmParameterException;
 import java.security.InvalidKeyException;
 import java.security.Key;
 import java.security.NoSuchAlgorithmException;
+import java.security.NoSuchProviderException;
 import java.security.SecureRandom;
 import java.security.spec.AlgorithmParameterSpec;
 import java.util.Objects;
-
-import org.bouncycastle.jce.provider.BouncyCastleProvider;
 
 public interface Decryption {
 
@@ -42,7 +41,7 @@ public interface Decryption {
         Objects.requireNonNull(key, "key hasn't been set");
         Objects.requireNonNull(transformation, "transformation hasn't been set");
         try {
-            final var cipher = Cipher.getInstance(transformation, new BouncyCastleProvider());
+            final var cipher = Cipher.getInstance(transformation, "BC");
             if (Objects.nonNull(params)) {
                 cipher.init(
                         Cipher.DECRYPT_MODE,
@@ -56,8 +55,11 @@ public interface Decryption {
                         SecureRandom.getInstanceStrong());
             }
             return cipher;
-        } catch (final NoSuchAlgorithmException | NoSuchPaddingException
-                | InvalidKeyException | InvalidAlgorithmParameterException e) {
+        } catch (final NoSuchAlgorithmException
+                | NoSuchPaddingException
+                | InvalidKeyException
+                | InvalidAlgorithmParameterException
+                | NoSuchProviderException e) {
             throw new RuntimeException("Couldn't create decrypt cipher", e);
         }
     }

@@ -22,10 +22,9 @@ import javax.crypto.NoSuchPaddingException;
 import java.security.InvalidKeyException;
 import java.security.Key;
 import java.security.NoSuchAlgorithmException;
+import java.security.NoSuchProviderException;
 import java.security.SecureRandom;
 import java.util.Objects;
-
-import org.bouncycastle.jce.provider.BouncyCastleProvider;
 
 public interface Encryption {
 
@@ -34,14 +33,16 @@ public interface Encryption {
         Objects.requireNonNull(key, "key hasn't been set");
         Objects.requireNonNull(transformation, "transformation hasn't been set");
         try {
-            final var cipher = Cipher.getInstance(transformation, new BouncyCastleProvider());
+            final var cipher = Cipher.getInstance(transformation, "BC");
             cipher.init(
                     Cipher.ENCRYPT_MODE,
                     key,
                     SecureRandom.getInstanceStrong());
             return cipher;
-        } catch (final NoSuchAlgorithmException | NoSuchPaddingException
-                | InvalidKeyException e) {
+        } catch (final NoSuchAlgorithmException
+                | NoSuchPaddingException
+                | InvalidKeyException
+                | NoSuchProviderException e) {
             throw new RuntimeException("Couldn't create encrypt cipher", e);
         }
     }

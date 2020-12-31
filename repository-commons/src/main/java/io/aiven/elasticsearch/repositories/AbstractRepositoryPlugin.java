@@ -18,10 +18,12 @@ package io.aiven.elasticsearch.repositories;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
+import java.security.Security;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 
+import org.bouncycastle.jce.provider.BouncyCastleProvider;
 import org.elasticsearch.cluster.metadata.RepositoryMetadata;
 import org.elasticsearch.cluster.service.ClusterService;
 import org.elasticsearch.common.settings.Setting;
@@ -42,6 +44,10 @@ public abstract class AbstractRepositoryPlugin<C>
     private final RepositorySettingsProvider<C> repositorySettingsProvider;
 
     private final Set<String> pluginSettingKeys;
+
+    static {
+        Security.addProvider(new BouncyCastleProvider());
+    }
 
     protected AbstractRepositoryPlugin(final String repositoryType,
                                        final Settings settings,
