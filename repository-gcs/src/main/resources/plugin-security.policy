@@ -9,6 +9,8 @@ grant {
   permission java.net.SocketPermission "*", "connect,resolve";
 
   permission java.security.SecurityPermission "putProviderProperty.BC";
+  
+  permission java.security.SecurityPermission "insertProvider.BC";
 
   permission java.io.FilePermission "<<ALL FILES>>", "read";
 };
