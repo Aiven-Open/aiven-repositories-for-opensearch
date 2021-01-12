@@ -13,8 +13,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-rootProject.name = 'aiven-elasticsearch-repositories'
+rootProject.name = "aiven-elasticsearch-repositories"
 
-include 'repository-commons'
-include 'repository-gcs'
-include 'repository-s3'
+include "repository-commons"
+include "repository-gcs"
+include "repository-s3"
+include "repository-azure"
