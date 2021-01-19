@@ -32,8 +32,8 @@ import io.aiven.elasticsearch.repositories.metadata.EncryptedRepositoryMetadata;
 import io.aiven.elasticsearch.repositories.security.EncryptionKeyProvider;
 
 import org.elasticsearch.common.collect.Tuple;
-import org.elasticsearch.common.io.Streams;
 import org.elasticsearch.common.settings.Settings;
+import org.elasticsearch.core.internal.io.Streams;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
