@@ -85,9 +85,11 @@ class AzureClient implements AutoCloseable {
         try {
             httpPoolExecutorService.shutdown(); //disable new tasks from been submitted
             do {
-                //wait existing tasks been finished
-                if (!httpPoolExecutorService.awaitTermination(HTTP_POOL_AWAIT_TERMINATION, TimeUnit.MILLISECONDS)
-                        && !httpPoolExecutorService.isShutdown()) {
+                if (httpPoolExecutorService.awaitTermination(HTTP_POOL_AWAIT_TERMINATION, TimeUnit.MILLISECONDS)) {
+                    break;
+                }
+                if (!httpPoolExecutorService.isShutdown()) {
+                    TimeUnit.MILLISECONDS.sleep(HTTP_POOL_AWAIT_TERMINATION);
                     shutdownAttempts++;
                 }
             } while (shutdownAttempts != MAX_HTTP_POOL_SHUTDOWN_ATTEMPTS);
