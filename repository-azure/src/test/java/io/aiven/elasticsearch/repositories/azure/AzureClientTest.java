@@ -27,6 +27,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -63,6 +64,20 @@ class AzureClientTest {
     }
 
     @Test
+    void shutdownHttpPoolWithoutMaxAttempts() throws Exception {
+        final var azureClient = new AzureClient(blobServiceClient, executorService);
+        when(executorService.awaitTermination(AzureClient.HTTP_POOL_AWAIT_TERMINATION, TimeUnit.MILLISECONDS))
+                .thenReturn(true);
+        when(executorService.isShutdown()).thenReturn(true);
+
+        azureClient.close();
+
+        verify(executorService).shutdown();
+        verify(executorService).awaitTermination(AzureClient.HTTP_POOL_AWAIT_TERMINATION, TimeUnit.MILLISECONDS);
+        verify(executorService, never()).shutdownNow();
+    }
+
+    @Test
     void shutdownHttpPoolAfterMaxAttempts() throws Exception {
         final var azureClient = new AzureClient(blobServiceClient, executorService);
         when(executorService
@@ -72,7 +87,10 @@ class AzureClientTest {
 
         azureClient.close();
 
-        verify(executorService, times(AzureClient.MAX_HTTP_POOL_SHUTDOWN_ATTEMPTS + 1)).isShutdown();
+        verify(executorService, times(AzureClient.MAX_HTTP_POOL_SHUTDOWN_ATTEMPTS))
+                .awaitTermination(AzureClient.HTTP_POOL_AWAIT_TERMINATION, TimeUnit.MILLISECONDS);
+        verify(executorService, times(AzureClient.MAX_HTTP_POOL_SHUTDOWN_ATTEMPTS + 1))
+                .isShutdown();
         verify(executorService).shutdown();
         verify(executorService).shutdownNow();
     }

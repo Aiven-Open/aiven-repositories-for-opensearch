@@ -2,6 +2,8 @@ grant {
 
   permission java.lang.reflect.ReflectPermission "newProxyInPackage.com.azure.storage.blob.implementation";
 
+  permission java.security.SecurityPermission "insertProvider.BC";
+
   permission java.security.SecurityPermission "putProviderProperty.BC";
 
   permission java.net.NetPermission "getProxySelector";

@@ -30,7 +30,7 @@ import io.aiven.elasticsearch.repositories.security.Encryption;
 
 import com.github.luben.zstd.ZstdInputStream;
 import com.github.luben.zstd.ZstdOutputStream;
-import org.elasticsearch.common.io.Streams;
+import org.elasticsearch.core.internal.io.Streams;
 
 public class CryptoIOProvider implements Encryption, Decryption {
 
