@@ -19,43 +19,25 @@ package io.aiven.elasticsearch.repositories.gcs;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Paths;
-import java.util.Map;
 
+import io.aiven.elasticsearch.repositories.AbstractRepositoryPluginIT;
 import io.aiven.elasticsearch.repositories.DummySecureSettings;
 import io.aiven.elasticsearch.repositories.RepositoryStorageIOProvider;
-import io.aiven.elasticsearch.repositories.RsaKeyAwareTest;
 
 import com.google.auth.oauth2.UserCredentials;
 import com.google.cloud.storage.Blob;
 import com.google.cloud.storage.BlobId;
 import com.google.cloud.storage.Storage;
 import com.google.cloud.storage.StorageOptions;
-import com.google.common.net.HttpHeaders;
-import com.google.common.net.MediaType;
-import org.codelibs.elasticsearch.runner.ElasticsearchClusterRunner;
-import org.codelibs.elasticsearch.runner.net.EcrCurl;
-import org.elasticsearch.common.settings.Settings;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
-import org.junit.jupiter.api.MethodOrderer;
-import org.junit.jupiter.api.Order;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.TestMethodOrder;
 
-import static org.codelibs.elasticsearch.runner.ElasticsearchClusterRunner.newConfigs;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-@TestMethodOrder(MethodOrderer.OrderAnnotation.class)
-class GcsRepositoryPluginIT extends RsaKeyAwareTest {
-
-    static final String INDEX = "index_42";
-
-    static final String BASE_PATH = "test_backup";
-
-    static ElasticsearchClusterRunner clusterRunner;
+class GcsRepositoryPluginIT extends AbstractRepositoryPluginIT {
 
     private static String bucketName;
 
@@ -73,35 +55,28 @@ class GcsRepositoryPluginIT extends RsaKeyAwareTest {
                 .build()
                 .getService();
 
-        clusterRunner = new ElasticsearchClusterRunner();
-        clusterRunner.onBuild((index, builder) -> {
-            final var securitySettings = new DummySecureSettings();
-            try {
-                securitySettings
-                        .setFile(GcsStorageSettings.CREDENTIALS_FILE_SETTING.getKey(),
-                                Files.newInputStream(gcsCredentialsPath))
-                        .setFile(GcsStorageSettings.PUBLIC_KEY_FILE.getKey(), Files.newInputStream(publicKeyPem))
-                        .setFile(GcsStorageSettings.PRIVATE_KEY_FILE.getKey(), Files.newInputStream(privateKeyPem));
-            } catch (final IOException e) {
-                throw new RuntimeException(e);
-            }
-            builder.setSecureSettings(securitySettings);
-        }).build(
-                newConfigs()
-                        .clusterName("TestCluster")
-                        .numOfNode(3)
-                        .pluginTypes("io.aiven.elasticsearch.repositories.gcs.GcsRepositoryPlugin")
-        );
-        clusterRunner.ensureYellow();
-        clusterRunner.createIndex(INDEX, (Settings) null);
-        clusterRunner.ensureYellow(INDEX);
+        try {
+            configureAndStartCluster(GcsRepositoryPlugin.class, settingsBuilder ->
+                    settingsBuilder.setSecureSettings(
+                            new DummySecureSettings()
+                                    .setFile(
+                                            GcsStorageSettings.CREDENTIALS_FILE_SETTING.getKey(),
+                                            Files.newInputStream(gcsCredentialsPath))
+                                    .setFile(
+                                            GcsStorageSettings.PUBLIC_KEY_FILE.getKey(),
+                                            Files.newInputStream(publicKeyPem))
+                                    .setFile(
+                                            GcsStorageSettings.PRIVATE_KEY_FILE.getKey(),
+                                            Files.newInputStream(privateKeyPem))));
+        } catch (final Exception e) {
+            throw new RuntimeException(e);
+        }
     }
 
     @AfterAll
     static void tearDown() throws IOException {
         try {
-            clusterRunner.close();
-            clusterRunner.clean();
+            shutdownCluster();
         } finally {
             clearBucket();
         }
@@ -120,52 +95,25 @@ class GcsRepositoryPluginIT extends RsaKeyAwareTest {
                 .iterateAll();
     }
 
-    @Test
-    @Order(1)
-    void registerRepository() throws Exception {
-        final var enableRepositoryRequest =
-                "{ \"type\": \""
-                        + GcsRepositoryPlugin.REPOSITORY_TYPE + "\", "
-                        + "\"settings\": { \"bucket_name\": \""
-                        + bucketName + "\", \"base_path\": \"test_backup\" } "
-                        + "}";
-        try (final var response = EcrCurl.put(clusterRunner.masterNode(), "/_snapshot/backup")
-                .header(HttpHeaders.CONTENT_TYPE, MediaType.JSON_UTF_8.toString())
-                .body(enableRepositoryRequest)
-                .execute()) {
-            assertEquals(200, response.getHttpStatusCode());
-        }
-
-        try (final var response = EcrCurl.get(clusterRunner.masterNode(), "_snapshot/backup").execute()) {
-            assertEquals(200, response.getHttpStatusCode());
-            final Map<String, Object> content = response.getContent(EcrCurl.jsonParser());
-            assertEquals(
-                    "{backup={settings={bucket_name=ples-test, base_path=" + BASE_PATH + "}, "
-                            + "type=" + GcsRepositoryPlugin.REPOSITORY_TYPE + "}}",
-                    content.toString()
-            );
-        }
+    @Override
+    public String registerRepositoryJson() {
+        return "{ \"type\": \""
+                + GcsRepositoryPlugin.REPOSITORY_TYPE + "\", "
+                + "\"settings\": { \"bucket_name\": \""
+                + bucketName + "\", \"base_path\": \"" + BASE_PATH + "\" } "
+                + "}";
     }
 
-    @Test
-    @Order(2)
-    void createSnapshot() throws Exception {
-        for (int i = 0; i < 10; i++) {
-            try (final var curlResponse = EcrCurl.post(clusterRunner.masterNode(), "/" + INDEX + "/_doc/")
-                    .header("Content-Type", "application/json")
-                    .body("{\"id\":\"200" + i + "\",\"msg\":\"test 200" + i + "\"}")
-                    .execute()) {
-                final Map<String, Object> content = curlResponse.getContent(EcrCurl.jsonParser());
-                assertNotNull(content);
-                assertEquals("created", content.get("result"));
-            }
-        }
-        try (final var response =
-                     EcrCurl.put(clusterRunner.masterNode(), "/_snapshot/backup/snapshot_1?wait_for_completion=true")
-                             .execute()) {
-            assertEquals(200, response.getHttpStatusCode());
-        }
+    @Override
+    protected void assertRegisterRepository(final String responseContent) {
+        assertEquals(
+                "{backup={settings={bucket_name=" + bucketName + ", base_path=" + BASE_PATH + "}, "
+                        + "type=" + GcsRepositoryPlugin.REPOSITORY_TYPE + "}}", responseContent
+        );
+    }
 
+    @Override
+    public void assertCreatedSnapshot() {
         final var metadataBlob =
                 storage.get(
                         BlobId.of(
@@ -180,37 +128,8 @@ class GcsRepositoryPluginIT extends RsaKeyAwareTest {
         assertTrue(countElementsInBackup(listOfFilesIterator) > 0);
     }
 
-    @Test
-    @Order(3)
-    void restoreSnapshot() throws Exception {
-        clusterRunner.deleteIndex(INDEX);
-
-        assertFalse(clusterRunner.indexExists(INDEX));
-
-        try (final var response =
-                     EcrCurl.post(
-                             clusterRunner.masterNode(),
-                             "/_snapshot/backup/snapshot_1/_restore?wait_for_completion=true"
-                     ).execute()) {
-            assertEquals(200, response.getHttpStatusCode());
-        }
-
-        assertTrue(clusterRunner.indexExists(INDEX));
-    }
-
-    @Test
-    @Order(4)
-    void deleteRepositorySnapshot() throws Exception {
-        //should remove all indexes data for the snapshot_1
-        try (final var response =
-                     EcrCurl.delete(
-                             clusterRunner.masterNode(),
-                             "_snapshot/backup/snapshot_1")
-                             .execute()) {
-
-            assertEquals(200, response.getHttpStatusCode());
-        }
-
+    @Override
+    public void assertDeletionOfRepository() {
         //The repository with metadata files themselves are left untouched and in place
         final var indices = storage.get(bucketName)
                 .list(Storage.BlobListOption.prefix(BASE_PATH + "/indices/"))
