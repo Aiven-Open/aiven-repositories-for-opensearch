@@ -17,6 +17,8 @@
 package io.aiven.elasticsearch.repositories.gcs;
 
 import java.io.IOException;
+import java.net.InetSocketAddress;
+import java.net.Proxy;
 import java.nio.file.Files;
 
 import io.aiven.elasticsearch.repositories.CommonSettings;
@@ -24,6 +26,8 @@ import io.aiven.elasticsearch.repositories.DummySecureSettings;
 import io.aiven.elasticsearch.repositories.RepositoryStorageIOProvider;
 import io.aiven.elasticsearch.repositories.RsaKeyAwareTest;
 
+import com.google.api.client.http.javanet.DefaultConnectionFactory;
+import com.google.api.client.http.javanet.NetHttpTransport;
 import com.google.auth.oauth2.GoogleCredentials;
 import com.google.auth.oauth2.UserCredentials;
 import com.google.cloud.http.HttpTransportOptions;
@@ -58,8 +62,41 @@ class GcsSettingsProviderTest extends RsaKeyAwareTest {
         final var client = extractClient(repoIOProvider);
 
         assertTrue(client.getOptions().getTransportOptions() instanceof HttpTransportOptions);
+        final var httpTransportOptions = (HttpTransportOptions) client.getOptions().getTransportOptions();
+        assertEquals(1, httpTransportOptions.getConnectTimeout());
+        assertEquals(2, httpTransportOptions.getReadTimeout());
+        assertEquals(GcsSettingsProvider.HTTP_USER_AGENT, client.getOptions().getUserAgent());
+        assertEquals("some_project", client.getOptions().getProjectId());
+
+        assertEquals(loadCredentials(), client.getOptions().getCredentials());
+    }
+
+    @Test
+    void provideInitializationWithProxyConfiguration() throws Exception {
+        final var gcsSettingsProvider = new GcsSettingsProvider();
+        final var settings = Settings.builder()
+                .put(CommonSettings.RepositorySettings.BASE_PATH.getKey(), "base_path/")
+                .put(GcsStorageSettings.CONNECTION_TIMEOUT.getKey(), 1)
+                .put(GcsStorageSettings.READ_TIMEOUT.getKey(), 2)
+                .put(GcsStorageSettings.PROXY_HOST.getKey(), "socks.test.io")
+                .put(GcsStorageSettings.PROXY_PORT.getKey(), 1234)
+                .put(GcsStorageSettings.PROJECT_ID.getKey(), "some_project")
+                .setSecureSettings(createFullSecureSettingsWithProxy()).build();
+
+        gcsSettingsProvider.reload(GcsRepositoryPlugin.REPOSITORY_TYPE, settings);
+        final var repoIOProvider = gcsSettingsProvider.repositoryStorageIOProvider();
+        assertNotNull(repoIOProvider);
+
+        final var client = extractClient(repoIOProvider);
+
+        assertTrue(client.getOptions().getTransportOptions() instanceof HttpTransportOptions);
 
         final var httpTransportOptions = (HttpTransportOptions) client.getOptions().getTransportOptions();
+        final var netHttpTransport = (NetHttpTransport) httpTransportOptions.getHttpTransportFactory().create();
+
+        final var proxy = extractProxy(netHttpTransport);
+        final var inetSocketAddress = (InetSocketAddress) proxy.address();
+
         assertEquals(1, httpTransportOptions.getConnectTimeout());
         assertEquals(2, httpTransportOptions.getReadTimeout());
         assertEquals(GcsSettingsProvider.HTTP_USER_AGENT, client.getOptions().getUserAgent());
@@ -180,6 +217,19 @@ class GcsSettingsProviderTest extends RsaKeyAwareTest {
         return (Storage) field.get(storageIOProvider);
     }
 
+    private Proxy extractProxy(final NetHttpTransport netHttpTransport) throws Exception {
+        final var connectionFactoryField = ReflectionSupport.findFields(NetHttpTransport.class, f -> f
+                        .getName().equals("connectionFactory"),
+                HierarchyTraversalMode.TOP_DOWN).get(0);
+        connectionFactoryField.setAccessible(true);
+        final var connectionFactoryObj = connectionFactoryField.get(netHttpTransport);
+        final var proxyField = ReflectionSupport.findFields(DefaultConnectionFactory.class, f -> f
+                        .getName().equals("proxy"),
+                HierarchyTraversalMode.TOP_DOWN).get(0);
+        proxyField.setAccessible(true);
+        return (Proxy) proxyField.get(connectionFactoryObj);
+    }
+
     private DummySecureSettings createFullSecureSettings() throws IOException {
         return new DummySecureSettings()
                 .setFile(
@@ -187,6 +237,17 @@ class GcsSettingsProviderTest extends RsaKeyAwareTest {
                         getClass().getClassLoader().getResourceAsStream("test_gcs_creds.json"))
                 .setFile(GcsStorageSettings.PRIVATE_KEY_FILE.getKey(), Files.newInputStream(privateKeyPem))
                 .setFile(GcsStorageSettings.PUBLIC_KEY_FILE.getKey(), Files.newInputStream(publicKeyPem));
+    }
+
+    private DummySecureSettings createFullSecureSettingsWithProxy() throws IOException {
+        return new DummySecureSettings()
+                .setFile(
+                        GcsStorageSettings.CREDENTIALS_FILE_SETTING.getKey(),
+                        getClass().getClassLoader().getResourceAsStream("test_gcs_creds.json"))
+                .setFile(GcsStorageSettings.PRIVATE_KEY_FILE.getKey(), Files.newInputStream(privateKeyPem))
+                .setFile(GcsStorageSettings.PUBLIC_KEY_FILE.getKey(), Files.newInputStream(publicKeyPem))
+                .setString(GcsStorageSettings.PROXY_USER_NAME.getKey(), "some_user_name")
+                .setString(GcsStorageSettings.PROXY_USER_PASSWORD.getKey(), "some_user_password");
     }
 
     private DummySecureSettings createNoGcsCredentialFileSettings() throws IOException {

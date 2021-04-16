@@ -40,7 +40,11 @@ public class GcsRepositoryPlugin extends AbstractRepositoryPlugin<Storage>  {
                 GcsStorageSettings.CREDENTIALS_FILE_SETTING,
                 GcsStorageSettings.PROJECT_ID,
                 GcsStorageSettings.CONNECTION_TIMEOUT,
-                GcsStorageSettings.READ_TIMEOUT
+                GcsStorageSettings.READ_TIMEOUT,
+                GcsStorageSettings.PROXY_HOST,
+                GcsStorageSettings.PROXY_PORT,
+                GcsStorageSettings.PROXY_USER_NAME,
+                GcsStorageSettings.PROXY_USER_PASSWORD
         );
     }
 

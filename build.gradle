@@ -124,11 +124,11 @@ allprojects {
 
         compile "org.slf4j:slf4j-api:$slf4jVersion"
 
-        testCompile "org.mockito:mockito-core:3.5.7"
-        testCompile "org.mockito:mockito-junit-jupiter:3.5.7"
-        testCompile "org.codelibs:elasticsearch-cluster-runner:$elasticClusterRunnerVersion"
-
+        testImplementation "org.mockito:mockito-core:3.5.7"
+        testImplementation "org.mockito:mockito-junit-jupiter:3.5.7"
+        testImplementation "org.codelibs:elasticsearch-cluster-runner:$elasticClusterRunnerVersion"
         testImplementation 'org.junit.jupiter:junit-jupiter:5.6.2'
+
         testRuntimeOnly 'org.junit.jupiter:junit-jupiter-engine:5.6.2'
 
         // Make test utils from 'test' available in 'integration-test'

@@ -1,5 +1,7 @@
 grant {
 
+  permission java.net.NetPermission "setDefaultAuthenticator";
+
   permission java.lang.RuntimePermission "accessDeclaredMembers";
 
   permission java.lang.RuntimePermission "loadLibrary.*";
