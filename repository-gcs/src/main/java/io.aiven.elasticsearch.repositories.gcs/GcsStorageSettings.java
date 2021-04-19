@@ -24,17 +24,14 @@ import io.aiven.elasticsearch.repositories.CommonSettings;
 
 import com.google.auth.oauth2.GoogleCredentials;
 import org.elasticsearch.common.settings.SecureSetting;
+import org.elasticsearch.common.settings.SecureString;
 import org.elasticsearch.common.settings.Setting;
 import org.elasticsearch.common.settings.Settings;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import static io.aiven.elasticsearch.repositories.CommonSettings.KeystoreSettings.checkSettings;
 import static io.aiven.elasticsearch.repositories.CommonSettings.KeystoreSettings.withPrefix;
 
 public class GcsStorageSettings implements CommonSettings.KeystoreSettings {
-
-    private static final Logger LOGGER = LoggerFactory.getLogger(GcsStorageSettings.class);
 
     public static final Setting<InputStream> PUBLIC_KEY_FILE =
             SecureSetting.secureFile(withPrefix("gcs.public_key_file"), null);
@@ -44,6 +41,19 @@ public class GcsStorageSettings implements CommonSettings.KeystoreSettings {
 
     public static final Setting<InputStream> CREDENTIALS_FILE_SETTING =
             SecureSetting.secureFile(withPrefix("gcs.client.credentials_file"), null);
+
+    public static final Setting<String> PROXY_HOST =
+            Setting.simpleString(withPrefix("gcs.client.proxy.host"), Setting.Property.NodeScope);
+
+    public static final Setting<Integer> PROXY_PORT =
+            SecureSetting.intSetting(withPrefix("gcs.client.proxy.port"), 0, 0,
+                    Setting.Property.NodeScope);
+
+    public static final Setting<SecureString> PROXY_USER_NAME =
+            SecureSetting.secureString(withPrefix("gcs.client.proxy.user_name"), null);
+
+    public static final Setting<SecureString> PROXY_USER_PASSWORD =
+            SecureSetting.secureString(withPrefix("gcs.client.proxy.user_password"), null);
 
     public static final Setting<String> PROJECT_ID =
             Setting.simpleString(withPrefix("gcs.client.project_id"), Setting.Property.NodeScope);
@@ -68,18 +78,34 @@ public class GcsStorageSettings implements CommonSettings.KeystoreSettings {
 
     private final int readTimeout;
 
+    private final String proxyUsername;
+
+    private final char[] proxyUserPassword;
+
+    private final String proxyHost;
+
+    private final int proxyPort;
+
     private GcsStorageSettings(final InputStream publicKey,
                                final InputStream privateKey,
                                final String projectId,
                                final GoogleCredentials gcsCredentials,
                                final int connectionTimeout,
-                               final int readTimeout) {
+                               final int readTimeout,
+                               final String proxyHost,
+                               final int proxyPort,
+                               final String proxyUsername,
+                               final char[] proxyUserPassword) {
         this.publicKey = publicKey;
         this.privateKey = privateKey;
         this.projectId = projectId;
         this.gcsCredentials = gcsCredentials;
         this.connectionTimeout = connectionTimeout;
         this.readTimeout = readTimeout;
+        this.proxyHost = proxyHost;
+        this.proxyPort = proxyPort;
+        this.proxyUsername = proxyUsername;
+        this.proxyUserPassword = proxyUserPassword;
     }
 
     public static GcsStorageSettings create(final Settings settings) throws IOException {
@@ -89,13 +115,20 @@ public class GcsStorageSettings implements CommonSettings.KeystoreSettings {
         checkSettings(CREDENTIALS_FILE_SETTING, settings);
         checkSettings(PUBLIC_KEY_FILE, settings);
         checkSettings(PRIVATE_KEY_FILE, settings);
+        if (PROXY_PORT.exists(settings) && PROXY_PORT.get(settings) < 0) {
+            throw new IllegalArgumentException("Settings with name " + PROXY_PORT.getKey() + " must be greater than 0");
+        }
         return new GcsStorageSettings(
                 PUBLIC_KEY_FILE.get(settings),
                 PRIVATE_KEY_FILE.get(settings),
                 PROJECT_ID.get(settings),
                 loadCredentials(settings),
                 CONNECTION_TIMEOUT.get(settings),
-                READ_TIMEOUT.get(settings));
+                READ_TIMEOUT.get(settings),
+                PROXY_HOST.get(settings),
+                PROXY_PORT.get(settings),
+                PROXY_USER_NAME.get(settings).toString(),
+                PROXY_USER_PASSWORD.get(settings).getChars());
     }
 
     private static GoogleCredentials loadCredentials(final Settings settings) throws IOException {
@@ -130,6 +163,22 @@ public class GcsStorageSettings implements CommonSettings.KeystoreSettings {
         return readTimeout > 0
                 ? Math.toIntExact(TimeUnit.MILLISECONDS.toMillis(readTimeout))
                 : readTimeout;
+    }
+
+    public String getProxyUsername() {
+        return proxyUsername;
+    }
+
+    public char[] getProxyUserPassword() {
+        return proxyUserPassword;
+    }
+
+    public String getProxyHost() {
+        return proxyHost;
+    }
+
+    public int getProxyPort() {
+        return proxyPort;
     }
 
 }
