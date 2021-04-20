@@ -1,4 +1,4 @@
-name: Create release all plugins
+name: Create release Azure plugin
 
 on:
   workflow_dispatch:
@@ -36,32 +36,6 @@ jobs:
           echo "Will use version ${version}"
           echo "version=${version}" >> $GITHUB_ENV
 
-      - name: Build GCS plugin
-        run: |
-          ./gradlew :repository-gcs:distTar :repository-gcs:distZip
-
-          export gcs_tar_file=$(ls ./repository-gcs/build/distributions/ | grep tar)
-          export gcs_zip_file=$(ls ./repository-gcs/build/distributions/ | grep zip)
-
-          echo gcs_tar_file=${tar_file} >> $GITHUB_ENV
-          echo gcs_zip_file=${zip_file} >> $GITHUB_ENV
-
-          echo gcs_tar_path=`realpath ./repository-gcs/build/distributions/${tar_file}` >> $GITHUB_ENV
-          echo gcs_zip_path=`realpath ./repository-gcs/build/distributions/${zip_file}` >> $GITHUB_ENV
-
-      - name: Build S3 plugin
-        run: |
-          ./gradlew :repository-s3:distTar :repository-s3:distZip
-
-          export s3_tar_file=$(ls ./repository-s3/build/distributions/ | grep tar)
-          export s3_zip_file=$(ls ./repository-s3/build/distributions/ | grep zip)
-
-          echo s3_tar_file=${tar_file} >> $GITHUB_ENV
-          echo s3_zip_file=${zip_file} >> $GITHUB_ENV
-
-          echo s3_tar_path=`realpath ./repository-s3/build/distributions/${tar_file}` >> $GITHUB_ENV
-          echo s3_zip_path=`realpath ./repository-s3/build/distributions/${zip_file}` >> $GITHUB_ENV
-
       - name: Build Azure plugin
         run: |
           ./gradlew :repository-azure:distTar :repository-azure:distZip
@@ -95,46 +69,6 @@ jobs:
             *Fill in*
           draft: true
           prerelease: false
-
-      - name: Upload GCS tar
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: ${{ env.gcs_tar_path }}
-          asset_name: ${{ env.gcs_tar_file }}
-          asset_content_type: application/tar
-
-      - name: Upload GCS zip
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: ${{ env.gcs_zip_path }}
-          asset_name: ${{ env.gcs_zip_file }}
-          asset_content_type: application/zip
-
-      - name: Upload S3 tar
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: ${{ env.s3_tar_path }}
-          asset_name: ${{ env.s3_tar_file }}
-          asset_content_type: application/tar
-
-      - name: Upload S3 zip
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: ${{ env.s3_zip_path }}
-          asset_name: ${{ env.s3_zip_file }}
-          asset_content_type: application/zip
 
       - name: Upload Azure tar
         uses: actions/upload-release-asset@v1
