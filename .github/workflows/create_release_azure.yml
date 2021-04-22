@@ -43,11 +43,11 @@ jobs:
           export azure_tar_file=$(ls ./repository-azure/build/distributions/ | grep tar)
           export azure_zip_file=$(ls ./repository-azure/build/distributions/ | grep zip)
 
-          echo azure_tar_file=${tar_file} >> $GITHUB_ENV
-          echo azure_zip_file=${zip_file} >> $GITHUB_ENV
+          echo azure_tar_file=${azure_tar_file} >> $GITHUB_ENV
+          echo azure_zip_file=${azure_zip_file} >> $GITHUB_ENV
 
-          echo azure_tar_path=`realpath ./repository-azure/build/distributions/${tar_file}` >> $GITHUB_ENV
-          echo azure_zip_path=`realpath ./repository-azure/build/distributions/${zip_file}` >> $GITHUB_ENV
+          echo azure_tar_path=`realpath ./repository-azure/build/distributions/${azure_tar_file}` >> $GITHUB_ENV
+          echo azure_zip_path=`realpath ./repository-azure/build/distributions/${azure_zip_file}` >> $GITHUB_ENV
 
       - name: Create tag
         run: |

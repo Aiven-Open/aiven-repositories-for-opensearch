@@ -43,11 +43,11 @@ jobs:
           export s3_tar_file=$(ls ./repository-s3/build/distributions/ | grep tar)
           export s3_zip_file=$(ls ./repository-s3/build/distributions/ | grep zip)
 
-          echo s3_tar_file=${tar_file} >> $GITHUB_ENV
-          echo s3_zip_file=${zip_file} >> $GITHUB_ENV
+          echo s3_tar_file=${s3_tar_file} >> $GITHUB_ENV
+          echo s3_zip_file=${s3_zip_file} >> $GITHUB_ENV
 
-          echo s3_tar_path=`realpath ./repository-s3/build/distributions/${tar_file}` >> $GITHUB_ENV
-          echo s3_zip_path=`realpath ./repository-s3/build/distributions/${zip_file}` >> $GITHUB_ENV
+          echo s3_tar_path=`realpath ./repository-s3/build/distributions/${s3_tar_file}` >> $GITHUB_ENV
+          echo s3_zip_path=`realpath ./repository-s3/build/distributions/${s3_zip_file}` >> $GITHUB_ENV
 
       - name: Create tag
         run: |
