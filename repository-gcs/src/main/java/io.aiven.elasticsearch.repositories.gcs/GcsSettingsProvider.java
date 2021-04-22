@@ -89,7 +89,7 @@ public class GcsSettingsProvider extends RepositorySettingsProvider<Storage> {
         return new HttpTransportOptions.DefaultHttpTransportFactory();
     }
 
-    public static final class ProxyHttpTransportFactory extends HttpTransportOptions.DefaultHttpTransportFactory {
+    private static final class ProxyHttpTransportFactory extends HttpTransportOptions.DefaultHttpTransportFactory {
 
         private static final Logger LOGGER = LoggerFactory.getLogger(GcsSettingsProvider.class);
 
@@ -118,19 +118,17 @@ public class GcsSettingsProvider extends RepositorySettingsProvider<Storage> {
                     && !Strings.isNullOrEmpty(String.valueOf(proxyUserPassword))) {
                 LOGGER.info("Set user/pwd Authenticator: user is {} and pwd {}",
                         proxyUsername,
-                        proxyUserPassword.length  == 0 ? "is empty" : "is not empty");
+                        proxyUserPassword.length == 0 ? "is empty" : "is not empty");
                 Authenticator.setDefault(new Authenticator() {
                     @Override
                     protected PasswordAuthentication getPasswordAuthentication() {
                         return new PasswordAuthentication(proxyUsername, proxyUserPassword);
                     }
                 });
-                return new NetHttpTransport.Builder()
-                        .setProxy(new Proxy(Proxy.Type.SOCKS,
-                        new InetSocketAddress(proxyHost, proxyPort))).build();
-            } else {
-                return new NetHttpTransport();
             }
+            return new NetHttpTransport.Builder()
+                    .setProxy(new Proxy(Proxy.Type.SOCKS,
+                            new InetSocketAddress(proxyHost, proxyPort))).build();
         }
     }
 

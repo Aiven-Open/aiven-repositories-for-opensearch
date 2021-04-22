@@ -72,18 +72,18 @@ class GcsSettingsProviderTest extends RsaKeyAwareTest {
     }
 
     @Test
-    void provideInitializationWithProxyConfiguration() throws Exception {
+    void provideInitializationWithProxyConfigurationWithUsernameAndPassword() throws Exception {
         final var gcsSettingsProvider = new GcsSettingsProvider();
-        final var settings = Settings.builder()
+        final var proxySettingsWithUsernameAndPassword = Settings.builder()
                 .put(CommonSettings.RepositorySettings.BASE_PATH.getKey(), "base_path/")
                 .put(GcsStorageSettings.CONNECTION_TIMEOUT.getKey(), 1)
                 .put(GcsStorageSettings.READ_TIMEOUT.getKey(), 2)
                 .put(GcsStorageSettings.PROXY_HOST.getKey(), "socks.test.io")
                 .put(GcsStorageSettings.PROXY_PORT.getKey(), 1234)
                 .put(GcsStorageSettings.PROJECT_ID.getKey(), "some_project")
-                .setSecureSettings(createFullSecureSettingsWithProxy()).build();
+                .setSecureSettings(createFullSecureSettingsWithProxyUsernameAndPassword()).build();
 
-        gcsSettingsProvider.reload(GcsRepositoryPlugin.REPOSITORY_TYPE, settings);
+        gcsSettingsProvider.reload(GcsRepositoryPlugin.REPOSITORY_TYPE, proxySettingsWithUsernameAndPassword);
         final var repoIOProvider = gcsSettingsProvider.repositoryStorageIOProvider();
         assertNotNull(repoIOProvider);
 
@@ -102,6 +102,44 @@ class GcsSettingsProviderTest extends RsaKeyAwareTest {
         assertEquals(GcsSettingsProvider.HTTP_USER_AGENT, client.getOptions().getUserAgent());
         assertEquals("some_project", client.getOptions().getProjectId());
 
+        assertEquals("socks.test.io", inetSocketAddress.getHostName());
+        assertEquals(1234, inetSocketAddress.getPort());
+        assertEquals(loadCredentials(), client.getOptions().getCredentials());
+    }
+
+    @Test
+    void provideInitializationWithProxyConfigurationWithoutUsernameAndPassword() throws Exception {
+        final var gcsSettingsProvider = new GcsSettingsProvider();
+        final var proxySettingsWithoutUsernameAndPassword = Settings.builder()
+                .put(CommonSettings.RepositorySettings.BASE_PATH.getKey(), "base_path/")
+                .put(GcsStorageSettings.CONNECTION_TIMEOUT.getKey(), 1)
+                .put(GcsStorageSettings.READ_TIMEOUT.getKey(), 2)
+                .put(GcsStorageSettings.PROXY_HOST.getKey(), "socks5.test.io")
+                .put(GcsStorageSettings.PROXY_PORT.getKey(), 12345)
+                .put(GcsStorageSettings.PROJECT_ID.getKey(), "some_project")
+                .setSecureSettings(createFullSecureSettings()).build();
+        gcsSettingsProvider.reload(GcsRepositoryPlugin.REPOSITORY_TYPE, proxySettingsWithoutUsernameAndPassword);
+        final var repoIOProvider = gcsSettingsProvider.repositoryStorageIOProvider();
+
+        assertNotNull(repoIOProvider);
+
+        final var client = extractClient(repoIOProvider);
+
+        assertTrue(client.getOptions().getTransportOptions() instanceof HttpTransportOptions);
+
+        final var httpTransportOptions = (HttpTransportOptions) client.getOptions().getTransportOptions();
+        final var netHttpTransport = (NetHttpTransport) httpTransportOptions.getHttpTransportFactory().create();
+
+        final var proxy = extractProxy(netHttpTransport);
+        final var inetSocketAddress = (InetSocketAddress) proxy.address();
+
+        assertEquals(1, httpTransportOptions.getConnectTimeout());
+        assertEquals(2, httpTransportOptions.getReadTimeout());
+        assertEquals(GcsSettingsProvider.HTTP_USER_AGENT, client.getOptions().getUserAgent());
+        assertEquals("some_project", client.getOptions().getProjectId());
+
+        assertEquals("socks5.test.io", inetSocketAddress.getHostName());
+        assertEquals(12345, inetSocketAddress.getPort());
         assertEquals(loadCredentials(), client.getOptions().getCredentials());
     }
 
@@ -123,7 +161,6 @@ class GcsSettingsProviderTest extends RsaKeyAwareTest {
         //skip project id since GCS client returns default one
 
         assertEquals(loadCredentials(), client.getOptions().getCredentials());
-
     }
 
     @Test
@@ -239,7 +276,7 @@ class GcsSettingsProviderTest extends RsaKeyAwareTest {
                 .setFile(GcsStorageSettings.PUBLIC_KEY_FILE.getKey(), Files.newInputStream(publicKeyPem));
     }
 
-    private DummySecureSettings createFullSecureSettingsWithProxy() throws IOException {
+    private DummySecureSettings createFullSecureSettingsWithProxyUsernameAndPassword() throws IOException {
         return new DummySecureSettings()
                 .setFile(
                         GcsStorageSettings.CREDENTIALS_FILE_SETTING.getKey(),
