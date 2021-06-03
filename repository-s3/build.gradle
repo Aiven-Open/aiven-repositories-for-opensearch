@@ -80,6 +80,9 @@ task integrationTest(type: Test) {
 
     useJUnitPlatform()
 
+    minHeapSize = "1024m"
+    maxHeapSize = "1024m"
+
     // Run always.
     outputs.upToDateWhen { false }
 
