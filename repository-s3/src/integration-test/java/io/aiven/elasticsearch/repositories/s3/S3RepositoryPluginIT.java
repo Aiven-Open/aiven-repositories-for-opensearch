@@ -64,6 +64,9 @@ public class S3RepositoryPluginIT extends AbstractRepositoryPluginIT {
                                         .setString(
                                                 S3StorageSettings.AWS_SECRET_ACCESS_KEY.getKey(),
                                                 awsSecretAccessKey)
+                                        .setString(
+                                                S3StorageSettings.ENDPOINT.getKey(),
+                                                awsEndpoint)
                                         .setFile(
                                                 S3StorageSettings.PUBLIC_KEY_FILE.getKey(),
                                                 Files.newInputStream(publicKeyPem))

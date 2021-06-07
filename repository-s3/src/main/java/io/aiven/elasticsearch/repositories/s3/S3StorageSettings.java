@@ -46,8 +46,8 @@ public class S3StorageSettings implements KeystoreSettings {
     public static final Setting<SecureString> AWS_ACCESS_KEY_ID =
             SecureSetting.secureString(withPrefix("s3.client.aws_access_key_id"), null);
 
-    public static final Setting<String> ENDPOINT =
-            Setting.simpleString(withPrefix("s3.client.endpoint"), Setting.Property.NodeScope);
+    public static final Setting<SecureString> ENDPOINT =
+            SecureSetting.secureString(withPrefix("s3.client.endpoint"), null);
 
     public static final Setting<Integer> MAX_RETRIES =
             Setting.intSetting(
@@ -142,7 +142,7 @@ public class S3StorageSettings implements KeystoreSettings {
                         AWS_ACCESS_KEY_ID.get(settings).toString(),
                         AWS_SECRET_ACCESS_KEY.get(settings).toString()
                 ),
-                ENDPOINT.get(settings),
+                ENDPOINT.get(settings).toString(),
                 MAX_RETRIES.get(settings),
                 USE_THROTTLE_RETRIES.get(settings),
                 READ_TIMEOUT.get(settings).millis());
