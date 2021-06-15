@@ -52,12 +52,12 @@ class S3SettingsProviderTest extends RsaKeyAwareTest {
                 new DummySecureSettings()
                         .setString(S3StorageSettings.AWS_ACCESS_KEY_ID.getKey(), "AWS_ACCESS_KEY_ID")
                         .setString(S3StorageSettings.AWS_SECRET_ACCESS_KEY.getKey(), "AWS_SECRET_ACCESS_KEY")
+                        .setString(S3StorageSettings.ENDPOINT.getKey(), "http://endpoint")
                         .setFile(S3StorageSettings.PUBLIC_KEY_FILE.getKey(), Files.newInputStream(publicKeyPem))
                         .setFile(S3StorageSettings.PRIVATE_KEY_FILE.getKey(), Files.newInputStream(privateKeyPem));
 
         final var settings =
                 Settings.builder()
-                        .put(S3StorageSettings.ENDPOINT.getKey(), "http://endpoint")
                         .put(S3StorageSettings.MAX_RETRIES.getKey(), 12)
                         .put(S3StorageSettings.READ_TIMEOUT.getKey(), TimeValue.timeValueMillis(1000L))
                         .put(S3StorageSettings.USE_THROTTLE_RETRIES.getKey(), false)
@@ -86,14 +86,12 @@ class S3SettingsProviderTest extends RsaKeyAwareTest {
                 new DummySecureSettings()
                         .setString(S3StorageSettings.AWS_ACCESS_KEY_ID.getKey(), "AWS_ACCESS_KEY_ID")
                         .setString(S3StorageSettings.AWS_SECRET_ACCESS_KEY.getKey(), "AWS_SECRET_ACCESS_KEY")
+                        .setString(S3StorageSettings.ENDPOINT.getKey(), "http://endpoint")
                         .setFile(S3StorageSettings.PUBLIC_KEY_FILE.getKey(), Files.newInputStream(publicKeyPem))
                         .setFile(S3StorageSettings.PRIVATE_KEY_FILE.getKey(), Files.newInputStream(privateKeyPem));
 
         final var settings =
-                Settings.builder()
-                        .put(S3StorageSettings.ENDPOINT.getKey(), "http://endpoint")
-                        .setSecureSettings(secureSettings)
-                        .build();
+                Settings.builder().setSecureSettings(secureSettings).build();
 
         s3SettingsProvider.reload(S3RepositoryPlugin.REPOSITORY_TYPE, settings);
 
