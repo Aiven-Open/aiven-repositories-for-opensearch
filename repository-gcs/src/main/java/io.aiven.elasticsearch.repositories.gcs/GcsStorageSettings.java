@@ -46,7 +46,7 @@ public class GcsStorageSettings implements CommonSettings.KeystoreSettings {
             Setting.simpleString(withPrefix("gcs.client.proxy.host"), Setting.Property.NodeScope);
 
     public static final Setting<Integer> PROXY_PORT =
-            SecureSetting.intSetting(withPrefix("gcs.client.proxy.port"), 0, 0,
+            SecureSetting.intSetting(withPrefix("gcs.client.proxy.port"), DEFAULT_SOCKS5_PORT, 0,
                     Setting.Property.NodeScope);
 
     public static final Setting<SecureString> PROXY_USER_NAME =
