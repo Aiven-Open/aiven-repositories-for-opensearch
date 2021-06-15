@@ -28,6 +28,8 @@ public interface CommonSettings {
 
         String AIVEN_PREFIX = "aiven";
 
+        int DEFAULT_SOCKS5_PORT = 1080;
+
         static String withPrefix(final String key) {
             return String.format("%s.%s", AIVEN_PREFIX, key);
         }
