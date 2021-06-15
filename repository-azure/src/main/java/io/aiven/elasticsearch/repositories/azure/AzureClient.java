@@ -16,11 +16,15 @@
 
 package io.aiven.elasticsearch.repositories.azure;
 
+import java.net.Authenticator;
+import java.net.InetSocketAddress;
+import java.net.PasswordAuthentication;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.SynchronousQueue;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 
+import com.azure.core.http.ProxyOptions;
 import com.azure.core.http.okhttp.OkHttpAsyncHttpClientBuilder;
 import com.azure.core.http.policy.UserAgentPolicy;
 import com.azure.storage.blob.BlobServiceClient;
@@ -28,12 +32,13 @@ import com.azure.storage.blob.BlobServiceClientBuilder;
 import com.azure.storage.common.policy.RequestRetryOptions;
 import com.azure.storage.common.policy.RetryPolicyType;
 import okhttp3.Dispatcher;
+import org.elasticsearch.common.Strings;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 class AzureClient implements AutoCloseable {
 
-    final Logger logger = LoggerFactory.getLogger(AzureClient.class);
+    private final Logger logger = LoggerFactory.getLogger(AzureClient.class);
 
     static final String HTTP_USER_AGENT = "aiven-azure-repository";
 
@@ -64,6 +69,29 @@ class AzureClient implements AutoCloseable {
                 httpThreadPoolSettings.keepAlive(), TimeUnit.SECONDS,
                 new SynchronousQueue<>()
         );
+        final var okHttpAsyncHttpClientBuilder =
+                new OkHttpAsyncHttpClientBuilder()
+                        .dispatcher(new Dispatcher(httpClientExecutor));
+        if (!Strings.isNullOrEmpty(azureStorageSettings.proxyHost())) {
+            okHttpAsyncHttpClientBuilder.proxy(
+                    new ProxyOptions(
+                            ProxyOptions.Type.SOCKS5,
+                            new InetSocketAddress(azureStorageSettings.proxyHost(), azureStorageSettings.proxyPort())
+                    )
+            );
+            if (!Strings.isNullOrEmpty(azureStorageSettings.proxyUsername())
+                    && !Strings.isNullOrEmpty(String.valueOf(azureStorageSettings.proxyUserPassword()))) {
+                Authenticator.setDefault(new Authenticator() {
+                    @Override
+                    protected PasswordAuthentication getPasswordAuthentication() {
+                        return new PasswordAuthentication(
+                                azureStorageSettings.proxyUsername(),
+                                azureStorageSettings.proxyUserPassword()
+                        );
+                    }
+                });
+            }
+        }
         final var blobServiceClient = new BlobServiceClientBuilder()
                 .connectionString(azureStorageSettings.azureConnectionString())
                 .retryOptions(
@@ -71,10 +99,7 @@ class AzureClient implements AutoCloseable {
                                 RetryPolicyType.EXPONENTIAL, azureStorageSettings.maxRetries(),
                                 null, null, null, null))
                 .addPolicy(new UserAgentPolicy(HTTP_USER_AGENT))
-                .httpClient(
-                        new OkHttpAsyncHttpClientBuilder()
-                                .dispatcher(new Dispatcher(httpClientExecutor))
-                                .build())
+                .httpClient(okHttpAsyncHttpClientBuilder.build())
                 .buildClient();
         return new AzureClient(blobServiceClient, httpClientExecutor);
     }

@@ -58,6 +58,19 @@ public class AzureStorageSettings implements CommonSettings.KeystoreSettings {
     public static final Setting<SecureString> AZURE_ACCOUNT_KEY =
             SecureSetting.secureString(withPrefix("azure.client.account.key"), null);
 
+    public static final Setting<String> PROXY_HOST =
+            Setting.simpleString(withPrefix("azure.client.proxy.host"), Setting.Property.NodeScope);
+
+    public static final Setting<Integer> PROXY_PORT =
+            SecureSetting.intSetting(withPrefix("azure.client.proxy.port"), 1080, 0,
+                    Setting.Property.NodeScope);
+
+    public static final Setting<SecureString> PROXY_USER_NAME =
+            SecureSetting.secureString(withPrefix("azure.client.proxy.user_name"), null);
+
+    public static final Setting<SecureString> PROXY_USER_PASSWORD =
+            SecureSetting.secureString(withPrefix("azure.client.proxy.user_password"), null);
+
     //default is 3 please take a look ExponentialBackoff azure class
     public static final Setting<Integer> MAX_RETRIES =
             Setting.intSetting(withPrefix("max_retries"), 3, Setting.Property.NodeScope);
@@ -72,6 +85,14 @@ public class AzureStorageSettings implements CommonSettings.KeystoreSettings {
 
     private final int maxRetries;
 
+    private final String proxyHost;
+
+    private final int proxyPort;
+
+    private final String proxyUsername;
+
+    private final char[] proxyUserPassword;
+
     private final HttpThreadPoolSettings httpThreadPoolSettings;
 
     AzureStorageSettings(final InputStream publicKey,
@@ -79,12 +100,20 @@ public class AzureStorageSettings implements CommonSettings.KeystoreSettings {
                          final String azureAccount,
                          final String azureAccountKey,
                          final int maxRetries,
+                         final String proxyHost,
+                         final int proxyPort,
+                         final String proxyUsername,
+                         final char[] proxyUserPassword,
                          final HttpThreadPoolSettings httpThreadPoolSettings) {
         this.publicKey = publicKey;
         this.privateKey = privateKey;
         this.azureAccount = azureAccount;
         this.azureAccountKey = azureAccountKey;
         this.maxRetries = maxRetries;
+        this.proxyHost = proxyHost;
+        this.proxyPort = proxyPort;
+        this.proxyUsername = proxyUsername;
+        this.proxyUserPassword = proxyUserPassword;
         this.httpThreadPoolSettings = httpThreadPoolSettings;
     }
 
@@ -112,6 +141,22 @@ public class AzureStorageSettings implements CommonSettings.KeystoreSettings {
         return maxRetries;
     }
 
+    public String proxyHost() {
+        return proxyHost;
+    }
+
+    public int proxyPort() {
+        return proxyPort;
+    }
+
+    public String proxyUsername() {
+        return proxyUsername;
+    }
+
+    public char[] proxyUserPassword() {
+        return proxyUserPassword;
+    }
+
     public static AzureStorageSettings create(final Settings settings) {
         checkSettings(AZURE_ACCOUNT, settings);
         checkSettings(AZURE_ACCOUNT_KEY, settings);
@@ -123,6 +168,10 @@ public class AzureStorageSettings implements CommonSettings.KeystoreSettings {
                 AZURE_ACCOUNT.get(settings).toString(),
                 AZURE_ACCOUNT_KEY.get(settings).toString(),
                 MAX_RETRIES.get(settings),
+                PROXY_HOST.get(settings),
+                PROXY_PORT.get(settings),
+                PROXY_USER_NAME.get(settings).toString(),
+                PROXY_USER_PASSWORD.get(settings).getChars(),
                 new HttpThreadPoolSettings(
                         AZURE_HTTP_POOL_MIN_THREADS.get(settings),
                         AZURE_HTTP_POOL_MAX_THREADS.get(settings),
