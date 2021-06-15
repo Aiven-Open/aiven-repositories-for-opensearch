@@ -231,8 +231,7 @@ public class S3RepositoryStorageIOProvider extends RepositoryStorageIOProvider<A
                 return Permissions.doPrivileged(() -> list(listOfObjectsRequest(fullPath)))
                         .stream()
                         .flatMap(l -> l.getObjectSummaries().stream())
-                        .collect(Collectors.toMap(o -> o.getKey().substring(fullPath.length()),
-                                S3ObjectSummary::getSize));
+                        .collect(Collectors.toMap(o -> o.getKey().substring(path.length()), S3ObjectSummary::getSize));
             } catch (final AmazonClientException e) {
                 throw new IOException("Couldn't get list of files for path " + path + " and prefix " + prefix, e);
             }
