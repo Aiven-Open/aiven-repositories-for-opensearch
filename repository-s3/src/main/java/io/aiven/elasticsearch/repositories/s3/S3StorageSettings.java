@@ -49,6 +49,19 @@ public class S3StorageSettings implements KeystoreSettings {
     public static final Setting<SecureString> ENDPOINT =
             SecureSetting.secureString(withPrefix("s3.client.endpoint"), null);
 
+    public static final Setting<String> PROXY_HOST =
+            Setting.simpleString(withPrefix("s3.client.proxy.host"), Setting.Property.NodeScope);
+
+    public static final Setting<Integer> PROXY_PORT =
+            SecureSetting.intSetting(withPrefix("s3.client.proxy.port"), DEFAULT_SOCKS5_PORT, 0,
+                    Setting.Property.NodeScope);
+
+    public static final Setting<SecureString> PROXY_USER_NAME =
+            SecureSetting.secureString(withPrefix("s3.client.proxy.user_name"), null);
+
+    public static final Setting<SecureString> PROXY_USER_PASSWORD =
+            SecureSetting.secureString(withPrefix("s3.client.proxy.user_password"), null);
+
     public static final Setting<Integer> MAX_RETRIES =
             Setting.intSetting(
                     withPrefix("s3.client.max_retries"),
@@ -81,6 +94,14 @@ public class S3StorageSettings implements KeystoreSettings {
 
     private final long readTimeout;
 
+    private final String proxyHost;
+
+    private final int proxyPort;
+
+    private final String proxyUsername;
+
+    private final char[] proxyUserPassword;
+
     private S3StorageSettings(
             final InputStream publicKey,
             final InputStream privateKey,
@@ -88,7 +109,11 @@ public class S3StorageSettings implements KeystoreSettings {
             final String endpoint,
             final int maxRetries,
             final boolean useThrottleRetries,
-            final long readTimeout) {
+            final long readTimeout,
+            final String proxyHost,
+            final int proxyPort,
+            final String proxyUsername,
+            final char[] proxyUserPassword) {
         this.publicKey = publicKey;
         this.privateKey = privateKey;
         this.awsCredentials = awsCredentials;
@@ -96,6 +121,10 @@ public class S3StorageSettings implements KeystoreSettings {
         this.maxRetries = maxRetries;
         this.useThrottleRetries = useThrottleRetries;
         this.readTimeout = readTimeout;
+        this.proxyHost = proxyHost;
+        this.proxyPort = proxyPort;
+        this.proxyUsername = proxyUsername;
+        this.proxyUserPassword = proxyUserPassword;
     }
 
     public InputStream publicKey() {
@@ -126,6 +155,22 @@ public class S3StorageSettings implements KeystoreSettings {
         return Math.toIntExact(readTimeout);
     }
 
+    public String proxyHost() {
+        return proxyHost;
+    }
+
+    public int proxyPort() {
+        return proxyPort;
+    }
+
+    public String proxyUsername() {
+        return proxyUsername;
+    }
+
+    public char[] proxyUserPassword() {
+        return proxyUserPassword;
+    }
+
     public static S3StorageSettings create(final Settings settings) {
         if (settings.isEmpty()) {
             throw new IllegalArgumentException("Settings for AWS S3 haven't been set");
@@ -135,6 +180,9 @@ public class S3StorageSettings implements KeystoreSettings {
         checkSettings(ENDPOINT, settings);
         checkSettings(PUBLIC_KEY_FILE, settings);
         checkSettings(PRIVATE_KEY_FILE, settings);
+        if (PROXY_PORT.exists(settings) && PROXY_PORT.get(settings) < 0) {
+            throw new IllegalArgumentException("Settings with name " + PROXY_PORT.getKey() + " must be greater than 0");
+        }
         return new S3StorageSettings(
                 PUBLIC_KEY_FILE.get(settings),
                 PRIVATE_KEY_FILE.get(settings),
@@ -145,7 +193,11 @@ public class S3StorageSettings implements KeystoreSettings {
                 ENDPOINT.get(settings).toString(),
                 MAX_RETRIES.get(settings),
                 USE_THROTTLE_RETRIES.get(settings),
-                READ_TIMEOUT.get(settings).millis());
+                READ_TIMEOUT.get(settings).millis(),
+                PROXY_HOST.get(settings),
+                PROXY_PORT.get(settings),
+                PROXY_USER_NAME.get(settings).toString(),
+                PROXY_USER_PASSWORD.get(settings).getChars());
     }
 
 }
