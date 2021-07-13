@@ -31,10 +31,10 @@ allprojects {
 
     ext {
         slf4jVersion = "1.7.30"
-        elasticVersion = "7.10.2"
-        elasticClusterRunnerVersion = "7.10.2.0"
+        openSearchVersion = "1.0.0-SNAPSHOT"
+        openSearchClusterRunnerVersion = "7.10.2.0"
         // since jackson-core is in the main classpath
-        // plz keep the same version as for elasticsearch
+        // plz keep the same version as for OpenSearch
         jacksonDatabind = "2.10.4"
     }
 
@@ -46,6 +46,9 @@ allprojects {
 
     repositories {
         mavenCentral()
+        maven {
+            url "https://aws.oss.sonatype.org/content/repositories/snapshots/"
+        }
     }
 
     distributions {
@@ -71,7 +74,7 @@ allprojects {
         filesMatching('plugin-descriptor.properties') {
             expand(version: project.version,
                     javaVersion: java.sourceCompatibility,
-                    elasticVersion: elasticVersion
+                    openSearchVersion: openSearchVersion
             )
         }
     }
@@ -114,7 +117,7 @@ allprojects {
             exclude group: "com.fasterxml.jackson.core", module: "jackson-core"
         }
 
-        compileOnly "org.elasticsearch:elasticsearch:$elasticVersion"
+        compileOnly "org.opensearch:opensearch:$openSearchVersion"
 
         implementation("org.apache.logging.log4j:log4j-slf4j-impl:2.11.1") {
             exclude group: "org.slf4j", module: "slf4j-api"
@@ -126,13 +129,17 @@ allprojects {
 
         testImplementation "org.mockito:mockito-core:3.5.7"
         testImplementation "org.mockito:mockito-junit-jupiter:3.5.7"
-        testImplementation "org.codelibs:elasticsearch-cluster-runner:$elasticClusterRunnerVersion"
+        // XXX fix: testImplementation "org.codelibs:opensearch-cluster-runner:$openSearchClusterRunnerVersion"
+	// earlier this came from the ECR dependency?
+        testImplementation "org.opensearch:opensearch:$openSearchVersion"
         testImplementation 'org.junit.jupiter:junit-jupiter:5.6.2'
 
         testRuntimeOnly 'org.junit.jupiter:junit-jupiter-engine:5.6.2'
 
         // Make test utils from 'test' available in 'integration-test'
-        integrationTestImplementation "org.codelibs:elasticsearch-cluster-runner:$elasticClusterRunnerVersion"
+        // XXX fix: integrationTestImplementation "org.codelibs:opensearch-cluster-runner:$openSearchClusterRunnerVersion"
+	// earlier this came from the ECR dependency?
+        integrationTestImplementation "org.opensearch:opensearch:$openSearchVersion"
 
         integrationTestImplementation sourceSets.test.output
     }

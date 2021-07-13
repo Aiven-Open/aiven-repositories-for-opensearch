@@ -24,7 +24,7 @@ import java.util.Random;
 import io.aiven.elasticsearch.repositories.RsaKeyAwareTest;
 import io.aiven.elasticsearch.repositories.security.EncryptionKeyProvider;
 
-import org.elasticsearch.core.internal.io.Streams;
+import org.opensearch.core.internal.io.Streams;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;

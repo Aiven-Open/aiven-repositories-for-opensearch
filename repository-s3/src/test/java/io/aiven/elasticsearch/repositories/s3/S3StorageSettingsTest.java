@@ -23,8 +23,8 @@ import io.aiven.elasticsearch.repositories.DummySecureSettings;
 import io.aiven.elasticsearch.repositories.RsaKeyAwareTest;
 
 import com.amazonaws.ClientConfiguration;
-import org.elasticsearch.common.settings.Settings;
-import org.elasticsearch.common.unit.TimeValue;
+import org.opensearch.common.settings.Settings;
+import org.opensearch.common.unit.TimeValue;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;

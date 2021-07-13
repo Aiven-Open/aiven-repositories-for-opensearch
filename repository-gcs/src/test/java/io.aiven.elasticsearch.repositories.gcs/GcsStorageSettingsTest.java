@@ -23,8 +23,8 @@ import java.nio.file.Files;
 import io.aiven.elasticsearch.repositories.DummySecureSettings;
 import io.aiven.elasticsearch.repositories.RsaKeyAwareTest;
 
-import org.elasticsearch.common.settings.SecureSettings;
-import org.elasticsearch.common.settings.Settings;
+import org.opensearch.common.settings.SecureSettings;
+import org.opensearch.common.settings.Settings;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;

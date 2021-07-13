@@ -19,7 +19,7 @@ package io.aiven.elasticsearch.repositories;
 import java.io.IOException;
 import java.util.Objects;
 
-import org.elasticsearch.common.settings.Settings;
+import org.opensearch.common.settings.Settings;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 

@@ -21,8 +21,8 @@ import java.util.List;
 import io.aiven.elasticsearch.repositories.AbstractRepositoryPlugin;
 
 import com.google.cloud.storage.Storage;
-import org.elasticsearch.common.settings.Setting;
-import org.elasticsearch.common.settings.Settings;
+import org.opensearch.common.settings.Setting;
+import org.opensearch.common.settings.Settings;
 
 public class GcsRepositoryPlugin extends AbstractRepositoryPlugin<Storage>  {
 

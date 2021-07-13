@@ -23,7 +23,7 @@ import io.aiven.elasticsearch.repositories.RepositorySettingsProvider;
 import io.aiven.elasticsearch.repositories.RepositoryStorageIOProvider;
 import io.aiven.elasticsearch.repositories.security.EncryptionKeyProvider;
 
-import org.elasticsearch.common.settings.Settings;
+import org.opensearch.common.settings.Settings;
 
 public class AzureSettingsProvider extends RepositorySettingsProvider<AzureClient> {
 

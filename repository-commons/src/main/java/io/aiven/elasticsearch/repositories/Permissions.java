@@ -21,8 +21,8 @@ import java.security.AccessController;
 import java.security.PrivilegedActionException;
 import java.security.PrivilegedExceptionAction;
 
-import org.elasticsearch.SpecialPermission;
-import org.elasticsearch.common.CheckedRunnable;
+import org.opensearch.SpecialPermission;
+import org.opensearch.common.CheckedRunnable;
 
 public final class Permissions {
 

@@ -37,10 +37,10 @@ import com.azure.storage.blob.BlobContainerClient;
 import com.azure.storage.blob.models.BlobItem;
 import com.azure.storage.blob.models.BlobItemProperties;
 import com.azure.storage.blob.models.ListBlobsOptions;
-import org.elasticsearch.common.blobstore.BlobStoreException;
-import org.elasticsearch.common.collect.Tuple;
-import org.elasticsearch.common.settings.Setting;
-import org.elasticsearch.common.settings.Settings;
+import org.opensearch.common.blobstore.BlobStoreException;
+import org.opensearch.common.collect.Tuple;
+import org.opensearch.common.settings.Setting;
+import org.opensearch.common.settings.Settings;
 
 public class AzureRepositoryStorageIOProvider extends RepositoryStorageIOProvider<AzureClient> {
 
