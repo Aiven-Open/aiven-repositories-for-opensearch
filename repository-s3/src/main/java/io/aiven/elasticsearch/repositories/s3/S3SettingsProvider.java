@@ -18,6 +18,8 @@ package io.aiven.elasticsearch.repositories.s3;
 
 import java.io.IOException;
 
+import org.opensearch.common.settings.Settings;
+
 import io.aiven.elasticsearch.repositories.Permissions;
 import io.aiven.elasticsearch.repositories.RepositorySettingsProvider;
 import io.aiven.elasticsearch.repositories.RepositoryStorageIOProvider;
@@ -28,7 +30,6 @@ import com.amazonaws.auth.AWSStaticCredentialsProvider;
 import com.amazonaws.client.builder.AwsClientBuilder;
 import com.amazonaws.services.s3.AmazonS3;
 import com.amazonaws.services.s3.AmazonS3ClientBuilder;
-import org.elasticsearch.common.settings.Settings;
 
 public class S3SettingsProvider extends RepositorySettingsProvider<AmazonS3> {
 

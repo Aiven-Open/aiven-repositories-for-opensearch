@@ -18,6 +18,9 @@ package io.aiven.elasticsearch.repositories.s3;
 
 import java.nio.file.Files;
 
+import org.opensearch.common.settings.Settings;
+import org.opensearch.common.unit.TimeValue;
+
 import io.aiven.elasticsearch.repositories.DummySecureSettings;
 import io.aiven.elasticsearch.repositories.RepositoryStorageIOProvider;
 import io.aiven.elasticsearch.repositories.RsaKeyAwareTest;
@@ -25,8 +28,6 @@ import io.aiven.elasticsearch.repositories.RsaKeyAwareTest;
 import com.amazonaws.ClientConfiguration;
 import com.amazonaws.services.s3.AmazonS3;
 import com.amazonaws.services.s3.AmazonS3Client;
-import org.elasticsearch.common.settings.Settings;
-import org.elasticsearch.common.unit.TimeValue;
 import org.junit.jupiter.api.Test;
 import org.junit.platform.commons.support.HierarchyTraversalMode;
 import org.junit.platform.commons.support.ReflectionSupport;
