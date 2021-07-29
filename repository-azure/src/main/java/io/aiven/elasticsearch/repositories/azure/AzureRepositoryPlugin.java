@@ -18,10 +18,10 @@ package io.aiven.elasticsearch.repositories.azure;
 
 import java.util.List;
 
-import io.aiven.elasticsearch.repositories.AbstractRepositoryPlugin;
+import org.opensearch.common.settings.Setting;
+import org.opensearch.common.settings.Settings;
 
-import org.elasticsearch.common.settings.Setting;
-import org.elasticsearch.common.settings.Settings;
+import io.aiven.elasticsearch.repositories.AbstractRepositoryPlugin;
 
 public class AzureRepositoryPlugin extends AbstractRepositoryPlugin<AzureClient> {
 

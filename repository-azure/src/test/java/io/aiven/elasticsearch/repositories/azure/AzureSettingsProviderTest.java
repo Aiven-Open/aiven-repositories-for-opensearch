@@ -18,6 +18,8 @@ package io.aiven.elasticsearch.repositories.azure;
 
 import java.nio.file.Files;
 
+import org.opensearch.common.settings.Settings;
+
 import io.aiven.elasticsearch.repositories.DummySecureSettings;
 import io.aiven.elasticsearch.repositories.RepositoryStorageIOProvider;
 import io.aiven.elasticsearch.repositories.RsaKeyAwareTest;
@@ -26,7 +28,6 @@ import com.azure.core.http.HttpPipeline;
 import com.azure.core.http.policy.HttpPipelinePolicy;
 import com.azure.core.http.policy.UserAgentPolicy;
 import com.azure.storage.common.policy.RequestRetryPolicy;
-import org.elasticsearch.common.settings.Settings;
 import org.junit.jupiter.api.Test;
 import org.junit.platform.commons.support.HierarchyTraversalMode;
 import org.junit.platform.commons.support.ReflectionSupport;

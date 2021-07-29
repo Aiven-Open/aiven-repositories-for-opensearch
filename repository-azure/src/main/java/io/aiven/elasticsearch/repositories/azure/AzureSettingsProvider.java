@@ -18,12 +18,12 @@ package io.aiven.elasticsearch.repositories.azure;
 
 import java.io.IOException;
 
+import org.opensearch.common.settings.Settings;
+
 import io.aiven.elasticsearch.repositories.Permissions;
 import io.aiven.elasticsearch.repositories.RepositorySettingsProvider;
 import io.aiven.elasticsearch.repositories.RepositoryStorageIOProvider;
 import io.aiven.elasticsearch.repositories.security.EncryptionKeyProvider;
-
-import org.elasticsearch.common.settings.Settings;
 
 public class AzureSettingsProvider extends RepositorySettingsProvider<AzureClient> {
 
