@@ -21,6 +21,8 @@ import java.net.InetSocketAddress;
 import java.net.Proxy;
 import java.nio.file.Files;
 
+import org.opensearch.common.settings.Settings;
+
 import io.aiven.elasticsearch.repositories.CommonSettings;
 import io.aiven.elasticsearch.repositories.DummySecureSettings;
 import io.aiven.elasticsearch.repositories.RepositoryStorageIOProvider;
@@ -32,7 +34,6 @@ import com.google.auth.oauth2.GoogleCredentials;
 import com.google.auth.oauth2.UserCredentials;
 import com.google.cloud.http.HttpTransportOptions;
 import com.google.cloud.storage.Storage;
-import org.elasticsearch.common.settings.Settings;
 import org.junit.jupiter.api.Test;
 import org.junit.platform.commons.support.HierarchyTraversalMode;
 import org.junit.platform.commons.support.ReflectionSupport;

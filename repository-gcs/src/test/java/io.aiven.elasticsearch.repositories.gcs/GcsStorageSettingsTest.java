@@ -20,11 +20,12 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Files;
 
+import org.opensearch.common.settings.SecureSettings;
+import org.opensearch.common.settings.Settings;
+
 import io.aiven.elasticsearch.repositories.DummySecureSettings;
 import io.aiven.elasticsearch.repositories.RsaKeyAwareTest;
 
-import org.elasticsearch.common.settings.SecureSettings;
-import org.elasticsearch.common.settings.Settings;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
