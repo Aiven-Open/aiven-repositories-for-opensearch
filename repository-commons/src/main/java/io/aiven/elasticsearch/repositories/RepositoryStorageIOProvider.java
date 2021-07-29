@@ -27,13 +27,14 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 
+import org.opensearch.common.collect.Tuple;
+import org.opensearch.common.settings.Settings;
+import org.opensearch.core.internal.io.Streams;
+
 import io.aiven.elasticsearch.repositories.io.CryptoIOProvider;
 import io.aiven.elasticsearch.repositories.metadata.EncryptedRepositoryMetadata;
 import io.aiven.elasticsearch.repositories.security.EncryptionKeyProvider;
 
-import org.elasticsearch.common.collect.Tuple;
-import org.elasticsearch.common.settings.Settings;
-import org.elasticsearch.core.internal.io.Streams;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 

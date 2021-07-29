@@ -27,8 +27,8 @@ import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
-import org.elasticsearch.common.settings.SecureSettings;
-import org.elasticsearch.common.settings.SecureString;
+import org.opensearch.common.settings.SecureSettings;
+import org.opensearch.common.settings.SecureString;
 
 public class DummySecureSettings implements SecureSettings {
 

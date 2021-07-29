@@ -21,10 +21,11 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Random;
 
+import org.opensearch.core.internal.io.Streams;
+
 import io.aiven.elasticsearch.repositories.RsaKeyAwareTest;
 import io.aiven.elasticsearch.repositories.security.EncryptionKeyProvider;
 
-import org.elasticsearch.core.internal.io.Streams;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;

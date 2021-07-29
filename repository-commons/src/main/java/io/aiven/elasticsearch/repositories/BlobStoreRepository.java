@@ -19,18 +19,18 @@ package io.aiven.elasticsearch.repositories;
 import java.io.IOException;
 import java.util.Objects;
 
-import org.elasticsearch.cluster.metadata.RepositoryMetadata;
-import org.elasticsearch.cluster.service.ClusterService;
-import org.elasticsearch.common.Strings;
-import org.elasticsearch.common.blobstore.BlobContainer;
-import org.elasticsearch.common.blobstore.BlobPath;
-import org.elasticsearch.common.blobstore.BlobStore;
-import org.elasticsearch.common.unit.ByteSizeValue;
-import org.elasticsearch.common.xcontent.NamedXContentRegistry;
-import org.elasticsearch.indices.recovery.RecoverySettings;
+import org.opensearch.cluster.metadata.RepositoryMetadata;
+import org.opensearch.cluster.service.ClusterService;
+import org.opensearch.common.Strings;
+import org.opensearch.common.blobstore.BlobContainer;
+import org.opensearch.common.blobstore.BlobPath;
+import org.opensearch.common.blobstore.BlobStore;
+import org.opensearch.common.unit.ByteSizeValue;
+import org.opensearch.common.xcontent.NamedXContentRegistry;
+import org.opensearch.indices.recovery.RecoverySettings;
 
 public class BlobStoreRepository<C>
-        extends org.elasticsearch.repositories.blobstore.BlobStoreRepository
+        extends org.opensearch.repositories.blobstore.BlobStoreRepository
         implements CommonSettings.RepositorySettings {
 
     private final RepositorySettingsProvider<C> repositorySettingsProvider;

@@ -23,6 +23,8 @@ import java.net.PasswordAuthentication;
 import java.net.Proxy;
 import java.util.Map;
 
+import org.opensearch.common.settings.Settings;
+
 import io.aiven.elasticsearch.repositories.Permissions;
 import io.aiven.elasticsearch.repositories.RepositorySettingsProvider;
 import io.aiven.elasticsearch.repositories.RepositoryStorageIOProvider;
@@ -36,7 +38,6 @@ import com.google.cloud.storage.Storage;
 import com.google.cloud.storage.StorageOptions;
 import com.google.common.base.Strings;
 import com.google.common.net.HttpHeaders;
-import org.elasticsearch.common.settings.Settings;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 

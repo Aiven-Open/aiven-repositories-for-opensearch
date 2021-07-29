@@ -28,6 +28,11 @@ import java.util.Optional;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
+import org.opensearch.common.blobstore.BlobStoreException;
+import org.opensearch.common.collect.Tuple;
+import org.opensearch.common.settings.Setting;
+import org.opensearch.common.settings.Settings;
+
 import io.aiven.elasticsearch.repositories.Permissions;
 import io.aiven.elasticsearch.repositories.RepositoryStorageIOProvider;
 import io.aiven.elasticsearch.repositories.io.CryptoIOProvider;
@@ -37,10 +42,6 @@ import com.azure.storage.blob.BlobContainerClient;
 import com.azure.storage.blob.models.BlobItem;
 import com.azure.storage.blob.models.BlobItemProperties;
 import com.azure.storage.blob.models.ListBlobsOptions;
-import org.elasticsearch.common.blobstore.BlobStoreException;
-import org.elasticsearch.common.collect.Tuple;
-import org.elasticsearch.common.settings.Setting;
-import org.elasticsearch.common.settings.Settings;
 
 public class AzureRepositoryStorageIOProvider extends RepositoryStorageIOProvider<AzureClient> {
 
@@ -84,7 +85,8 @@ public class AzureRepositoryStorageIOProvider extends RepositoryStorageIOProvide
         @Override
         public boolean exists(final String blobName) throws IOException {
             try {
-                return blobContainerClient.getBlobClient(blobName).exists();
+                return Permissions.doPrivileged(() ->
+                        blobContainerClient.getBlobClient(blobName).exists());
             } catch (final Exception e) {
                 throw new BlobStoreException("Failed to check if blob [" + blobName + "] exists", e);
             }
@@ -149,9 +151,7 @@ public class AzureRepositoryStorageIOProvider extends RepositoryStorageIOProvide
             try {
                 return Permissions.doPrivileged(() -> {
                     final var files =
-                            new FilesListContainer(
-                                    blobContainerClient.getHttpPipeline(),
-                                    blobContainerClient.getBlobContainerUrl()).list(path);
+                            blobContainerClient.listBlobsByHierarchy(path);
                     var bytesCounter = 0L;
                     final var filesList = new ArrayList<String>();
                     for (final var blobItem : files) {
@@ -172,9 +172,8 @@ public class AzureRepositoryStorageIOProvider extends RepositoryStorageIOProvide
         public void deleteFiles(final List<String> blobNames,
                                 final boolean ignoreIfNotExists) throws IOException {
             try {
-                blobNames.forEach(blobName -> {
-                    blobContainerClient.getBlobClient(blobName).delete();
-                });
+                Permissions.doPrivileged(() -> blobNames.forEach(
+                        blobName -> blobContainerClient.getBlobClient(blobName).delete()));
             } catch (final BlobStoreException e) {
                 throw new IOException("Couldn't delete objects: " + blobNames, e);
             }
