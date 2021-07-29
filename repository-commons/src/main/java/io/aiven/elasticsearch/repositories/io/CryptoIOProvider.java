@@ -25,12 +25,13 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 
+import org.opensearch.core.internal.io.Streams;
+
 import io.aiven.elasticsearch.repositories.security.Decryption;
 import io.aiven.elasticsearch.repositories.security.Encryption;
 
 import com.github.luben.zstd.ZstdInputStream;
 import com.github.luben.zstd.ZstdOutputStream;
-import org.elasticsearch.core.internal.io.Streams;
 
 public class CryptoIOProvider implements Encryption, Decryption {
 
