@@ -53,7 +53,7 @@ public final class EncryptionKeyProvider
 
     public static EncryptionKeyProvider of(final InputStream rsaPublicKey,
                                            final InputStream rsaPrivateKey) {
-        LOGGER.info("Read RSA keys");
+        LOGGER.debug("Read RSA keys");
         Objects.requireNonNull(rsaPublicKey, "rsaPublicKey hasn't been set");
         Objects.requireNonNull(rsaPrivateKey, "rsaPrivateKey hasn't been set");
         try {
