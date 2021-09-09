@@ -50,7 +50,7 @@ public class RepositoryBlobContainer extends AbstractBlobContainer {
     @Override
     public boolean blobExists(final String blobName) throws IOException {
         try {
-            logger.info("Check existing blob: {}", blobPath(blobName));
+            logger.debug("Check existing blob: {}", blobPath(blobName));
             return storageIO.exists(blobPath(blobName));
         } catch (final Exception e) {
             throw new BlobStoreException("Failed to check if blob [" + blobName + "] exists", e);
@@ -59,7 +59,7 @@ public class RepositoryBlobContainer extends AbstractBlobContainer {
 
     @Override
     public InputStream readBlob(final String blobName) throws IOException {
-        logger.info("Read blob: {}", blobPath(blobName));
+        logger.debug("Read blob: {}", blobPath(blobName));
         return storageIO.read(blobPath(blobName));
     }
 
@@ -83,13 +83,13 @@ public class RepositoryBlobContainer extends AbstractBlobContainer {
                           final InputStream inputStream,
                           final long blobSize,
                           final boolean failIfAlreadyExists) throws IOException {
-        logger.info("Write blob: {}", blobPath(blobName));
+        logger.debug("Write blob: {}", blobPath(blobName));
         storageIO.write(blobPath(blobName), inputStream, blobSize, failIfAlreadyExists);
     }
 
     @Override
     public DeleteResult delete() throws IOException {
-        logger.info("Delete: {}", path().buildAsString());
+        logger.debug("Delete: {}", path().buildAsString());
         final var result =
                 storageIO.deleteDirectories(path().buildAsString());
         return new DeleteResult(result.v1(), result.v2());
@@ -104,13 +104,13 @@ public class RepositoryBlobContainer extends AbstractBlobContainer {
                 blobNames.stream()
                         .map(this::blobPath)
                         .collect(Collectors.toUnmodifiableList());
-        logger.info("Delete blobs: {}", blobLists);
+        logger.debug("Delete blobs: {}", blobLists);
         storageIO.deleteFiles(blobLists, true);
     }
 
     @Override
     public Map<String, BlobContainer> children() throws IOException {
-        logger.info("Children for: {}", path().buildAsString());
+        logger.debug("Children for: {}", path().buildAsString());
         return storageIO.listDirectories(path().buildAsString())
                 .stream()
                 .map(d -> new AbstractMap.SimpleEntry<String, BlobContainer>(
@@ -127,7 +127,7 @@ public class RepositoryBlobContainer extends AbstractBlobContainer {
 
     @Override
     public Map<String, BlobMetadata> listBlobsByPrefix(final String blobNamePrefix) throws IOException {
-        logger.info("List of blobs by {}", blobNamePrefix);
+        logger.debug("List of blobs by {}", blobNamePrefix);
         return storageIO
                 .listFiles(path().buildAsString(), blobNamePrefix)
                 .entrySet().stream()
