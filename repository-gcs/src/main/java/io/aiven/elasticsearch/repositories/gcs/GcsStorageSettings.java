@@ -66,6 +66,11 @@ public class GcsStorageSettings implements CommonSettings.KeystoreSettings {
             Setting.intSetting(withPrefix("gcs.client.read_timeout"), -1, -1,
                     Setting.Property.NodeScope);
 
+    /** The number of retries to use when an GCS request fails. */
+    public static final Setting<Integer> MAX_RETRIES_SETTING =
+            Setting.intSetting(withPrefix("gcs.client.max_retries"), 3, 0, 
+                    Setting.Property.NodeScope);
+
     private final InputStream publicKey;
 
     private final InputStream privateKey;
@@ -77,6 +82,9 @@ public class GcsStorageSettings implements CommonSettings.KeystoreSettings {
     private final int connectionTimeout;
 
     private final int readTimeout;
+
+    /** The number of retries to use for the GCS client. */
+    private final int maxRetries;
 
     private final String proxyUsername;
 
@@ -92,6 +100,7 @@ public class GcsStorageSettings implements CommonSettings.KeystoreSettings {
                                final GoogleCredentials gcsCredentials,
                                final int connectionTimeout,
                                final int readTimeout,
+                               final int maxRetries,
                                final String proxyHost,
                                final int proxyPort,
                                final String proxyUsername,
@@ -102,6 +111,7 @@ public class GcsStorageSettings implements CommonSettings.KeystoreSettings {
         this.gcsCredentials = gcsCredentials;
         this.connectionTimeout = connectionTimeout;
         this.readTimeout = readTimeout;
+        this.maxRetries = maxRetries;
         this.proxyHost = proxyHost;
         this.proxyPort = proxyPort;
         this.proxyUsername = proxyUsername;
@@ -125,6 +135,7 @@ public class GcsStorageSettings implements CommonSettings.KeystoreSettings {
                 loadCredentials(settings),
                 CONNECTION_TIMEOUT.get(settings),
                 READ_TIMEOUT.get(settings),
+                MAX_RETRIES_SETTING.get(settings),
                 PROXY_HOST.get(settings),
                 PROXY_PORT.get(settings),
                 PROXY_USER_NAME.get(settings).toString(),
@@ -181,4 +192,7 @@ public class GcsStorageSettings implements CommonSettings.KeystoreSettings {
         return proxyPort;
     }
 
+    public int getMaxRetries() {
+        return maxRetries;
+    }
 }

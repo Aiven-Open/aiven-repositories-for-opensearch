@@ -72,6 +72,13 @@ public class GcsSettingsProvider extends RepositorySettingsProvider<Storage> {
                                 .setReadTimeout(gcsStorageSettings.readTimeout())
                                 .build())
                 .setHeaderProvider(() -> Map.of(HttpHeaders.USER_AGENT, HTTP_USER_AGENT))
+                .setRetrySettings(
+                        // Create retry settings from default by modifying the max attempts settings
+                        StorageOptions
+                            .getDefaultRetrySettings()
+                            .toBuilder()
+                            .setMaxAttempts(gcsStorageSettings.getMaxRetries())
+                            .build())
                 .setCredentials(gcsStorageSettings.gcsCredentials());
 
         return storageOptionsBuilder.build().getService();
