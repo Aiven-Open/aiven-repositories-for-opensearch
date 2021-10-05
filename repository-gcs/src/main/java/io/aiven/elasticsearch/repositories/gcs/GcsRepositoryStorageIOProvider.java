@@ -27,6 +27,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.atomic.AtomicReference;
 
+import org.opensearch.ExceptionsHelper;
 import org.opensearch.common.blobstore.BlobStoreException;
 import org.opensearch.common.collect.Tuple;
 import org.opensearch.common.settings.Setting;
@@ -49,6 +50,7 @@ import com.google.common.collect.ImmutableMap;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import static java.net.HttpURLConnection.HTTP_GONE;
 import static java.net.HttpURLConnection.HTTP_PRECON_FAILED;
 
 public class GcsRepositoryStorageIOProvider
@@ -100,7 +102,9 @@ public class GcsRepositoryStorageIOProvider
         public InputStream read(final String blobName) throws IOException {
             return Permissions.doPrivileged(() -> {
                 try {
-                    final var reader = client.reader(BlobId.of(bucketName, blobName));
+                    final int maxAttempts = client.getOptions().getRetrySettings().getMaxAttempts();
+                    final BlobId blobId = BlobId.of(bucketName, blobName);
+                    final var reader = new GcsRetryableReadChannel(client.reader(blobId), blobId, maxAttempts);
                     return cryptoIOProvider.decryptAndDecompress(Channels.newInputStream(reader));
                 } catch (final StorageException e) {
                     throw new IOException("Failed to read blob [" + blobName + "]");
@@ -113,39 +117,81 @@ public class GcsRepositoryStorageIOProvider
                           final InputStream inputStream,
                           final long blobSize,
                           final boolean failIfAlreadyExists) throws IOException {
+
+            // We retry 410 GONE errors to cover the unlikely but possible scenario where a resumable 
+            // upload session becomes broken and needs to be restarted from scratch. Given how unlikely 
+            // a 410 error should be according to SLAs we retry only twice.
+            assert inputStream.markSupported();
+            inputStream.mark(Integer.MAX_VALUE);
+
+            StorageException storageException = null;
             final var blobInfo = BlobInfo.newBuilder(bucketName, blobName).build();
-            try {
-                final var writeOptions = failIfAlreadyExists
-                        ? new Storage.BlobWriteOption[]{Storage.BlobWriteOption.doesNotExist()}
-                        : new Storage.BlobWriteOption[0];
-                Permissions.doPrivileged(() -> {
-                    final var writeChannel = client.writer(blobInfo, writeOptions);
-                    cryptoIOProvider.compressAndEncrypt(
-                            inputStream,
-                            Channels.newOutputStream(new WritableByteChannel() {
-                                @Override
-                                public int write(final ByteBuffer src) throws IOException {
-                                    return Permissions.doPrivileged(() -> writeChannel.write(src));
-                                }
+            final var writeOptions = failIfAlreadyExists
+                    ? new Storage.BlobWriteOption[]{Storage.BlobWriteOption.doesNotExist()}
+                    : new Storage.BlobWriteOption[0];
 
-                                @Override
-                                public boolean isOpen() {
-                                    return writeChannel.isOpen();
-                                }
+            // GCS will retry individual chunk uploads however when the retries are exhausted, the 
+            // whole upload won't be retried anymore. Adding at least max attempts to retry the whole
+            // upload from scratch.
+            final int maxAttempts = client.getOptions().getRetrySettings().getMaxAttempts();
+            for (int retry = 0; retry < maxAttempts; ++retry) {
+                try {
+                    LOGGER.info("Resumable upload session for blob {}, attempt #{}/{}", blobInfo, retry, maxAttempts);
+                    
+                    Permissions.doPrivileged(() -> {
+                        final var writeChannel = client.writer(blobInfo, writeOptions);
+                        cryptoIOProvider.compressAndEncrypt(
+                                inputStream,
+                                Channels.newOutputStream(new WritableByteChannel() {
+                                    @Override
+                                    public int write(final ByteBuffer src) throws IOException {
+                                        return Permissions.doPrivileged(() -> writeChannel.write(src));
+                                    }
+    
+                                    @Override
+                                    public boolean isOpen() {
+                                        return writeChannel.isOpen();
+                                    }
+    
+                                    @Override
+                                    public void close() throws IOException {
+                                        Permissions.doPrivileged(writeChannel::close);
+                                    }
+                                })
+                        );
+                    });
+                    
+                    // Success, no more retries needed
+                    return;
+                } catch (final StorageException ex) {
+                    final int errorCode = ex.getCode();
 
-                                @Override
-                                public void close() throws IOException {
-                                    Permissions.doPrivileged(writeChannel::close);
-                                }
-                            })
-                    );
-                });
-            } catch (final StorageException ex) {
-                if (failIfAlreadyExists && ex.getCode() == HTTP_PRECON_FAILED) {
-                    throw new FileAlreadyExistsException(blobInfo.getBlobId().getName(), null, ex.getMessage());
+                    if (errorCode == HTTP_GONE) {
+                        LOGGER.warn("Retrying broken resumable upload session for blob {}, errorCode {}", 
+                            blobInfo, errorCode, ex);
+                        storageException = ExceptionsHelper.useOrSuppress(storageException, ex);
+                        inputStream.reset();
+                        continue;
+                    } else if (failIfAlreadyExists && errorCode == HTTP_PRECON_FAILED) {
+                        throw new FileAlreadyExistsException(blobInfo.getBlobId().getName(), null, ex.getMessage());
+                    } else if (ex.isRetryable() /* safe to retry the operation that caused this exception */) {
+                        LOGGER.warn("Retrying broken resumable upload session for blob {}, retryable failure", 
+                            blobInfo, ex);
+                        storageException = ExceptionsHelper.useOrSuppress(storageException, ex);
+                        inputStream.reset();
+                        continue;
+                    }
+
+                    if (storageException != null) {
+                        ex.addSuppressed(storageException);
+                    }
+                    
+                    throw ex;
                 }
-                throw ex;
             }
+
+            assert storageException != null;
+            throw storageException;
         }
 
         @Override
