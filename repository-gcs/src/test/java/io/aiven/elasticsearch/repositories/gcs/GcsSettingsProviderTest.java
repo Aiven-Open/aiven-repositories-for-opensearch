@@ -54,7 +54,7 @@ class GcsSettingsProviderTest extends RsaKeyAwareTest {
                 .put(GcsStorageSettings.READ_TIMEOUT.getKey(), 2)
                 .put(GcsStorageSettings.PROJECT_ID.getKey(), "some_project")
                 .setSecureSettings(createFullSecureSettings()).build();
-        gcsSettingsProvider.reload(GcsRepositoryPlugin.REPOSITORY_TYPE, settings);
+        gcsSettingsProvider.reload(settings);
 
         final var repoIOProvider = gcsSettingsProvider.repositoryStorageIOProvider();
         assertNotNull(repoIOProvider);
@@ -84,7 +84,7 @@ class GcsSettingsProviderTest extends RsaKeyAwareTest {
                 .put(GcsStorageSettings.PROJECT_ID.getKey(), "some_project")
                 .setSecureSettings(createFullSecureSettingsWithProxyUsernameAndPassword()).build();
 
-        gcsSettingsProvider.reload(GcsRepositoryPlugin.REPOSITORY_TYPE, proxySettingsWithUsernameAndPassword);
+        gcsSettingsProvider.reload(proxySettingsWithUsernameAndPassword);
         final var repoIOProvider = gcsSettingsProvider.repositoryStorageIOProvider();
         assertNotNull(repoIOProvider);
 
@@ -119,7 +119,7 @@ class GcsSettingsProviderTest extends RsaKeyAwareTest {
                 .put(GcsStorageSettings.PROXY_PORT.getKey(), 12345)
                 .put(GcsStorageSettings.PROJECT_ID.getKey(), "some_project")
                 .setSecureSettings(createFullSecureSettings()).build();
-        gcsSettingsProvider.reload(GcsRepositoryPlugin.REPOSITORY_TYPE, proxySettingsWithoutUsernameAndPassword);
+        gcsSettingsProvider.reload(proxySettingsWithoutUsernameAndPassword);
         final var repoIOProvider = gcsSettingsProvider.repositoryStorageIOProvider();
 
         assertNotNull(repoIOProvider);
@@ -149,7 +149,7 @@ class GcsSettingsProviderTest extends RsaKeyAwareTest {
         final var gcsSettingsProvider = new GcsSettingsProvider();
         final var settings = Settings.builder()
                 .setSecureSettings(createFullSecureSettings()).build();
-        gcsSettingsProvider.reload(GcsRepositoryPlugin.REPOSITORY_TYPE, settings);
+        gcsSettingsProvider.reload(settings);
 
         final var client = extractClient(gcsSettingsProvider.repositoryStorageIOProvider());
         assertNotNull(client);
@@ -169,7 +169,7 @@ class GcsSettingsProviderTest extends RsaKeyAwareTest {
         final var gcsSettingsProvider = new GcsSettingsProvider();
         final var settings = Settings.builder()
                 .setSecureSettings(createFullSecureSettings()).build();
-        gcsSettingsProvider.reload(GcsRepositoryPlugin.REPOSITORY_TYPE, settings);
+        gcsSettingsProvider.reload(settings);
 
         var client = extractClient(gcsSettingsProvider.repositoryStorageIOProvider());
         assertNotNull(client);
@@ -189,7 +189,7 @@ class GcsSettingsProviderTest extends RsaKeyAwareTest {
                 .put(GcsStorageSettings.PROJECT_ID.getKey(), "super_project")
                 .setSecureSettings(createFullSecureSettings())
                 .build();
-        gcsSettingsProvider.reload(GcsRepositoryPlugin.REPOSITORY_TYPE, newSettings);
+        gcsSettingsProvider.reload(newSettings);
 
         client = extractClient(gcsSettingsProvider.repositoryStorageIOProvider());
         assertNotNull(client);
@@ -208,7 +208,7 @@ class GcsSettingsProviderTest extends RsaKeyAwareTest {
     void throwsIllegalArgumentExceptionForEmptySettings() throws IOException {
         final var gcsSettingsProvider = new GcsSettingsProvider();
 
-        gcsSettingsProvider.reload(GcsRepositoryPlugin.REPOSITORY_TYPE, Settings.EMPTY);
+        gcsSettingsProvider.reload(Settings.EMPTY);
         var e = assertThrows(IOException.class, gcsSettingsProvider::repositoryStorageIOProvider);
         assertEquals(
                 "Cloud storage client haven't been configured",
@@ -228,19 +228,19 @@ class GcsSettingsProviderTest extends RsaKeyAwareTest {
                         .build();
 
         e = assertThrows(IOException.class, () ->
-                gcsSettingsProvider.reload(GcsRepositoryPlugin.REPOSITORY_TYPE, noCredentialFileSettings));
+                gcsSettingsProvider.reload(noCredentialFileSettings));
         assertEquals(
                 "Settings with name aiven.gcs.client.credentials_file hasn't been set",
                 e.getMessage());
 
         e = assertThrows(IOException.class, () ->
-                gcsSettingsProvider.reload(GcsRepositoryPlugin.REPOSITORY_TYPE, privateRsaKeyOnlySettings));
+                gcsSettingsProvider.reload(privateRsaKeyOnlySettings));
         assertEquals(
                 "Settings with name aiven.gcs.public_key_file hasn't been set",
                 e.getMessage());
 
         e = assertThrows(IOException.class, () ->
-                gcsSettingsProvider.reload(GcsRepositoryPlugin.REPOSITORY_TYPE, publicRsaKeyOnlySettings));
+                gcsSettingsProvider.reload(publicRsaKeyOnlySettings));
         assertEquals(
                 "Settings with name aiven.gcs.private_key_file hasn't been set",
                 e.getMessage());

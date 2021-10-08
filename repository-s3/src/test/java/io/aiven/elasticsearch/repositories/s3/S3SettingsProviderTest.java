@@ -65,7 +65,7 @@ class S3SettingsProviderTest extends RsaKeyAwareTest {
                         .setSecureSettings(secureSettings)
                         .build();
 
-        s3SettingsProvider.reload(S3RepositoryPlugin.REPOSITORY_TYPE, settings);
+        s3SettingsProvider.reload(settings);
 
         final var client = extractClient(s3SettingsProvider.repositoryStorageIOProvider());
         final var amazonS3Client = (AmazonS3Client) client;
@@ -94,7 +94,7 @@ class S3SettingsProviderTest extends RsaKeyAwareTest {
         final var settings =
                 Settings.builder().setSecureSettings(secureSettings).build();
 
-        s3SettingsProvider.reload(S3RepositoryPlugin.REPOSITORY_TYPE, settings);
+        s3SettingsProvider.reload(settings);
 
         final var client = extractClient(s3SettingsProvider.repositoryStorageIOProvider());
         final var amazonS3Client = (AmazonS3Client) client;

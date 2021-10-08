@@ -36,9 +36,13 @@ import org.opensearch.plugins.RepositoryPlugin;
 import org.opensearch.repositories.Repository;
 
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public abstract class AbstractRepositoryPlugin<C>
         extends Plugin implements RepositoryPlugin, ReloadablePlugin {
+
+    public static final Logger LOGGER = LoggerFactory.getLogger(AbstractRepositoryPlugin.class);
 
     private final String repositoryType;
 
@@ -84,7 +88,8 @@ public abstract class AbstractRepositoryPlugin<C>
         try {
             final var pluginKeys = settings.filter(pluginSettingKeys::contains);
             if (!pluginKeys.isEmpty()) {
-                repositorySettingsProvider.reload(repositoryType, pluginKeys);
+                LOGGER.info("Reload settings for repository type: {}", repositoryType);
+                repositorySettingsProvider.reload(pluginKeys);
             }
         } catch (final IOException ioe) {
             throw new UncheckedIOException(ioe);
