@@ -35,16 +35,16 @@ public class GcsRepositoryPlugin extends AbstractRepositoryPlugin<Storage>  {
     @Override
     public List<Setting<?>> getSettings() {
         return List.of(
-                GcsStorageSettings.PRIVATE_KEY_FILE,
-                GcsStorageSettings.PUBLIC_KEY_FILE,
-                GcsStorageSettings.CREDENTIALS_FILE_SETTING,
-                GcsStorageSettings.PROJECT_ID,
-                GcsStorageSettings.CONNECTION_TIMEOUT,
-                GcsStorageSettings.READ_TIMEOUT,
-                GcsStorageSettings.PROXY_HOST,
-                GcsStorageSettings.PROXY_PORT,
-                GcsStorageSettings.PROXY_USER_NAME,
-                GcsStorageSettings.PROXY_USER_PASSWORD
+                GcsClientSettings.PRIVATE_KEY_FILE,
+                GcsClientSettings.PUBLIC_KEY_FILE,
+                GcsClientSettings.CREDENTIALS_FILE_SETTING,
+                GcsClientSettings.PROJECT_ID,
+                GcsClientSettings.CONNECTION_TIMEOUT,
+                GcsClientSettings.READ_TIMEOUT,
+                GcsClientSettings.PROXY_HOST,
+                GcsClientSettings.PROXY_PORT,
+                GcsClientSettings.PROXY_USER_NAME,
+                GcsClientSettings.PROXY_USER_PASSWORD
         );
     }
 

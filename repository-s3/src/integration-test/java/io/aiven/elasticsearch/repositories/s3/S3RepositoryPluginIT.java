@@ -56,22 +56,22 @@ public class S3RepositoryPluginIT extends AbstractRepositoryPluginIT {
         final var awsEndpoint = System.getProperty("integration-test.aws.endpoint");
         configureAndStartCluster(
                 S3RepositoryPlugin.class, settingsBuilder ->
-                        settingsBuilder.put(S3StorageSettings.ENDPOINT.getKey(), awsEndpoint)
+                        settingsBuilder.put(S3ClientSettings.ENDPOINT.getKey(), awsEndpoint)
                                 .setSecureSettings(new DummySecureSettings()
                                         .setString(
-                                                S3StorageSettings.AWS_ACCESS_KEY_ID.getKey(),
+                                                S3ClientSettings.AWS_ACCESS_KEY_ID.getKey(),
                                                 awsAccessKeyId)
                                         .setString(
-                                                S3StorageSettings.AWS_SECRET_ACCESS_KEY.getKey(),
+                                                S3ClientSettings.AWS_SECRET_ACCESS_KEY.getKey(),
                                                 awsSecretAccessKey)
                                         .setString(
-                                                S3StorageSettings.ENDPOINT.getKey(),
+                                                S3ClientSettings.ENDPOINT.getKey(),
                                                 awsEndpoint)
                                         .setFile(
-                                                S3StorageSettings.PUBLIC_KEY_FILE.getKey(),
+                                                S3ClientSettings.PUBLIC_KEY_FILE.getKey(),
                                                 Files.newInputStream(publicKeyPem))
                                         .setFile(
-                                                S3StorageSettings.PRIVATE_KEY_FILE.getKey(),
+                                                S3ClientSettings.PRIVATE_KEY_FILE.getKey(),
                                                 Files.newInputStream(privateKeyPem))
                                 ));
 

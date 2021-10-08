@@ -31,12 +31,12 @@ public class AzureSettingsProvider extends RepositorySettingsProvider<AzureClien
     protected RepositoryStorageIOProvider<AzureClient> createRepositoryStorageIOProvider(
             final Settings settings) throws IOException {
         return Permissions.doPrivileged(() -> {
-            final var azureStorageSettings = AzureStorageSettings.create(settings);
+            final var azureClientSettings = AzureClientSettings.create(settings);
             final var encryptionKeyProvider =
-                    EncryptionKeyProvider.of(azureStorageSettings.publicKey(), azureStorageSettings.privateKey());
+                    EncryptionKeyProvider.of(azureClientSettings.publicKey(), azureClientSettings.privateKey());
             return Permissions.doPrivileged(() ->
                     new AzureRepositoryStorageIOProvider(
-                            AzureClient.create(azureStorageSettings), encryptionKeyProvider));
+                            AzureClient.create(azureClientSettings), encryptionKeyProvider));
         });
     }
 

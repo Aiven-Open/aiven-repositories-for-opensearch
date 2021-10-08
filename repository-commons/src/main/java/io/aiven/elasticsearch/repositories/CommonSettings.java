@@ -24,7 +24,7 @@ import org.elasticsearch.repositories.RepositoryException;
 
 public interface CommonSettings {
 
-    interface KeystoreSettings {
+    interface ClientSettings {
 
         String AIVEN_PREFIX = "aiven";
 

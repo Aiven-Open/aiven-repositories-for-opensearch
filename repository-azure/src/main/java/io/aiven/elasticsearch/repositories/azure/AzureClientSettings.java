@@ -18,18 +18,18 @@ package io.aiven.elasticsearch.repositories.azure;
 
 import java.io.InputStream;
 
-import io.aiven.elasticsearch.repositories.CommonSettings;
-
 import org.elasticsearch.common.settings.SecureSetting;
 import org.elasticsearch.common.settings.SecureString;
 import org.elasticsearch.common.settings.Setting;
 import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.common.unit.TimeValue;
 
-import static io.aiven.elasticsearch.repositories.CommonSettings.KeystoreSettings.checkSettings;
-import static io.aiven.elasticsearch.repositories.CommonSettings.KeystoreSettings.withPrefix;
+import io.aiven.elasticsearch.repositories.CommonSettings;
 
-public class AzureStorageSettings implements CommonSettings.KeystoreSettings {
+import static io.aiven.elasticsearch.repositories.CommonSettings.ClientSettings.checkSettings;
+import static io.aiven.elasticsearch.repositories.CommonSettings.ClientSettings.withPrefix;
+
+public class AzureClientSettings implements CommonSettings.ClientSettings {
 
     static final String AZURE_CONNECTION_STRING_TEMPLATE =
             "DefaultEndpointsProtocol=https;AccountName=%s;AccountKey=%s";
@@ -74,12 +74,12 @@ public class AzureStorageSettings implements CommonSettings.KeystoreSettings {
 
     private final HttpThreadPoolSettings httpThreadPoolSettings;
 
-    AzureStorageSettings(final InputStream publicKey,
-                         final InputStream privateKey,
-                         final String azureAccount,
-                         final String azureAccountKey,
-                         final int maxRetries,
-                         final HttpThreadPoolSettings httpThreadPoolSettings) {
+    AzureClientSettings(final InputStream publicKey,
+                        final InputStream privateKey,
+                        final String azureAccount,
+                        final String azureAccountKey,
+                        final int maxRetries,
+                        final HttpThreadPoolSettings httpThreadPoolSettings) {
         this.publicKey = publicKey;
         this.privateKey = privateKey;
         this.azureAccount = azureAccount;
@@ -112,12 +112,12 @@ public class AzureStorageSettings implements CommonSettings.KeystoreSettings {
         return maxRetries;
     }
 
-    public static AzureStorageSettings create(final Settings settings) {
+    public static AzureClientSettings create(final Settings settings) {
         checkSettings(AZURE_ACCOUNT, settings);
         checkSettings(AZURE_ACCOUNT_KEY, settings);
         checkSettings(PUBLIC_KEY_FILE, settings);
         checkSettings(PRIVATE_KEY_FILE, settings);
-        return new AzureStorageSettings(
+        return new AzureClientSettings(
                 PUBLIC_KEY_FILE.get(settings),
                 PRIVATE_KEY_FILE.get(settings),
                 AZURE_ACCOUNT.get(settings).toString(),

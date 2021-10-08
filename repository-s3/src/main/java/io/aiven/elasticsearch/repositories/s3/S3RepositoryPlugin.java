@@ -41,14 +41,14 @@ public class S3RepositoryPlugin extends AbstractRepositoryPlugin<AmazonS3> {
             //due to the load of constants for AWS SDK use check permissions here
             return Permissions.doPrivileged(() ->
                     List.of(
-                            S3StorageSettings.PUBLIC_KEY_FILE,
-                            S3StorageSettings.PRIVATE_KEY_FILE,
-                            S3StorageSettings.AWS_SECRET_ACCESS_KEY,
-                            S3StorageSettings.AWS_ACCESS_KEY_ID,
-                            S3StorageSettings.ENDPOINT,
-                            S3StorageSettings.MAX_RETRIES,
-                            S3StorageSettings.READ_TIMEOUT,
-                            S3StorageSettings.USE_THROTTLE_RETRIES
+                            S3ClientSettings.PUBLIC_KEY_FILE,
+                            S3ClientSettings.PRIVATE_KEY_FILE,
+                            S3ClientSettings.AWS_SECRET_ACCESS_KEY,
+                            S3ClientSettings.AWS_ACCESS_KEY_ID,
+                            S3ClientSettings.ENDPOINT,
+                            S3ClientSettings.MAX_RETRIES,
+                            S3ClientSettings.READ_TIMEOUT,
+                            S3ClientSettings.USE_THROTTLE_RETRIES
                     ));
         } catch (final IOException e) {
             throw new UncheckedIOException(e);

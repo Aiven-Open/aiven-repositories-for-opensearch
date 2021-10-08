@@ -54,16 +54,16 @@ public class AzureRepositoryPluginIT extends AbstractRepositoryPluginIT {
                             settingsBuilder
                                     .setSecureSettings(new DummySecureSettings()
                                             .setString(
-                                                    AzureStorageSettings.AZURE_ACCOUNT.getKey(),
+                                                    AzureClientSettings.AZURE_ACCOUNT.getKey(),
                                                     azureAccount)
                                             .setString(
-                                                    AzureStorageSettings.AZURE_ACCOUNT_KEY.getKey(),
+                                                    AzureClientSettings.AZURE_ACCOUNT_KEY.getKey(),
                                                     azureAccountKey)
                                             .setFile(
-                                                    AzureStorageSettings.PUBLIC_KEY_FILE.getKey(),
+                                                    AzureClientSettings.PUBLIC_KEY_FILE.getKey(),
                                                     Files.newInputStream(publicKeyPem))
                                             .setFile(
-                                                    AzureStorageSettings.PRIVATE_KEY_FILE.getKey(),
+                                                    AzureClientSettings.PRIVATE_KEY_FILE.getKey(),
                                                     Files.newInputStream(privateKeyPem))
                                     ));
         } catch (final Exception e) {
@@ -74,7 +74,7 @@ public class AzureRepositoryPluginIT extends AbstractRepositoryPluginIT {
                 new BlobServiceClientBuilder()
                         .connectionString(
                                 String.format(
-                                        AzureStorageSettings.AZURE_CONNECTION_STRING_TEMPLATE,
+                                        AzureClientSettings.AZURE_CONNECTION_STRING_TEMPLATE,
                                         azureAccount,
                                         azureAccountKey)
                         ).buildClient();

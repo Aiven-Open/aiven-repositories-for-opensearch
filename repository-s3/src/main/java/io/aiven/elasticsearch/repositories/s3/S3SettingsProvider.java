@@ -38,29 +38,29 @@ public class S3SettingsProvider extends RepositorySettingsProvider<AmazonS3> {
     protected RepositoryStorageIOProvider<AmazonS3> createRepositoryStorageIOProvider(final Settings settings)
             throws IOException {
         return Permissions.doPrivileged(() -> {
-            final var s3StorageSettings = S3StorageSettings.create(settings);
+            final var s3ClientSettings = S3ClientSettings.create(settings);
             final var encryptionKeyProvider =
-                    EncryptionKeyProvider.of(s3StorageSettings.publicKey(), s3StorageSettings.privateKey());
-            return new S3RepositoryStorageIOProvider(createClient(s3StorageSettings), encryptionKeyProvider);
+                    EncryptionKeyProvider.of(s3ClientSettings.publicKey(), s3ClientSettings.privateKey());
+            return new S3RepositoryStorageIOProvider(createClient(s3ClientSettings), encryptionKeyProvider);
         });
     }
 
-    private AmazonS3 createClient(final S3StorageSettings s3KeystoreSettings) {
+    private AmazonS3 createClient(final S3ClientSettings s3ClientSettings) {
         final var s3ClientBuilder = AmazonS3ClientBuilder.standard();
 
         final var clientConfiguration = new ClientConfiguration();
         clientConfiguration.setResponseMetadataCacheSize(0);
-        clientConfiguration.setMaxErrorRetry(s3KeystoreSettings.maxRetries());
-        clientConfiguration.setUseThrottleRetries(s3KeystoreSettings.useThrottleRetries());
-        clientConfiguration.setSocketTimeout(s3KeystoreSettings.readTimeout());
+        clientConfiguration.setMaxErrorRetry(s3ClientSettings.maxRetries());
+        clientConfiguration.setUseThrottleRetries(s3ClientSettings.useThrottleRetries());
+        clientConfiguration.setSocketTimeout(s3ClientSettings.readTimeout());
         clientConfiguration.setUserAgentPrefix(HTTP_USER_AGENT);
 
         s3ClientBuilder
-                .withCredentials(new AWSStaticCredentialsProvider(s3KeystoreSettings.awsCredentials()))
+                .withCredentials(new AWSStaticCredentialsProvider(s3ClientSettings.awsCredentials()))
                 .withClientConfiguration(clientConfiguration);
         s3ClientBuilder.withEndpointConfiguration(
                 new AwsClientBuilder.EndpointConfiguration(
-                        s3KeystoreSettings.endpoint(), null));
+                        s3ClientSettings.endpoint(), null));
         return s3ClientBuilder.build();
     }
 

@@ -31,7 +31,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
-class GcsStorageSettingsTest extends RsaKeyAwareTest {
+class GcsClientSettingsTest extends RsaKeyAwareTest {
 
     @Test
     void loadSettings() throws Exception {
@@ -44,19 +44,19 @@ class GcsStorageSettingsTest extends RsaKeyAwareTest {
                         )
                 ).build();
 
-        final var gcsStorageSettings = GcsStorageSettings.create(settings);
-        assertEquals("some_project", gcsStorageSettings.projectId());
-        assertEquals(1, gcsStorageSettings.connectionTimeout());
-        assertEquals(2, gcsStorageSettings.readTimeout());
+        final var gcsClientSettings = GcsClientSettings.create(settings);
+        assertEquals("some_project", gcsClientSettings.projectId());
+        assertEquals(1, gcsClientSettings.connectionTimeout());
+        assertEquals(2, gcsClientSettings.readTimeout());
 
-        assertNotNull(gcsStorageSettings.gcsCredentials());
+        assertNotNull(gcsClientSettings.gcsCredentials());
     }
 
     @Test
     void throwsIllegalArgumentExceptionForEmptyCredentials() {
         final var e =
                 assertThrows(
-                        IllegalArgumentException.class, () -> GcsStorageSettings.create(Settings.EMPTY));
+                        IllegalArgumentException.class, () -> GcsClientSettings.create(Settings.EMPTY));
 
         assertEquals(
                 "Settings for GC storage hasn't been set",
@@ -66,18 +66,18 @@ class GcsStorageSettingsTest extends RsaKeyAwareTest {
 
     Settings.Builder createSettings() {
         return Settings.builder()
-                .put(GcsStorageSettings.CONNECTION_TIMEOUT.getKey(), 1)
-                .put(GcsStorageSettings.READ_TIMEOUT.getKey(), 2)
-                .put(GcsStorageSettings.PROJECT_ID.getKey(), "some_project");
+                .put(GcsClientSettings.CONNECTION_TIMEOUT.getKey(), 1)
+                .put(GcsClientSettings.READ_TIMEOUT.getKey(), 2)
+                .put(GcsClientSettings.PROJECT_ID.getKey(), "some_project");
     }
 
     SecureSettings createSecureSettings(final InputStream googleCredential,
                                         final InputStream publicKey,
                                         final InputStream privateKey) throws IOException {
         return new DummySecureSettings()
-                .setFile(GcsStorageSettings.CREDENTIALS_FILE_SETTING.getKey(), googleCredential)
-                .setFile(GcsStorageSettings.PUBLIC_KEY_FILE.getKey(), publicKey)
-                .setFile(GcsStorageSettings.PRIVATE_KEY_FILE.getKey(), privateKey);
+                .setFile(GcsClientSettings.CREDENTIALS_FILE_SETTING.getKey(), googleCredential)
+                .setFile(GcsClientSettings.PUBLIC_KEY_FILE.getKey(), publicKey)
+                .setFile(GcsClientSettings.PRIVATE_KEY_FILE.getKey(), privateKey);
 
     }
 

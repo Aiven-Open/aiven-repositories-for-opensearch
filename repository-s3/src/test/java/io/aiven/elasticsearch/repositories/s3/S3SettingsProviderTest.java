@@ -40,7 +40,7 @@ class S3SettingsProviderTest extends RsaKeyAwareTest {
 
     @Test
     void throwsIllegalArgumentExceptionForEmptySettings() {
-        final var t = assertThrows(IllegalArgumentException.class, () -> S3StorageSettings.create(Settings.EMPTY));
+        final var t = assertThrows(IllegalArgumentException.class, () -> S3ClientSettings.create(Settings.EMPTY));
         assertEquals("Settings for AWS S3 haven't been set", t.getMessage());
     }
 
@@ -50,17 +50,17 @@ class S3SettingsProviderTest extends RsaKeyAwareTest {
 
         final var secureSettings =
                 new DummySecureSettings()
-                        .setString(S3StorageSettings.AWS_ACCESS_KEY_ID.getKey(), "AWS_ACCESS_KEY_ID")
-                        .setString(S3StorageSettings.AWS_SECRET_ACCESS_KEY.getKey(), "AWS_SECRET_ACCESS_KEY")
-                        .setString(S3StorageSettings.ENDPOINT.getKey(), "http://endpoint")
-                        .setFile(S3StorageSettings.PUBLIC_KEY_FILE.getKey(), Files.newInputStream(publicKeyPem))
-                        .setFile(S3StorageSettings.PRIVATE_KEY_FILE.getKey(), Files.newInputStream(privateKeyPem));
+                        .setString(S3ClientSettings.AWS_ACCESS_KEY_ID.getKey(), "AWS_ACCESS_KEY_ID")
+                        .setString(S3ClientSettings.AWS_SECRET_ACCESS_KEY.getKey(), "AWS_SECRET_ACCESS_KEY")
+                        .setString(S3ClientSettings.ENDPOINT.getKey(), "http://endpoint")
+                        .setFile(S3ClientSettings.PUBLIC_KEY_FILE.getKey(), Files.newInputStream(publicKeyPem))
+                        .setFile(S3ClientSettings.PRIVATE_KEY_FILE.getKey(), Files.newInputStream(privateKeyPem));
 
         final var settings =
                 Settings.builder()
-                        .put(S3StorageSettings.MAX_RETRIES.getKey(), 12)
-                        .put(S3StorageSettings.READ_TIMEOUT.getKey(), TimeValue.timeValueMillis(1000L))
-                        .put(S3StorageSettings.USE_THROTTLE_RETRIES.getKey(), false)
+                        .put(S3ClientSettings.MAX_RETRIES.getKey(), 12)
+                        .put(S3ClientSettings.READ_TIMEOUT.getKey(), TimeValue.timeValueMillis(1000L))
+                        .put(S3ClientSettings.USE_THROTTLE_RETRIES.getKey(), false)
                         .setSecureSettings(secureSettings)
                         .build();
 
@@ -84,11 +84,11 @@ class S3SettingsProviderTest extends RsaKeyAwareTest {
 
         final var secureSettings =
                 new DummySecureSettings()
-                        .setString(S3StorageSettings.AWS_ACCESS_KEY_ID.getKey(), "AWS_ACCESS_KEY_ID")
-                        .setString(S3StorageSettings.AWS_SECRET_ACCESS_KEY.getKey(), "AWS_SECRET_ACCESS_KEY")
-                        .setString(S3StorageSettings.ENDPOINT.getKey(), "http://endpoint")
-                        .setFile(S3StorageSettings.PUBLIC_KEY_FILE.getKey(), Files.newInputStream(publicKeyPem))
-                        .setFile(S3StorageSettings.PRIVATE_KEY_FILE.getKey(), Files.newInputStream(privateKeyPem));
+                        .setString(S3ClientSettings.AWS_ACCESS_KEY_ID.getKey(), "AWS_ACCESS_KEY_ID")
+                        .setString(S3ClientSettings.AWS_SECRET_ACCESS_KEY.getKey(), "AWS_SECRET_ACCESS_KEY")
+                        .setString(S3ClientSettings.ENDPOINT.getKey(), "http://endpoint")
+                        .setFile(S3ClientSettings.PUBLIC_KEY_FILE.getKey(), Files.newInputStream(publicKeyPem))
+                        .setFile(S3ClientSettings.PRIVATE_KEY_FILE.getKey(), Files.newInputStream(privateKeyPem));
 
         final var settings =
                 Settings.builder().setSecureSettings(secureSettings).build();

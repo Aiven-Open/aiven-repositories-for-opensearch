@@ -48,28 +48,28 @@ public class GcsSettingsProvider extends RepositorySettingsProvider<Storage> {
     protected RepositoryStorageIOProvider<Storage> createRepositoryStorageIOProvider(final Settings settings)
             throws IOException {
         return Permissions.doPrivileged(() -> {
-            final var gcsStorageSettings = GcsStorageSettings.create(settings);
+            final var gcsClientSettings = GcsClientSettings.create(settings);
             final var encryptionKeyProvider =
                     EncryptionKeyProvider.of(
-                            gcsStorageSettings.publicKey(),
-                            gcsStorageSettings.privateKey()
+                            gcsClientSettings.publicKey(),
+                            gcsClientSettings.privateKey()
                     );
-            final var client = createGcsClient(gcsStorageSettings);
+            final var client = createGcsClient(gcsClientSettings);
             return new GcsRepositoryStorageIOProvider(client, encryptionKeyProvider);
         });
     }
 
-    private Storage createGcsClient(final GcsStorageSettings gcsStorageSettings) {
+    private Storage createGcsClient(final GcsClientSettings gcsClientSettings) {
         final StorageOptions.Builder storageOptionsBuilder = StorageOptions.newBuilder();
-        if (!Strings.isNullOrEmpty(gcsStorageSettings.projectId())) {
-            storageOptionsBuilder.setProjectId(gcsStorageSettings.projectId());
+        if (!Strings.isNullOrEmpty(gcsClientSettings.projectId())) {
+            storageOptionsBuilder.setProjectId(gcsClientSettings.projectId());
         }
         storageOptionsBuilder
                 .setTransportOptions(
                         HttpTransportOptions.newBuilder()
-                                .setHttpTransportFactory(createHttpTransportFactory(gcsStorageSettings))
-                                .setConnectTimeout(gcsStorageSettings.connectionTimeout())
-                                .setReadTimeout(gcsStorageSettings.readTimeout())
+                                .setHttpTransportFactory(createHttpTransportFactory(gcsClientSettings))
+                                .setConnectTimeout(gcsClientSettings.connectionTimeout())
+                                .setReadTimeout(gcsClientSettings.readTimeout())
                                 .build())
                 .setHeaderProvider(() -> Map.of(HttpHeaders.USER_AGENT, HTTP_USER_AGENT))
                 .setRetrySettings(
@@ -77,20 +77,20 @@ public class GcsSettingsProvider extends RepositorySettingsProvider<Storage> {
                         StorageOptions
                             .getDefaultRetrySettings()
                             .toBuilder()
-                            .setMaxAttempts(gcsStorageSettings.getMaxRetries())
+                            .setMaxAttempts(gcsClientSettings.getMaxRetries())
                             .build())
-                .setCredentials(gcsStorageSettings.gcsCredentials());
+                .setCredentials(gcsClientSettings.gcsCredentials());
 
         return storageOptionsBuilder.build().getService();
     }
 
-    private HttpTransportFactory createHttpTransportFactory(final GcsStorageSettings gcsStorageSettings) {
-        if (!Strings.isNullOrEmpty(gcsStorageSettings.getProxyHost())) {
+    private HttpTransportFactory createHttpTransportFactory(final GcsClientSettings gcsClientSettings) {
+        if (!Strings.isNullOrEmpty(gcsClientSettings.getProxyHost())) {
             return new ProxyHttpTransportFactory(
-                    gcsStorageSettings.getProxyHost(),
-                    gcsStorageSettings.getProxyPort(),
-                    gcsStorageSettings.getProxyUsername(),
-                    gcsStorageSettings.getProxyUserPassword()
+                    gcsClientSettings.getProxyHost(),
+                    gcsClientSettings.getProxyPort(),
+                    gcsClientSettings.getProxyUsername(),
+                    gcsClientSettings.getProxyUserPassword()
             );
         }
         return new HttpTransportOptions.DefaultHttpTransportFactory();

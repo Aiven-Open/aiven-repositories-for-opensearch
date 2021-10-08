@@ -29,7 +29,7 @@ import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
-class AzureStorageSettingsTest extends RsaKeyAwareTest {
+class AzureClientSettingsTest extends RsaKeyAwareTest {
 
     @Test
     void failsForEmptyPublicKey() throws IOException {
@@ -37,16 +37,16 @@ class AzureStorageSettingsTest extends RsaKeyAwareTest {
                 Settings.builder()
                         .setSecureSettings(
                                 new DummySecureSettings()
-                                        .setString(AzureStorageSettings.AZURE_ACCOUNT.getKey(), "some_account")
-                                        .setString(AzureStorageSettings.AZURE_ACCOUNT_KEY.getKey(), "some_account_key")
+                                        .setString(AzureClientSettings.AZURE_ACCOUNT.getKey(), "some_account")
+                                        .setString(AzureClientSettings.AZURE_ACCOUNT_KEY.getKey(), "some_account_key")
                                         .setFile(
-                                                AzureStorageSettings.PRIVATE_KEY_FILE.getKey(),
+                                                AzureClientSettings.PRIVATE_KEY_FILE.getKey(),
                                                 Files.newInputStream(privateKeyPem)
                                         )
                         ).build();
 
         final var t = assertThrows(
-                IllegalArgumentException.class, () -> AzureStorageSettings.create(settings));
+                IllegalArgumentException.class, () -> AzureClientSettings.create(settings));
         assertEquals("Settings with name aiven.azure.public_key_file hasn't been set", t.getMessage());
     }
 
@@ -56,19 +56,19 @@ class AzureStorageSettingsTest extends RsaKeyAwareTest {
                 Settings.builder()
                         .setSecureSettings(
                                 new DummySecureSettings()
-                                        .setString(AzureStorageSettings.AZURE_ACCOUNT.getKey(), "some_account")
+                                        .setString(AzureClientSettings.AZURE_ACCOUNT.getKey(), "some_account")
                                         .setString(
-                                                AzureStorageSettings.AZURE_ACCOUNT_KEY.getKey(),
+                                                AzureClientSettings.AZURE_ACCOUNT_KEY.getKey(),
                                                 "some_account_key"
                                         )
                                         .setFile(
-                                                AzureStorageSettings.PUBLIC_KEY_FILE.getKey(),
+                                                AzureClientSettings.PUBLIC_KEY_FILE.getKey(),
                                                 Files.newInputStream(publicKeyPem)
                                         )
                         ).build();
 
         final var t = assertThrows(
-                IllegalArgumentException.class, () -> AzureStorageSettings.create(settings));
+                IllegalArgumentException.class, () -> AzureClientSettings.create(settings));
         assertEquals("Settings with name aiven.azure.private_key_file hasn't been set", t.getMessage());
     }
 
@@ -76,11 +76,11 @@ class AzureStorageSettingsTest extends RsaKeyAwareTest {
     void failsForEmptyAzureAccount() {
         final var secureSettings =
                 new DummySecureSettings()
-                        .setString(AzureStorageSettings.AZURE_ACCOUNT_KEY.getKey(), "some_key");
+                        .setString(AzureClientSettings.AZURE_ACCOUNT_KEY.getKey(), "some_key");
 
         final var t =
                 assertThrows(IllegalArgumentException.class, () ->
-                        AzureStorageSettings.create(Settings.builder()
+                        AzureClientSettings.create(Settings.builder()
                                 .setSecureSettings(secureSettings).build()));
 
         assertEquals("Settings with name aiven.azure.client.account hasn't been set", t.getMessage());
@@ -91,11 +91,11 @@ class AzureStorageSettingsTest extends RsaKeyAwareTest {
 
         final var secureSettings =
                 new DummySecureSettings()
-                        .setString(AzureStorageSettings.AZURE_ACCOUNT.getKey(), "some_account");
+                        .setString(AzureClientSettings.AZURE_ACCOUNT.getKey(), "some_account");
 
         final var t =
                 assertThrows(IllegalArgumentException.class, () ->
-                        AzureStorageSettings.create(Settings.builder()
+                        AzureClientSettings.create(Settings.builder()
                                 .setSecureSettings(secureSettings).build()));
 
         assertEquals("Settings with name aiven.azure.client.account.key hasn't been set", t.getMessage());
@@ -105,31 +105,31 @@ class AzureStorageSettingsTest extends RsaKeyAwareTest {
     void loadDefaultSettings() throws IOException {
         final var secureSettings =
                 new DummySecureSettings()
-                        .setString(AzureStorageSettings.AZURE_ACCOUNT.getKey(), "some_account")
-                        .setString(AzureStorageSettings.AZURE_ACCOUNT_KEY.getKey(), "some_account_key")
+                        .setString(AzureClientSettings.AZURE_ACCOUNT.getKey(), "some_account")
+                        .setString(AzureClientSettings.AZURE_ACCOUNT_KEY.getKey(), "some_account_key")
                         .setFile(
-                                AzureStorageSettings.PUBLIC_KEY_FILE.getKey(),
+                                AzureClientSettings.PUBLIC_KEY_FILE.getKey(),
                                 Files.newInputStream(publicKeyPem)
                         )
                         .setFile(
-                                AzureStorageSettings.PRIVATE_KEY_FILE.getKey(),
+                                AzureClientSettings.PRIVATE_KEY_FILE.getKey(),
                                 Files.newInputStream(privateKeyPem)
                         );
 
-        final var azureStorageSettings =
-                AzureStorageSettings.create(Settings.builder().setSecureSettings(secureSettings).build());
+        final var azureClientSettings =
+                AzureClientSettings.create(Settings.builder().setSecureSettings(secureSettings).build());
 
-        assertEquals("some_account", azureStorageSettings.azureAccount());
-        assertEquals("some_account_key", azureStorageSettings.azureAccountKey());
+        assertEquals("some_account", azureClientSettings.azureAccount());
+        assertEquals("some_account_key", azureClientSettings.azureAccountKey());
         assertEquals(
                 String.format(
-                        AzureStorageSettings.AZURE_CONNECTION_STRING_TEMPLATE,
-                        azureStorageSettings.azureAccount(),
-                        azureStorageSettings.azureAccountKey()
-                ), azureStorageSettings.azureConnectionString());
-        assertEquals(3, azureStorageSettings.maxRetries());
+                        AzureClientSettings.AZURE_CONNECTION_STRING_TEMPLATE,
+                        azureClientSettings.azureAccount(),
+                        azureClientSettings.azureAccountKey()
+                ), azureClientSettings.azureConnectionString());
+        assertEquals(3, azureClientSettings.maxRetries());
 
-        final var httpThreadPoolSettings = azureStorageSettings.httpThreadPoolSettings();
+        final var httpThreadPoolSettings = azureClientSettings.httpThreadPoolSettings();
         assertEquals(1, httpThreadPoolSettings.minThreads());
         assertEquals(Runtime.getRuntime().availableProcessors() * 2 - 1, httpThreadPoolSettings.maxThreads());
         assertEquals(TimeValue.timeValueSeconds(30L).getMillis(), httpThreadPoolSettings.keepAlive());
@@ -140,39 +140,41 @@ class AzureStorageSettingsTest extends RsaKeyAwareTest {
         final var settingsBuilder = Settings.builder();
         settingsBuilder.setSecureSettings(
                 new DummySecureSettings()
-                        .setString(AzureStorageSettings.AZURE_ACCOUNT.getKey(), "some_account")
-                        .setString(AzureStorageSettings.AZURE_ACCOUNT_KEY.getKey(), "some_account_key")
+                        .setString(AzureClientSettings.AZURE_ACCOUNT.getKey(), "some_account")
+                        .setString(AzureClientSettings.AZURE_ACCOUNT_KEY.getKey(), "some_account_key")
                         .setFile(
-                                AzureStorageSettings.PUBLIC_KEY_FILE.getKey(),
+                                AzureClientSettings.PUBLIC_KEY_FILE.getKey(),
                                 Files.newInputStream(publicKeyPem)
                         )
                         .setFile(
-                                AzureStorageSettings.PRIVATE_KEY_FILE.getKey(),
+                                AzureClientSettings.PRIVATE_KEY_FILE.getKey(),
                                 Files.newInputStream(privateKeyPem)
                         )
         );
 
-        settingsBuilder.put(AzureStorageSettings.MAX_RETRIES.getKey(), 42);
+        settingsBuilder.put(AzureClientSettings.MAX_RETRIES.getKey(), 42);
 
-        settingsBuilder.put(AzureStorageSettings.AZURE_HTTP_POOL_MIN_THREADS.getKey(), 10);
-        settingsBuilder.put(AzureStorageSettings.AZURE_HTTP_POOL_MAX_THREADS.getKey(), 32);
-        settingsBuilder.put(AzureStorageSettings.AZURE_HTTP_POOL_KEEP_ALIVE.getKey(), TimeValue.timeValueMillis(1000L));
+        settingsBuilder.put(AzureClientSettings.AZURE_HTTP_POOL_MIN_THREADS.getKey(), 10);
+        settingsBuilder.put(AzureClientSettings.AZURE_HTTP_POOL_MAX_THREADS.getKey(), 32);
+        settingsBuilder.put(
+                AzureClientSettings.AZURE_HTTP_POOL_KEEP_ALIVE.getKey(),
+                TimeValue.timeValueMillis(1000L));
 
 
-        final var azureStorageSettings =
-                AzureStorageSettings.create(settingsBuilder.build());
+        final var azureClientSettings =
+                AzureClientSettings.create(settingsBuilder.build());
 
-        assertEquals("some_account", azureStorageSettings.azureAccount());
-        assertEquals("some_account_key", azureStorageSettings.azureAccountKey());
+        assertEquals("some_account", azureClientSettings.azureAccount());
+        assertEquals("some_account_key", azureClientSettings.azureAccountKey());
         assertEquals(
                 String.format(
-                        AzureStorageSettings.AZURE_CONNECTION_STRING_TEMPLATE,
-                        azureStorageSettings.azureAccount(),
-                        azureStorageSettings.azureAccountKey()
-                ), azureStorageSettings.azureConnectionString());
-        assertEquals(42, azureStorageSettings.maxRetries());
+                        AzureClientSettings.AZURE_CONNECTION_STRING_TEMPLATE,
+                        azureClientSettings.azureAccount(),
+                        azureClientSettings.azureAccountKey()
+                ), azureClientSettings.azureConnectionString());
+        assertEquals(42, azureClientSettings.maxRetries());
 
-        final var httpThreadPoolSettings = azureStorageSettings.httpThreadPoolSettings();
+        final var httpThreadPoolSettings = azureClientSettings.httpThreadPoolSettings();
         assertEquals(10, httpThreadPoolSettings.minThreads());
         assertEquals(32, httpThreadPoolSettings.maxThreads());
         assertEquals(TimeValue.timeValueMillis(1000L).getMillis(), httpThreadPoolSettings.keepAlive());

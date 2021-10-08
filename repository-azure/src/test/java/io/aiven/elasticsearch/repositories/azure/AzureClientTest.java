@@ -46,7 +46,7 @@ class AzureClientTest {
                 new BlobServiceClientBuilder()
                         .connectionString(
                                 String.format(
-                                        AzureStorageSettings.AZURE_CONNECTION_STRING_TEMPLATE,
+                                        AzureClientSettings.AZURE_CONNECTION_STRING_TEMPLATE,
                                         "some_acc_name", "some_acc_key")
                         ).buildClient();
     }
