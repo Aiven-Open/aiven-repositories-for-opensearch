@@ -36,13 +36,12 @@ public abstract class RepositorySettingsProvider<T> {
         return repositoryStorageIOProvider;
     }
 
-    public synchronized void reload(final String repositoryType, final Settings settings) throws IOException {
+    public synchronized void reload(final Settings settings) throws IOException {
         if (settings.isEmpty()) {
             return;
         }
 
         try {
-            LOGGER.info("Reload settings for repository type: {}", repositoryType);
             this.repositoryStorageIOProvider = createRepositoryStorageIOProvider(settings);
         } catch (final Exception e) {
             throw new IOException(e.getMessage(), e);

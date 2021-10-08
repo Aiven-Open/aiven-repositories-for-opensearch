@@ -52,7 +52,7 @@ class AzureSettingsProviderTest extends RsaKeyAwareTest {
                         .setSecureSettings(secureSettings)
                         .build();
 
-        azureSettingsProvider.reload(AzureRepositoryPlugin.REPOSITORY_TYPE, settings);
+        azureSettingsProvider.reload(settings);
 
         final var client = extractClient(azureSettingsProvider.repositoryStorageIOProvider());
 

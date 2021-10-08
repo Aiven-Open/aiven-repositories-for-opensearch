@@ -23,13 +23,12 @@ import java.nio.file.NoSuchFileException;
 import java.util.ArrayList;
 import java.util.List;
 
-import org.elasticsearch.core.internal.io.IOUtils;
-
 import com.google.cloud.ReadChannel;
 import com.google.cloud.RestorableState;
 import com.google.cloud.RetryHelper;
 import com.google.cloud.storage.BlobId;
 import com.google.cloud.storage.StorageException;
+import org.elasticsearch.core.internal.io.IOUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
