@@ -24,16 +24,16 @@ import org.opensearch.common.settings.Setting;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.unit.TimeValue;
 
-import io.aiven.elasticsearch.repositories.CommonSettings.KeystoreSettings;
+import io.aiven.elasticsearch.repositories.CommonSettings.ClientSettings;
 
 import com.amazonaws.ClientConfiguration;
 import com.amazonaws.auth.AWSCredentials;
 import com.amazonaws.auth.BasicAWSCredentials;
 
-import static io.aiven.elasticsearch.repositories.CommonSettings.KeystoreSettings.checkSettings;
-import static io.aiven.elasticsearch.repositories.CommonSettings.KeystoreSettings.withPrefix;
+import static io.aiven.elasticsearch.repositories.CommonSettings.ClientSettings.checkSettings;
+import static io.aiven.elasticsearch.repositories.CommonSettings.ClientSettings.withPrefix;
 
-public class S3StorageSettings implements KeystoreSettings {
+public class S3ClientSettings implements ClientSettings {
 
     public static final Setting<InputStream> PUBLIC_KEY_FILE =
             SecureSetting.secureFile(withPrefix("s3.public_key_file"), null);
@@ -82,7 +82,7 @@ public class S3StorageSettings implements KeystoreSettings {
 
     private final long readTimeout;
 
-    private S3StorageSettings(
+    private S3ClientSettings(
             final InputStream publicKey,
             final InputStream privateKey,
             final AWSCredentials awsCredentials,
@@ -127,7 +127,7 @@ public class S3StorageSettings implements KeystoreSettings {
         return Math.toIntExact(readTimeout);
     }
 
-    public static S3StorageSettings create(final Settings settings) {
+    public static S3ClientSettings create(final Settings settings) {
         if (settings.isEmpty()) {
             throw new IllegalArgumentException("Settings for AWS S3 haven't been set");
         }
@@ -136,7 +136,7 @@ public class S3StorageSettings implements KeystoreSettings {
         checkSettings(ENDPOINT, settings);
         checkSettings(PUBLIC_KEY_FILE, settings);
         checkSettings(PRIVATE_KEY_FILE, settings);
-        return new S3StorageSettings(
+        return new S3ClientSettings(
                 PUBLIC_KEY_FILE.get(settings),
                 PRIVATE_KEY_FILE.get(settings),
                 new BasicAWSCredentials(
