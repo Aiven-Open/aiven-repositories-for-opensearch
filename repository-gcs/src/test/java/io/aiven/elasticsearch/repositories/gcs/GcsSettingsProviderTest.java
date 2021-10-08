@@ -50,9 +50,9 @@ class GcsSettingsProviderTest extends RsaKeyAwareTest {
         final var gcsSettingsProvider = new GcsSettingsProvider();
         final var settings = Settings.builder()
                 .put(CommonSettings.RepositorySettings.BASE_PATH.getKey(), "base_path/")
-                .put(GcsStorageSettings.CONNECTION_TIMEOUT.getKey(), 1)
-                .put(GcsStorageSettings.READ_TIMEOUT.getKey(), 2)
-                .put(GcsStorageSettings.PROJECT_ID.getKey(), "some_project")
+                .put(GcsClientSettings.CONNECTION_TIMEOUT.getKey(), 1)
+                .put(GcsClientSettings.READ_TIMEOUT.getKey(), 2)
+                .put(GcsClientSettings.PROJECT_ID.getKey(), "some_project")
                 .setSecureSettings(createFullSecureSettings()).build();
         gcsSettingsProvider.reload(settings);
 
@@ -77,11 +77,11 @@ class GcsSettingsProviderTest extends RsaKeyAwareTest {
         final var gcsSettingsProvider = new GcsSettingsProvider();
         final var proxySettingsWithUsernameAndPassword = Settings.builder()
                 .put(CommonSettings.RepositorySettings.BASE_PATH.getKey(), "base_path/")
-                .put(GcsStorageSettings.CONNECTION_TIMEOUT.getKey(), 1)
-                .put(GcsStorageSettings.READ_TIMEOUT.getKey(), 2)
-                .put(GcsStorageSettings.PROXY_HOST.getKey(), "socks.test.io")
-                .put(GcsStorageSettings.PROXY_PORT.getKey(), 1234)
-                .put(GcsStorageSettings.PROJECT_ID.getKey(), "some_project")
+                .put(GcsClientSettings.CONNECTION_TIMEOUT.getKey(), 1)
+                .put(GcsClientSettings.READ_TIMEOUT.getKey(), 2)
+                .put(GcsClientSettings.PROXY_HOST.getKey(), "socks.test.io")
+                .put(GcsClientSettings.PROXY_PORT.getKey(), 1234)
+                .put(GcsClientSettings.PROJECT_ID.getKey(), "some_project")
                 .setSecureSettings(createFullSecureSettingsWithProxyUsernameAndPassword()).build();
 
         gcsSettingsProvider.reload(proxySettingsWithUsernameAndPassword);
@@ -113,11 +113,11 @@ class GcsSettingsProviderTest extends RsaKeyAwareTest {
         final var gcsSettingsProvider = new GcsSettingsProvider();
         final var proxySettingsWithoutUsernameAndPassword = Settings.builder()
                 .put(CommonSettings.RepositorySettings.BASE_PATH.getKey(), "base_path/")
-                .put(GcsStorageSettings.CONNECTION_TIMEOUT.getKey(), 1)
-                .put(GcsStorageSettings.READ_TIMEOUT.getKey(), 2)
-                .put(GcsStorageSettings.PROXY_HOST.getKey(), "socks5.test.io")
-                .put(GcsStorageSettings.PROXY_PORT.getKey(), 12345)
-                .put(GcsStorageSettings.PROJECT_ID.getKey(), "some_project")
+                .put(GcsClientSettings.CONNECTION_TIMEOUT.getKey(), 1)
+                .put(GcsClientSettings.READ_TIMEOUT.getKey(), 2)
+                .put(GcsClientSettings.PROXY_HOST.getKey(), "socks5.test.io")
+                .put(GcsClientSettings.PROXY_PORT.getKey(), 12345)
+                .put(GcsClientSettings.PROJECT_ID.getKey(), "some_project")
                 .setSecureSettings(createFullSecureSettings()).build();
         gcsSettingsProvider.reload(proxySettingsWithoutUsernameAndPassword);
         final var repoIOProvider = gcsSettingsProvider.repositoryStorageIOProvider();
@@ -184,9 +184,9 @@ class GcsSettingsProviderTest extends RsaKeyAwareTest {
         assertEquals(loadCredentials(), client.getOptions().getCredentials());
 
         final var newSettings = Settings.builder()
-                .put(GcsStorageSettings.CONNECTION_TIMEOUT.getKey(), 10)
-                .put(GcsStorageSettings.READ_TIMEOUT.getKey(), 20)
-                .put(GcsStorageSettings.PROJECT_ID.getKey(), "super_project")
+                .put(GcsClientSettings.CONNECTION_TIMEOUT.getKey(), 10)
+                .put(GcsClientSettings.READ_TIMEOUT.getKey(), 20)
+                .put(GcsClientSettings.PROJECT_ID.getKey(), "super_project")
                 .setSecureSettings(createFullSecureSettings())
                 .build();
         gcsSettingsProvider.reload(newSettings);
@@ -271,43 +271,43 @@ class GcsSettingsProviderTest extends RsaKeyAwareTest {
     private DummySecureSettings createFullSecureSettings() throws IOException {
         return new DummySecureSettings()
                 .setFile(
-                        GcsStorageSettings.CREDENTIALS_FILE_SETTING.getKey(),
+                        GcsClientSettings.CREDENTIALS_FILE_SETTING.getKey(),
                         getClass().getClassLoader().getResourceAsStream("test_gcs_creds.json"))
-                .setFile(GcsStorageSettings.PRIVATE_KEY_FILE.getKey(), Files.newInputStream(privateKeyPem))
-                .setFile(GcsStorageSettings.PUBLIC_KEY_FILE.getKey(), Files.newInputStream(publicKeyPem));
+                .setFile(GcsClientSettings.PRIVATE_KEY_FILE.getKey(), Files.newInputStream(privateKeyPem))
+                .setFile(GcsClientSettings.PUBLIC_KEY_FILE.getKey(), Files.newInputStream(publicKeyPem));
     }
 
     private DummySecureSettings createFullSecureSettingsWithProxyUsernameAndPassword() throws IOException {
         return new DummySecureSettings()
                 .setFile(
-                        GcsStorageSettings.CREDENTIALS_FILE_SETTING.getKey(),
+                        GcsClientSettings.CREDENTIALS_FILE_SETTING.getKey(),
                         getClass().getClassLoader().getResourceAsStream("test_gcs_creds.json"))
-                .setFile(GcsStorageSettings.PRIVATE_KEY_FILE.getKey(), Files.newInputStream(privateKeyPem))
-                .setFile(GcsStorageSettings.PUBLIC_KEY_FILE.getKey(), Files.newInputStream(publicKeyPem))
-                .setString(GcsStorageSettings.PROXY_USER_NAME.getKey(), "some_user_name")
-                .setString(GcsStorageSettings.PROXY_USER_PASSWORD.getKey(), "some_user_password");
+                .setFile(GcsClientSettings.PRIVATE_KEY_FILE.getKey(), Files.newInputStream(privateKeyPem))
+                .setFile(GcsClientSettings.PUBLIC_KEY_FILE.getKey(), Files.newInputStream(publicKeyPem))
+                .setString(GcsClientSettings.PROXY_USER_NAME.getKey(), "some_user_name")
+                .setString(GcsClientSettings.PROXY_USER_PASSWORD.getKey(), "some_user_password");
     }
 
     private DummySecureSettings createNoGcsCredentialFileSettings() throws IOException {
         return new DummySecureSettings()
-                .setFile(GcsStorageSettings.PUBLIC_KEY_FILE.getKey(), Files.newInputStream(publicKeyPem))
-                .setFile(GcsStorageSettings.PRIVATE_KEY_FILE.getKey(), Files.newInputStream(privateKeyPem));
+                .setFile(GcsClientSettings.PUBLIC_KEY_FILE.getKey(), Files.newInputStream(publicKeyPem))
+                .setFile(GcsClientSettings.PRIVATE_KEY_FILE.getKey(), Files.newInputStream(privateKeyPem));
     }
 
     private DummySecureSettings createPublicRsaKeyOnlySecureSettings() throws IOException {
         return new DummySecureSettings()
                 .setFile(
-                        GcsStorageSettings.CREDENTIALS_FILE_SETTING.getKey(),
+                        GcsClientSettings.CREDENTIALS_FILE_SETTING.getKey(),
                         getClass().getClassLoader().getResourceAsStream("test_gcs_creds.json"))
-                .setFile(GcsStorageSettings.PUBLIC_KEY_FILE.getKey(), Files.newInputStream(publicKeyPem));
+                .setFile(GcsClientSettings.PUBLIC_KEY_FILE.getKey(), Files.newInputStream(publicKeyPem));
     }
 
     private DummySecureSettings createPrivateRsaKeyOnlySecureSettings() throws IOException {
         return new DummySecureSettings()
                 .setFile(
-                        GcsStorageSettings.CREDENTIALS_FILE_SETTING.getKey(),
+                        GcsClientSettings.CREDENTIALS_FILE_SETTING.getKey(),
                         getClass().getClassLoader().getResourceAsStream("test_gcs_creds.json"))
-                .setFile(GcsStorageSettings.PRIVATE_KEY_FILE.getKey(), Files.newInputStream(privateKeyPem));
+                .setFile(GcsClientSettings.PRIVATE_KEY_FILE.getKey(), Files.newInputStream(privateKeyPem));
     }
 
     GoogleCredentials loadCredentials() throws IOException {

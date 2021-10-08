@@ -34,11 +34,11 @@ public class AzureRepositoryPlugin extends AbstractRepositoryPlugin<AzureClient>
     @Override
     public List<Setting<?>> getSettings() {
         return List.of(
-                AzureStorageSettings.PUBLIC_KEY_FILE,
-                AzureStorageSettings.PRIVATE_KEY_FILE,
-                AzureStorageSettings.AZURE_ACCOUNT,
-                AzureStorageSettings.AZURE_ACCOUNT_KEY,
-                AzureStorageSettings.MAX_RETRIES
+                AzureClientSettings.PUBLIC_KEY_FILE,
+                AzureClientSettings.PRIVATE_KEY_FILE,
+                AzureClientSettings.AZURE_ACCOUNT,
+                AzureClientSettings.AZURE_ACCOUNT_KEY,
+                AzureClientSettings.MAX_RETRIES
         );
     }
 

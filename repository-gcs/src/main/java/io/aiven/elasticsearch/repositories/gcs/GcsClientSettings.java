@@ -29,10 +29,10 @@ import io.aiven.elasticsearch.repositories.CommonSettings;
 
 import com.google.auth.oauth2.GoogleCredentials;
 
-import static io.aiven.elasticsearch.repositories.CommonSettings.KeystoreSettings.checkSettings;
-import static io.aiven.elasticsearch.repositories.CommonSettings.KeystoreSettings.withPrefix;
+import static io.aiven.elasticsearch.repositories.CommonSettings.ClientSettings.checkSettings;
+import static io.aiven.elasticsearch.repositories.CommonSettings.ClientSettings.withPrefix;
 
-public class GcsStorageSettings implements CommonSettings.KeystoreSettings {
+public class GcsClientSettings implements CommonSettings.ClientSettings {
 
     public static final Setting<InputStream> PUBLIC_KEY_FILE =
             SecureSetting.secureFile(withPrefix("gcs.public_key_file"), null);
@@ -95,17 +95,17 @@ public class GcsStorageSettings implements CommonSettings.KeystoreSettings {
 
     private final int proxyPort;
 
-    private GcsStorageSettings(final InputStream publicKey,
-                               final InputStream privateKey,
-                               final String projectId,
-                               final GoogleCredentials gcsCredentials,
-                               final int connectionTimeout,
-                               final int readTimeout,
-                               final int maxRetries,
-                               final String proxyHost,
-                               final int proxyPort,
-                               final String proxyUsername,
-                               final char[] proxyUserPassword) {
+    private GcsClientSettings(final InputStream publicKey,
+                              final InputStream privateKey,
+                              final String projectId,
+                              final GoogleCredentials gcsCredentials,
+                              final int connectionTimeout,
+                              final int readTimeout,
+                              final int maxRetries,
+                              final String proxyHost,
+                              final int proxyPort,
+                              final String proxyUsername,
+                              final char[] proxyUserPassword) {
         this.publicKey = publicKey;
         this.privateKey = privateKey;
         this.projectId = projectId;
@@ -119,7 +119,7 @@ public class GcsStorageSettings implements CommonSettings.KeystoreSettings {
         this.proxyUserPassword = proxyUserPassword;
     }
 
-    public static GcsStorageSettings create(final Settings settings) throws IOException {
+    public static GcsClientSettings create(final Settings settings) throws IOException {
         if (settings.isEmpty()) {
             throw new IllegalArgumentException("Settings for GC storage hasn't been set");
         }
@@ -129,7 +129,7 @@ public class GcsStorageSettings implements CommonSettings.KeystoreSettings {
         if (PROXY_PORT.exists(settings) && PROXY_PORT.get(settings) < 0) {
             throw new IllegalArgumentException("Settings with name " + PROXY_PORT.getKey() + " must be greater than 0");
         }
-        return new GcsStorageSettings(
+        return new GcsClientSettings(
                 PUBLIC_KEY_FILE.get(settings),
                 PRIVATE_KEY_FILE.get(settings),
                 PROJECT_ID.get(settings),

@@ -57,18 +57,18 @@ class AzureClient implements AutoCloseable {
         return blobServiceClient;
     }
 
-    public static AzureClient create(final AzureStorageSettings azureStorageSettings) {
-        final var httpThreadPoolSettings = azureStorageSettings.httpThreadPoolSettings();
+    public static AzureClient create(final AzureClientSettings azureClientSettings) {
+        final var httpThreadPoolSettings = azureClientSettings.httpThreadPoolSettings();
         final var httpClientExecutor = new ThreadPoolExecutor(
                 httpThreadPoolSettings.minThreads(), httpThreadPoolSettings.maxThreads(),
                 httpThreadPoolSettings.keepAlive(), TimeUnit.SECONDS,
                 new SynchronousQueue<>()
         );
         final var blobServiceClient = new BlobServiceClientBuilder()
-                .connectionString(azureStorageSettings.azureConnectionString())
+                .connectionString(azureClientSettings.azureConnectionString())
                 .retryOptions(
                         new RequestRetryOptions(
-                                RetryPolicyType.EXPONENTIAL, azureStorageSettings.maxRetries(),
+                                RetryPolicyType.EXPONENTIAL, azureClientSettings.maxRetries(),
                                 null, null, null, null))
                 .addPolicy(new UserAgentPolicy(HTTP_USER_AGENT))
                 .httpClient(

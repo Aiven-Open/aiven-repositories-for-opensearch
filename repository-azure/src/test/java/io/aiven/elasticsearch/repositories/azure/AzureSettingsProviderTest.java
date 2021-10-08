@@ -42,14 +42,14 @@ class AzureSettingsProviderTest extends RsaKeyAwareTest {
 
         final var secureSettings =
                 new DummySecureSettings()
-                        .setString(AzureStorageSettings.AZURE_ACCOUNT.getKey(), "AZURE_ACCOUNT")
-                        .setString(AzureStorageSettings.AZURE_ACCOUNT_KEY.getKey(), "AZURE_ACCOUNT_KEY")
-                        .setFile(AzureStorageSettings.PUBLIC_KEY_FILE.getKey(), Files.newInputStream(publicKeyPem))
-                        .setFile(AzureStorageSettings.PRIVATE_KEY_FILE.getKey(), Files.newInputStream(privateKeyPem));
+                        .setString(AzureClientSettings.AZURE_ACCOUNT.getKey(), "AZURE_ACCOUNT")
+                        .setString(AzureClientSettings.AZURE_ACCOUNT_KEY.getKey(), "AZURE_ACCOUNT_KEY")
+                        .setFile(AzureClientSettings.PUBLIC_KEY_FILE.getKey(), Files.newInputStream(publicKeyPem))
+                        .setFile(AzureClientSettings.PRIVATE_KEY_FILE.getKey(), Files.newInputStream(privateKeyPem));
 
         final var settings =
                 Settings.builder()
-                        .put(AzureStorageSettings.MAX_RETRIES.getKey(), 12)
+                        .put(AzureClientSettings.MAX_RETRIES.getKey(), 12)
                         .setSecureSettings(secureSettings)
                         .build();
 
