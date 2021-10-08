@@ -38,10 +38,10 @@ class RsaKeysReaderTest extends RsaKeyAwareTest {
     public void failsForUnknownPaths() {
 
         assertThrows(
-                IllegalArgumentException.class, () ->
+                IOException.class, () ->
                         RsaKeysReader.readRsaKeyPair(
-                                Files.newInputStream(Paths.get(".")),
-                                Files.newInputStream(Paths.get(".")))
+                                Files.newInputStream(Paths.get(".")).readAllBytes(),
+                                Files.newInputStream(Paths.get(".")).readAllBytes())
         );
     }
 
@@ -57,8 +57,8 @@ class RsaKeysReaderTest extends RsaKeyAwareTest {
         final var e =
                 assertThrows(IllegalArgumentException.class, () ->
                         RsaKeysReader.readRsaKeyPair(
-                                Files.newInputStream(dsaPublicKeyPem),
-                                Files.newInputStream(dsaPrivateKeyPem)
+                                Files.newInputStream(dsaPublicKeyPem).readAllBytes(),
+                                Files.newInputStream(dsaPrivateKeyPem).readAllBytes()
                         ));
 
         assertEquals(
@@ -76,8 +76,8 @@ class RsaKeysReaderTest extends RsaKeyAwareTest {
         final var e = assertThrows(
                 IllegalArgumentException.class, () ->
                         RsaKeysReader.readRsaKeyPair(
-                                Files.newInputStream(emptyPublicKeyPemFile),
-                                Files.newInputStream(privateKeyPem))
+                                Files.newInputStream(emptyPublicKeyPemFile).readAllBytes(),
+                                Files.newInputStream(privateKeyPem).readAllBytes())
         );
 
         assertEquals(
@@ -94,8 +94,8 @@ class RsaKeysReaderTest extends RsaKeyAwareTest {
         final var e = assertThrows(
                 IllegalArgumentException.class, () ->
                         RsaKeysReader.readRsaKeyPair(
-                                Files.newInputStream(publicKeyPem),
-                                Files.newInputStream(emptyPrivateKeyPemFile))
+                                Files.newInputStream(publicKeyPem).readAllBytes(),
+                                Files.newInputStream(emptyPrivateKeyPemFile).readAllBytes())
         );
 
         assertEquals(

@@ -44,8 +44,8 @@ class EncryptedRepositoryMetadataTest extends RsaKeyAwareTest {
     void setUp() throws IOException {
         encryptionKeyProvider =
             EncryptionKeyProvider.of(
-                Files.newInputStream(publicKeyPem),
-                Files.newInputStream(privateKeyPem)
+                Files.newInputStream(publicKeyPem).readAllBytes(),
+                Files.newInputStream(privateKeyPem).readAllBytes()
             );
     }
 

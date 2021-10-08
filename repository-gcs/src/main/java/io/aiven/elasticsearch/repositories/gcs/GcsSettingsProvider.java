@@ -52,8 +52,8 @@ public class GcsSettingsProvider extends RepositorySettingsProvider<Storage> {
             final var gcsClientSettings = GcsClientSettings.create(settings);
             final var encryptionKeyProvider =
                     EncryptionKeyProvider.of(
-                            gcsClientSettings.publicKey(),
-                            gcsClientSettings.privateKey()
+                            gcsClientSettings.publicKey().readAllBytes(),
+                            gcsClientSettings.privateKey().readAllBytes()
                     );
             final var client = createGcsClient(gcsClientSettings);
             return new GcsRepositoryStorageIOProvider(client, encryptionKeyProvider);

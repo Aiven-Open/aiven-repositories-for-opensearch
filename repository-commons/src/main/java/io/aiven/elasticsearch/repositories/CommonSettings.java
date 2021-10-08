@@ -16,6 +16,9 @@
 
 package io.aiven.elasticsearch.repositories;
 
+import java.io.IOException;
+import java.io.InputStream;
+
 import org.opensearch.common.settings.Setting;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.unit.ByteSizeUnit;
@@ -35,6 +38,13 @@ public interface CommonSettings {
         static <T> void checkSettings(final Setting<T> setting, Settings keystoreSettings) {
             if (!setting.exists(keystoreSettings)) {
                 throw new IllegalArgumentException("Settings with name " + setting.getKey() + " hasn't been set");
+            }
+        }
+
+        static byte[] readInputStream(final Setting<InputStream> keySetting,
+                                      final Settings keystoreSettings) throws IOException  {
+            try (final var in = keySetting.get(keystoreSettings)) {
+                return in.readAllBytes();
             }
         }
 
