@@ -45,8 +45,8 @@ public class CryptoIOProviderTest extends RsaKeyAwareTest {
     public void setUpKey() throws Exception {
         encProvider =
                 EncryptionKeyProvider.of(
-                        Files.newInputStream(publicKeyPem),
-                        Files.newInputStream(privateKeyPem)
+                        Files.newInputStream(publicKeyPem).readAllBytes(),
+                        Files.newInputStream(privateKeyPem).readAllBytes()
                 );
         final var encryptionKey = encProvider.createKey();
         cryptoIOProvider = new CryptoIOProvider(encryptionKey, BUFFER_SIZE);

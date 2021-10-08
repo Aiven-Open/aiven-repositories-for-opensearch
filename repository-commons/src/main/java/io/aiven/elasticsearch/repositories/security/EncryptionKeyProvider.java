@@ -22,7 +22,6 @@ import javax.crypto.KeyGenerator;
 import javax.crypto.SecretKey;
 import javax.crypto.spec.SecretKeySpec;
 
-import java.io.InputStream;
 import java.security.KeyPair;
 import java.security.NoSuchAlgorithmException;
 import java.security.NoSuchProviderException;
@@ -51,9 +50,8 @@ public final class EncryptionKeyProvider
         this.aesKeyGenerator = aesKeyGenerator;
     }
 
-    public static EncryptionKeyProvider of(final InputStream rsaPublicKey,
-                                           final InputStream rsaPrivateKey) {
-        LOGGER.debug("Read RSA keys");
+    public static EncryptionKeyProvider of(final byte[] rsaPublicKey, final byte[] rsaPrivateKey) {
+        LOGGER.info("Read RSA keys");
         Objects.requireNonNull(rsaPublicKey, "rsaPublicKey hasn't been set");
         Objects.requireNonNull(rsaPrivateKey, "rsaPrivateKey hasn't been set");
         try {

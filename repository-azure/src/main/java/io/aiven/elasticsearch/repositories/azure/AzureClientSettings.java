@@ -16,6 +16,7 @@
 
 package io.aiven.elasticsearch.repositories.azure;
 
+import java.io.IOException;
 import java.io.InputStream;
 
 import org.elasticsearch.common.settings.SecureSetting;
@@ -27,6 +28,7 @@ import org.elasticsearch.common.unit.TimeValue;
 import io.aiven.elasticsearch.repositories.CommonSettings;
 
 import static io.aiven.elasticsearch.repositories.CommonSettings.ClientSettings.checkSettings;
+import static io.aiven.elasticsearch.repositories.CommonSettings.ClientSettings.readInputStream;
 import static io.aiven.elasticsearch.repositories.CommonSettings.ClientSettings.withPrefix;
 
 public class AzureClientSettings implements CommonSettings.ClientSettings {
@@ -62,9 +64,9 @@ public class AzureClientSettings implements CommonSettings.ClientSettings {
     public static final Setting<Integer> MAX_RETRIES =
             Setting.intSetting(withPrefix("max_retries"), 3, Setting.Property.NodeScope);
 
-    private final InputStream publicKey;
+    private final byte[] publicKey;
 
-    private final InputStream privateKey;
+    private final byte[] privateKey;
 
     private final String azureAccount;
 
@@ -74,8 +76,8 @@ public class AzureClientSettings implements CommonSettings.ClientSettings {
 
     private final HttpThreadPoolSettings httpThreadPoolSettings;
 
-    AzureClientSettings(final InputStream publicKey,
-                        final InputStream privateKey,
+    AzureClientSettings(final byte[] publicKey,
+                        final byte[] privateKey,
                         final String azureAccount,
                         final String azureAccountKey,
                         final int maxRetries,
@@ -88,11 +90,11 @@ public class AzureClientSettings implements CommonSettings.ClientSettings {
         this.httpThreadPoolSettings = httpThreadPoolSettings;
     }
 
-    public InputStream publicKey() {
+    public byte[] publicKey() {
         return publicKey;
     }
 
-    public InputStream privateKey() {
+    public byte[] privateKey() {
         return privateKey;
     }
 
@@ -112,14 +114,14 @@ public class AzureClientSettings implements CommonSettings.ClientSettings {
         return maxRetries;
     }
 
-    public static AzureClientSettings create(final Settings settings) {
+    public static AzureClientSettings create(final Settings settings) throws IOException {
         checkSettings(AZURE_ACCOUNT, settings);
         checkSettings(AZURE_ACCOUNT_KEY, settings);
         checkSettings(PUBLIC_KEY_FILE, settings);
         checkSettings(PRIVATE_KEY_FILE, settings);
         return new AzureClientSettings(
-                PUBLIC_KEY_FILE.get(settings),
-                PRIVATE_KEY_FILE.get(settings),
+                readInputStream(PUBLIC_KEY_FILE, settings),
+                readInputStream(PRIVATE_KEY_FILE, settings),
                 AZURE_ACCOUNT.get(settings).toString(),
                 AZURE_ACCOUNT_KEY.get(settings).toString(),
                 MAX_RETRIES.get(settings),
