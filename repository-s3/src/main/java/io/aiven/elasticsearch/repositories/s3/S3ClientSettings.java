@@ -16,6 +16,7 @@
 
 package io.aiven.elasticsearch.repositories.s3;
 
+import java.io.IOException;
 import java.io.InputStream;
 
 import org.opensearch.common.settings.SecureSetting;
@@ -31,6 +32,7 @@ import com.amazonaws.auth.AWSCredentials;
 import com.amazonaws.auth.BasicAWSCredentials;
 
 import static io.aiven.elasticsearch.repositories.CommonSettings.ClientSettings.checkSettings;
+import static io.aiven.elasticsearch.repositories.CommonSettings.ClientSettings.readInputStream;
 import static io.aiven.elasticsearch.repositories.CommonSettings.ClientSettings.withPrefix;
 
 public class S3ClientSettings implements ClientSettings {
@@ -68,9 +70,9 @@ public class S3ClientSettings implements ClientSettings {
                     TimeValue.timeValueMillis(ClientConfiguration.DEFAULT_SOCKET_TIMEOUT),
                     Setting.Property.NodeScope);
 
-    private final InputStream publicKey;
+    private final byte[] publicKey;
 
-    private final InputStream privateKey;
+    private final byte[] privateKey;
 
     private final AWSCredentials awsCredentials;
 
@@ -83,8 +85,8 @@ public class S3ClientSettings implements ClientSettings {
     private final long readTimeout;
 
     private S3ClientSettings(
-            final InputStream publicKey,
-            final InputStream privateKey,
+            final byte[] publicKey,
+            final byte[] privateKey,
             final AWSCredentials awsCredentials,
             final String endpoint,
             final int maxRetries,
@@ -99,11 +101,11 @@ public class S3ClientSettings implements ClientSettings {
         this.readTimeout = readTimeout;
     }
 
-    public InputStream publicKey() {
+    public byte[] publicKey() {
         return publicKey;
     }
 
-    public InputStream privateKey() {
+    public byte[] privateKey() {
         return privateKey;
     }
 
@@ -127,7 +129,7 @@ public class S3ClientSettings implements ClientSettings {
         return Math.toIntExact(readTimeout);
     }
 
-    public static S3ClientSettings create(final Settings settings) {
+    public static S3ClientSettings create(final Settings settings) throws IOException {
         if (settings.isEmpty()) {
             throw new IllegalArgumentException("Settings for AWS S3 haven't been set");
         }
@@ -137,8 +139,8 @@ public class S3ClientSettings implements ClientSettings {
         checkSettings(PUBLIC_KEY_FILE, settings);
         checkSettings(PRIVATE_KEY_FILE, settings);
         return new S3ClientSettings(
-                PUBLIC_KEY_FILE.get(settings),
-                PRIVATE_KEY_FILE.get(settings),
+                readInputStream(PUBLIC_KEY_FILE, settings),
+                readInputStream(PRIVATE_KEY_FILE, settings),
                 new BasicAWSCredentials(
                         AWS_ACCESS_KEY_ID.get(settings).toString(),
                         AWS_SECRET_ACCESS_KEY.get(settings).toString()

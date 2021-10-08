@@ -65,8 +65,8 @@ class S3StorageIOTest extends RsaKeyAwareTest {
 
         final var encProvider =
                 EncryptionKeyProvider.of(
-                        Files.newInputStream(publicKeyPem),
-                        Files.newInputStream(privateKeyPem));
+                        Files.newInputStream(publicKeyPem).readAllBytes(),
+                        Files.newInputStream(privateKeyPem).readAllBytes());
 
         final var s3StorageIO =
                 new S3RepositoryStorageIOProvider(mockedAmazonS3, encProvider)
@@ -99,8 +99,8 @@ class S3StorageIOTest extends RsaKeyAwareTest {
     void deleteDirectoriesUsingBulk() throws Exception {
         final var encProvider =
                 EncryptionKeyProvider.of(
-                        Files.newInputStream(publicKeyPem),
-                        Files.newInputStream(privateKeyPem));
+                        Files.newInputStream(publicKeyPem).readAllBytes(),
+                        Files.newInputStream(privateKeyPem).readAllBytes());
 
         final var objectSummaries =
                 Stream.generate(() -> {

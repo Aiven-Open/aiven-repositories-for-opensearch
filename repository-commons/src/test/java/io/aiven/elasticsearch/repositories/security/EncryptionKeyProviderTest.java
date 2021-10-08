@@ -32,8 +32,8 @@ public class EncryptionKeyProviderTest extends RsaKeyAwareTest {
     void alwaysGeneratesNewKey() throws IOException {
         final var ekp =
                 EncryptionKeyProvider.of(
-                        Files.newInputStream(publicKeyPem),
-                        Files.newInputStream(privateKeyPem)
+                        Files.newInputStream(publicKeyPem).readAllBytes(),
+                        Files.newInputStream(privateKeyPem).readAllBytes()
                 );
 
         final var key1 = ekp.createKey();
@@ -46,8 +46,8 @@ public class EncryptionKeyProviderTest extends RsaKeyAwareTest {
     void decryptGeneratedKey() throws IOException {
         final var ekProvider =
                 EncryptionKeyProvider.of(
-                        Files.newInputStream(publicKeyPem),
-                        Files.newInputStream(privateKeyPem)
+                        Files.newInputStream(publicKeyPem).readAllBytes(),
+                        Files.newInputStream(privateKeyPem).readAllBytes()
                 );
         final var secretKey = ekProvider.createKey();
         final var encryptedKey = ekProvider.encryptKey(secretKey);

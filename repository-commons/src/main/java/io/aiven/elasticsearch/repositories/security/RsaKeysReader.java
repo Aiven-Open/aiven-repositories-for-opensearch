@@ -16,8 +16,8 @@
 
 package io.aiven.elasticsearch.repositories.security;
 
+import java.io.ByteArrayInputStream;
 import java.io.IOException;
-import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.Reader;
 import java.security.KeyFactory;
@@ -34,28 +34,28 @@ import org.bouncycastle.util.io.pem.PemReader;
 
 class RsaKeysReader {
 
-    static KeyPair readRsaKeyPair(final InputStream publicKeyIn,
-                                  final InputStream privateKeyIn) {
+    static KeyPair readRsaKeyPair(final byte[] publicKeyBytes,
+                                  final byte[] privateKeyBytes) {
         try {
-            final var publicKey = readPublicKey(publicKeyIn);
-            final var privateKey = readPrivateKey(privateKeyIn);
+            final var publicKey = readPublicKey(publicKeyBytes);
+            final var privateKey = readPrivateKey(privateKeyBytes);
             return new KeyPair(publicKey, privateKey);
         } catch (NoSuchAlgorithmException | InvalidKeySpecException e) {
             throw new IllegalArgumentException("Couldn't generate RSA key pair", e);
         }
     }
 
-    private static PublicKey readPublicKey(final InputStream in)
+    private static PublicKey readPublicKey(final byte[] bytes)
             throws NoSuchAlgorithmException, InvalidKeySpecException {
-        final var pemContent = readPemContent(new InputStreamReader(in));
+        final var pemContent = readPemContent(new InputStreamReader(new ByteArrayInputStream(bytes)));
         final var keySpec = new X509EncodedKeySpec(pemContent);
         final var kf = KeyFactory.getInstance("RSA");
         return kf.generatePublic(keySpec);
     }
 
-    private static PrivateKey readPrivateKey(final InputStream in)
+    private static PrivateKey readPrivateKey(final byte[] bytes)
             throws NoSuchAlgorithmException, InvalidKeySpecException {
-        final var pemContent = readPemContent(new InputStreamReader(in));
+        final var pemContent = readPemContent(new InputStreamReader(new ByteArrayInputStream(bytes)));
         final var keySpec = new PKCS8EncodedKeySpec(pemContent);
         final var kf = KeyFactory.getInstance("RSA");
         return kf.generatePrivate(keySpec);
