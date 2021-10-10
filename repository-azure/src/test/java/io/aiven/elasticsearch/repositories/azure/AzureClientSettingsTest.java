@@ -130,7 +130,7 @@ class AzureClientSettingsTest extends RsaKeyAwareTest {
         assertEquals(3, azureClientSettings.maxRetries());
 
         final var httpThreadPoolSettings = azureClientSettings.httpThreadPoolSettings();
-        assertEquals(1, httpThreadPoolSettings.minThreads());
+        assertEquals(Runtime.getRuntime().availableProcessors() * 2 - 1, httpThreadPoolSettings.minThreads());
         assertEquals(Runtime.getRuntime().availableProcessors() * 2 - 1, httpThreadPoolSettings.maxThreads());
         assertEquals(TimeValue.timeValueSeconds(30L).getMillis(), httpThreadPoolSettings.keepAlive());
     }

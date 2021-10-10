@@ -27,7 +27,7 @@ import com.amazonaws.services.s3.AmazonS3;
 import org.elasticsearch.common.settings.Setting;
 import org.elasticsearch.common.settings.Settings;
 
-public class S3RepositoryPlugin extends AbstractRepositoryPlugin<AmazonS3> {
+public class S3RepositoryPlugin extends AbstractRepositoryPlugin<AmazonS3, S3ClientSettings> {
 
     public static final String REPOSITORY_TYPE = "aiven-s3";
 

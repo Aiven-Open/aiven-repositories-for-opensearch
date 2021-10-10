@@ -58,8 +58,9 @@ public abstract class AbstractRepositoryPluginIT extends RsaKeyAwareTest {
 
     }
 
-    public static <T> void configureAndStartCluster(final Class<? extends AbstractRepositoryPlugin<T>> pluginClass,
-                                                    final SettingsBuilder settingsHandler) throws Exception {
+    public static <T, S extends CommonSettings.ClientSettings> void configureAndStartCluster(
+            final Class<? extends AbstractRepositoryPlugin<T, S>> pluginClass,
+            final SettingsBuilder settingsHandler) throws Exception {
         clusterRunner = new ElasticsearchClusterRunner();
         clusterRunner.onBuild((index, builder) -> {
             try {

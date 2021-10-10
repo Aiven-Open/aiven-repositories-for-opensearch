@@ -68,8 +68,9 @@ class S3StorageIOTest extends RsaKeyAwareTest {
                         Files.newInputStream(privateKeyPem).readAllBytes());
 
         final var s3StorageIO =
-                new S3RepositoryStorageIOProvider(mockedAmazonS3, encProvider)
+                new S3RepositoryStorageIOProvider(null, encProvider)
                         .createStorageIOFor(
+                                mockedAmazonS3,
                                 Settings.builder()
                                         .put(S3RepositoryStorageIOProvider.BUCKET_NAME.getKey(), "some_bucket")
                                         .build(),
@@ -118,8 +119,9 @@ class S3StorageIOTest extends RsaKeyAwareTest {
                 .thenReturn(mock(DeleteObjectsResult.class));
 
         final var s3StorageIO =
-                new S3RepositoryStorageIOProvider(mockedAmazonS3, encProvider)
+                new S3RepositoryStorageIOProvider(null, encProvider)
                         .createStorageIOFor(
+                                mockedAmazonS3,
                                 Settings.builder()
                                         .put(S3RepositoryStorageIOProvider.BUCKET_NAME.getKey(), "some_bucket")
                                         .build(),

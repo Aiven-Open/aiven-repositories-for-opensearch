@@ -24,7 +24,7 @@ import com.google.cloud.storage.Storage;
 import org.elasticsearch.common.settings.Setting;
 import org.elasticsearch.common.settings.Settings;
 
-public class GcsRepositoryPlugin extends AbstractRepositoryPlugin<Storage>  {
+public class GcsRepositoryPlugin extends AbstractRepositoryPlugin<Storage, GcsClientSettings>  {
 
     public static final String REPOSITORY_TYPE = "aiven-gcs";
 

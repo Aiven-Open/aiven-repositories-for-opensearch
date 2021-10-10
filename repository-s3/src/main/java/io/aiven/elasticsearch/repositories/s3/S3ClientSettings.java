@@ -19,17 +19,16 @@ package io.aiven.elasticsearch.repositories.s3;
 import java.io.IOException;
 import java.io.InputStream;
 
-import org.elasticsearch.common.settings.SecureSetting;
-import org.elasticsearch.common.settings.SecureString;
-import org.elasticsearch.common.settings.Setting;
-import org.elasticsearch.common.settings.Settings;
-import org.elasticsearch.common.unit.TimeValue;
-
 import io.aiven.elasticsearch.repositories.CommonSettings.ClientSettings;
 
 import com.amazonaws.ClientConfiguration;
 import com.amazonaws.auth.AWSCredentials;
 import com.amazonaws.auth.BasicAWSCredentials;
+import org.elasticsearch.common.settings.SecureSetting;
+import org.elasticsearch.common.settings.SecureString;
+import org.elasticsearch.common.settings.Setting;
+import org.elasticsearch.common.settings.Settings;
+import org.elasticsearch.common.unit.TimeValue;
 
 import static io.aiven.elasticsearch.repositories.CommonSettings.ClientSettings.checkSettings;
 import static io.aiven.elasticsearch.repositories.CommonSettings.ClientSettings.readInputStream;

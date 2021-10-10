@@ -23,7 +23,6 @@ import java.nio.file.Files;
 
 import io.aiven.elasticsearch.repositories.CommonSettings;
 import io.aiven.elasticsearch.repositories.DummySecureSettings;
-import io.aiven.elasticsearch.repositories.RepositoryStorageIOProvider;
 import io.aiven.elasticsearch.repositories.RsaKeyAwareTest;
 
 import com.google.api.client.http.javanet.DefaultConnectionFactory;
@@ -31,49 +30,49 @@ import com.google.api.client.http.javanet.NetHttpTransport;
 import com.google.auth.oauth2.GoogleCredentials;
 import com.google.auth.oauth2.UserCredentials;
 import com.google.cloud.http.HttpTransportOptions;
-import com.google.cloud.storage.Storage;
 import org.elasticsearch.common.settings.Settings;
 import org.junit.jupiter.api.Test;
 import org.junit.platform.commons.support.HierarchyTraversalMode;
 import org.junit.platform.commons.support.ReflectionSupport;
 
+import static io.aiven.elasticsearch.repositories.CommonSettings.RepositorySettings.MAX_RETRIES;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-class GcsSettingsProviderTest extends RsaKeyAwareTest {
+class GcsClientProviderTest extends RsaKeyAwareTest {
 
     @Test
     void providerInitialization() throws Exception {
-        final var gcsSettingsProvider = new GcsSettingsProvider();
+        final var gcsClientProvider = new GcsClientProvider();
         final var settings = Settings.builder()
                 .put(CommonSettings.RepositorySettings.BASE_PATH.getKey(), "base_path/")
                 .put(GcsClientSettings.CONNECTION_TIMEOUT.getKey(), 1)
                 .put(GcsClientSettings.READ_TIMEOUT.getKey(), 2)
                 .put(GcsClientSettings.PROJECT_ID.getKey(), "some_project")
                 .setSecureSettings(createFullSecureSettings()).build();
-        gcsSettingsProvider.reload(settings);
 
-        final var repoIOProvider = gcsSettingsProvider.repositoryStorageIOProvider();
-        assertNotNull(repoIOProvider);
-
-
-        final var client = extractClient(repoIOProvider);
+        final var repoSettings =
+                Settings.builder()
+                        .put("some_settings_1", 20)
+                        .put("some_settings_2", 210)
+                        .build();
+        final var client = gcsClientProvider.buildClientIfNeeded(GcsClientSettings.create(settings), repoSettings);
 
         assertTrue(client.getOptions().getTransportOptions() instanceof HttpTransportOptions);
         final var httpTransportOptions = (HttpTransportOptions) client.getOptions().getTransportOptions();
         assertEquals(1, httpTransportOptions.getConnectTimeout());
         assertEquals(2, httpTransportOptions.getReadTimeout());
-        assertEquals(GcsSettingsProvider.HTTP_USER_AGENT, client.getOptions().getUserAgent());
+        assertEquals(GcsClientProvider.HTTP_USER_AGENT, client.getOptions().getUserAgent());
         assertEquals("some_project", client.getOptions().getProjectId());
 
         assertEquals(loadCredentials(), client.getOptions().getCredentials());
+        assertEquals(3, client.getOptions().getRetrySettings().getMaxAttempts());
     }
 
     @Test
     void provideInitializationWithProxyConfigurationWithUsernameAndPassword() throws Exception {
-        final var gcsSettingsProvider = new GcsSettingsProvider();
+        final var gcsClientProvider = new GcsClientProvider();
         final var proxySettingsWithUsernameAndPassword = Settings.builder()
                 .put(CommonSettings.RepositorySettings.BASE_PATH.getKey(), "base_path/")
                 .put(GcsClientSettings.CONNECTION_TIMEOUT.getKey(), 1)
@@ -82,12 +81,14 @@ class GcsSettingsProviderTest extends RsaKeyAwareTest {
                 .put(GcsClientSettings.PROXY_PORT.getKey(), 1234)
                 .put(GcsClientSettings.PROJECT_ID.getKey(), "some_project")
                 .setSecureSettings(createFullSecureSettingsWithProxyUsernameAndPassword()).build();
+        final var repoSettings =
+                Settings.builder()
+                        .put("some_settings_1", 20)
+                        .put("some_settings_2", 210)
+                        .build();
 
-        gcsSettingsProvider.reload(proxySettingsWithUsernameAndPassword);
-        final var repoIOProvider = gcsSettingsProvider.repositoryStorageIOProvider();
-        assertNotNull(repoIOProvider);
-
-        final var client = extractClient(repoIOProvider);
+        final var client = gcsClientProvider
+                .buildClientIfNeeded(GcsClientSettings.create(proxySettingsWithUsernameAndPassword), repoSettings);
 
         assertTrue(client.getOptions().getTransportOptions() instanceof HttpTransportOptions);
 
@@ -99,17 +100,18 @@ class GcsSettingsProviderTest extends RsaKeyAwareTest {
 
         assertEquals(1, httpTransportOptions.getConnectTimeout());
         assertEquals(2, httpTransportOptions.getReadTimeout());
-        assertEquals(GcsSettingsProvider.HTTP_USER_AGENT, client.getOptions().getUserAgent());
+        assertEquals(GcsClientProvider.HTTP_USER_AGENT, client.getOptions().getUserAgent());
         assertEquals("some_project", client.getOptions().getProjectId());
 
         assertEquals("socks.test.io", inetSocketAddress.getHostName());
         assertEquals(1234, inetSocketAddress.getPort());
         assertEquals(loadCredentials(), client.getOptions().getCredentials());
+        assertEquals(3, client.getOptions().getRetrySettings().getMaxAttempts());
     }
 
     @Test
     void provideInitializationWithProxyConfigurationWithoutUsernameAndPassword() throws Exception {
-        final var gcsSettingsProvider = new GcsSettingsProvider();
+        final var gcsClientProvider = new GcsClientProvider();
         final var proxySettingsWithoutUsernameAndPassword = Settings.builder()
                 .put(CommonSettings.RepositorySettings.BASE_PATH.getKey(), "base_path/")
                 .put(GcsClientSettings.CONNECTION_TIMEOUT.getKey(), 1)
@@ -118,12 +120,13 @@ class GcsSettingsProviderTest extends RsaKeyAwareTest {
                 .put(GcsClientSettings.PROXY_PORT.getKey(), 12345)
                 .put(GcsClientSettings.PROJECT_ID.getKey(), "some_project")
                 .setSecureSettings(createFullSecureSettings()).build();
-        gcsSettingsProvider.reload(proxySettingsWithoutUsernameAndPassword);
-        final var repoIOProvider = gcsSettingsProvider.repositoryStorageIOProvider();
-
-        assertNotNull(repoIOProvider);
-
-        final var client = extractClient(repoIOProvider);
+        final var repoSettings =
+                Settings.builder()
+                        .put("some_settings_1", 20)
+                        .put("some_settings_2", 210)
+                        .build();
+        final var client = gcsClientProvider
+                .buildClientIfNeeded(GcsClientSettings.create(proxySettingsWithoutUsernameAndPassword), repoSettings);
 
         assertTrue(client.getOptions().getTransportOptions() instanceof HttpTransportOptions);
 
@@ -135,123 +138,65 @@ class GcsSettingsProviderTest extends RsaKeyAwareTest {
 
         assertEquals(1, httpTransportOptions.getConnectTimeout());
         assertEquals(2, httpTransportOptions.getReadTimeout());
-        assertEquals(GcsSettingsProvider.HTTP_USER_AGENT, client.getOptions().getUserAgent());
+        assertEquals(GcsClientProvider.HTTP_USER_AGENT, client.getOptions().getUserAgent());
         assertEquals("some_project", client.getOptions().getProjectId());
 
         assertEquals("socks5.test.io", inetSocketAddress.getHostName());
         assertEquals(12345, inetSocketAddress.getPort());
         assertEquals(loadCredentials(), client.getOptions().getCredentials());
+        assertEquals(3, client.getOptions().getRetrySettings().getMaxAttempts());
     }
 
     @Test
     void providerInitializationWithDefaultValues() throws Exception {
-        final var gcsSettingsProvider = new GcsSettingsProvider();
+        final var gcsClientProvider = new GcsClientProvider();
         final var settings = Settings.builder()
                 .setSecureSettings(createFullSecureSettings()).build();
-        gcsSettingsProvider.reload(settings);
+        final var repoSettings =
+                Settings.builder()
+                        .put("some_settings_1", 20)
+                        .put("some_settings_2", 210)
+                        .build();
 
-        final var client = extractClient(gcsSettingsProvider.repositoryStorageIOProvider());
+        final var client = gcsClientProvider
+                .buildClientIfNeeded(GcsClientSettings.create(settings), repoSettings);
         assertNotNull(client);
         assertTrue(client.getOptions().getTransportOptions() instanceof HttpTransportOptions);
 
         final var httpTransportOptions = (HttpTransportOptions) client.getOptions().getTransportOptions();
         assertEquals(-1, httpTransportOptions.getConnectTimeout());
         assertEquals(-1, httpTransportOptions.getReadTimeout());
-        assertEquals(GcsSettingsProvider.HTTP_USER_AGENT, client.getOptions().getUserAgent());
+        assertEquals(GcsClientProvider.HTTP_USER_AGENT, client.getOptions().getUserAgent());
+        assertEquals(3, client.getOptions().getRetrySettings().getMaxAttempts());
         //skip project id since GCS client returns default one
 
         assertEquals(loadCredentials(), client.getOptions().getCredentials());
     }
 
     @Test
-    void providerReloadClient() throws Exception {
-        final var gcsSettingsProvider = new GcsSettingsProvider();
+    void testMaxRetriesOverridesClientSettings() throws IOException {
+        final var gcsClientProvider = new GcsClientProvider();
         final var settings = Settings.builder()
                 .setSecureSettings(createFullSecureSettings()).build();
-        gcsSettingsProvider.reload(settings);
+        final var repoSettings =
+                Settings.builder()
+                        .put(MAX_RETRIES.getKey(), 20)
+                        .put("some_settings_2", 210)
+                        .build();
 
-        var client = extractClient(gcsSettingsProvider.repositoryStorageIOProvider());
+        final var client = gcsClientProvider
+                .buildClientIfNeeded(GcsClientSettings.create(settings), repoSettings);
         assertNotNull(client);
         assertTrue(client.getOptions().getTransportOptions() instanceof HttpTransportOptions);
 
-        var httpTransportOptions = (HttpTransportOptions) client.getOptions().getTransportOptions();
+        final var httpTransportOptions = (HttpTransportOptions) client.getOptions().getTransportOptions();
         assertEquals(-1, httpTransportOptions.getConnectTimeout());
         assertEquals(-1, httpTransportOptions.getReadTimeout());
-        assertEquals(GcsSettingsProvider.HTTP_USER_AGENT, client.getOptions().getUserAgent());
+        assertEquals(GcsClientProvider.HTTP_USER_AGENT, client.getOptions().getUserAgent());
+        assertEquals(20, client.getOptions().getRetrySettings().getMaxAttempts());
         //skip project id since GCS client returns default one
 
         assertEquals(loadCredentials(), client.getOptions().getCredentials());
-
-        final var newSettings = Settings.builder()
-                .put(GcsClientSettings.CONNECTION_TIMEOUT.getKey(), 10)
-                .put(GcsClientSettings.READ_TIMEOUT.getKey(), 20)
-                .put(GcsClientSettings.PROJECT_ID.getKey(), "super_project")
-                .setSecureSettings(createFullSecureSettings())
-                .build();
-        gcsSettingsProvider.reload(newSettings);
-
-        client = extractClient(gcsSettingsProvider.repositoryStorageIOProvider());
-        assertNotNull(client);
-        assertTrue(client.getOptions().getTransportOptions() instanceof HttpTransportOptions);
-
-        httpTransportOptions = (HttpTransportOptions) client.getOptions().getTransportOptions();
-        assertEquals(10, httpTransportOptions.getConnectTimeout());
-        assertEquals(20, httpTransportOptions.getReadTimeout());
-        assertEquals(GcsSettingsProvider.HTTP_USER_AGENT, client.getOptions().getUserAgent());
-        assertEquals("super_project", client.getOptions().getProjectId());
-
-        assertEquals(loadCredentials(), client.getOptions().getCredentials());
-    }
-
-    @Test
-    void throwsIllegalArgumentExceptionForEmptySettings() throws IOException {
-        final var gcsSettingsProvider = new GcsSettingsProvider();
-
-        gcsSettingsProvider.reload(Settings.EMPTY);
-        var e = assertThrows(IOException.class, gcsSettingsProvider::repositoryStorageIOProvider);
-        assertEquals(
-                "Cloud storage client haven't been configured",
-                e.getMessage());
-
-        final var noCredentialFileSettings =
-                Settings.builder()
-                        .setSecureSettings(createNoGcsCredentialFileSettings())
-                        .build();
-        final var publicRsaKeyOnlySettings =
-                Settings.builder()
-                        .setSecureSettings(createPublicRsaKeyOnlySecureSettings())
-                        .build();
-        final var privateRsaKeyOnlySettings =
-                Settings.builder()
-                        .setSecureSettings(createPrivateRsaKeyOnlySecureSettings())
-                        .build();
-
-        e = assertThrows(IOException.class, () ->
-                gcsSettingsProvider.reload(noCredentialFileSettings));
-        assertEquals(
-                "Settings with name aiven.gcs.client.credentials_file hasn't been set",
-                e.getMessage());
-
-        e = assertThrows(IOException.class, () ->
-                gcsSettingsProvider.reload(privateRsaKeyOnlySettings));
-        assertEquals(
-                "Settings with name aiven.gcs.public_key_file hasn't been set",
-                e.getMessage());
-
-        e = assertThrows(IOException.class, () ->
-                gcsSettingsProvider.reload(publicRsaKeyOnlySettings));
-        assertEquals(
-                "Settings with name aiven.gcs.private_key_file hasn't been set",
-                e.getMessage());
-
-    }
-
-    private Storage extractClient(final RepositoryStorageIOProvider<Storage> storageIOProvider) throws Exception {
-        final var field = ReflectionSupport.findFields(RepositoryStorageIOProvider.class, f -> f
-                .getName().equals("client"),
-                HierarchyTraversalMode.TOP_DOWN).get(0);
-        field.setAccessible(true);
-        return (Storage) field.get(storageIOProvider);
     }
 
     private Proxy extractProxy(final NetHttpTransport netHttpTransport) throws Exception {

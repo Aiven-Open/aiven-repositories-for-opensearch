@@ -19,13 +19,13 @@ package io.aiven.elasticsearch.repositories.azure;
 import java.io.IOException;
 import java.io.InputStream;
 
+import io.aiven.elasticsearch.repositories.CommonSettings;
+
 import org.elasticsearch.common.settings.SecureSetting;
 import org.elasticsearch.common.settings.SecureString;
 import org.elasticsearch.common.settings.Setting;
 import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.common.unit.TimeValue;
-
-import io.aiven.elasticsearch.repositories.CommonSettings;
 
 import static io.aiven.elasticsearch.repositories.CommonSettings.ClientSettings.checkSettings;
 import static io.aiven.elasticsearch.repositories.CommonSettings.ClientSettings.readInputStream;
@@ -37,7 +37,8 @@ public class AzureClientSettings implements CommonSettings.ClientSettings {
             "DefaultEndpointsProtocol=https;AccountName=%s;AccountKey=%s";
 
     static final Setting<Integer> AZURE_HTTP_POOL_MIN_THREADS =
-            Setting.intSetting(withPrefix("azure.http.thread_pool.min"), 1, Setting.Property.NodeScope);
+            Setting.intSetting(withPrefix("azure.http.thread_pool.min"),
+                    Runtime.getRuntime().availableProcessors() * 2 - 1, 1, Setting.Property.NodeScope);
 
     static final Setting<Integer> AZURE_HTTP_POOL_MAX_THREADS =
             Setting.intSetting(withPrefix("azure.http.thread_pool.max"),
@@ -45,6 +46,10 @@ public class AzureClientSettings implements CommonSettings.ClientSettings {
 
     static final Setting<TimeValue> AZURE_HTTP_POOL_KEEP_ALIVE =
             Setting.timeSetting(withPrefix("azure.http.thread_pool.keep_alive"), TimeValue.timeValueSeconds(30L),
+                    Setting.Property.NodeScope);
+
+    static final Setting<Integer> AZURE_HTTP_POOL_WORKING_QUEUE_SIZE =
+            Setting.intSetting(withPrefix("azure.http.thread_pool.working_queue_size"), 1000, 10,
                     Setting.Property.NodeScope);
 
 
@@ -128,7 +133,8 @@ public class AzureClientSettings implements CommonSettings.ClientSettings {
                 new HttpThreadPoolSettings(
                         AZURE_HTTP_POOL_MIN_THREADS.get(settings),
                         AZURE_HTTP_POOL_MAX_THREADS.get(settings),
-                        AZURE_HTTP_POOL_KEEP_ALIVE.get(settings).getMillis())
+                        AZURE_HTTP_POOL_KEEP_ALIVE.get(settings).getMillis(),
+                        AZURE_HTTP_POOL_WORKING_QUEUE_SIZE.get(settings))
         );
     }
 
@@ -144,10 +150,16 @@ public class AzureClientSettings implements CommonSettings.ClientSettings {
 
         private final long keepAlive;
 
-        private HttpThreadPoolSettings(final int minThreads, final int maxThreads, final long keepAlive) {
+        private final int workingQueueSize;
+
+        private HttpThreadPoolSettings(final int minThreads,
+                                       final int maxThreads,
+                                       final long keepAlive,
+                                       final int workingQueueSize) {
             this.minThreads = minThreads;
             this.maxThreads = maxThreads;
             this.keepAlive = keepAlive;
+            this.workingQueueSize = workingQueueSize;
         }
 
         public int minThreads() {
@@ -161,6 +173,11 @@ public class AzureClientSettings implements CommonSettings.ClientSettings {
         public long keepAlive() {
             return keepAlive;
         }
+
+        public int workingQueueSize() {
+            return workingQueueSize;
+        }
+
     }
 
 }

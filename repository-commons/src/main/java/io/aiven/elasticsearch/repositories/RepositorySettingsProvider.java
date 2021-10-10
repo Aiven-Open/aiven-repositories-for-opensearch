@@ -20,16 +20,12 @@ import java.io.IOException;
 import java.util.Objects;
 
 import org.elasticsearch.common.settings.Settings;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
-public abstract class RepositorySettingsProvider<T> {
+public abstract class RepositorySettingsProvider<T, S extends CommonSettings.ClientSettings> {
 
-    private static final Logger LOGGER = LoggerFactory.getLogger(RepositorySettingsProvider.class);
+    private volatile RepositoryStorageIOProvider<T, S> repositoryStorageIOProvider;
 
-    private volatile RepositoryStorageIOProvider<T> repositoryStorageIOProvider;
-
-    public synchronized RepositoryStorageIOProvider<T> repositoryStorageIOProvider() throws IOException {
+    public synchronized RepositoryStorageIOProvider<T, S> repositoryStorageIOProvider() throws IOException {
         if (Objects.isNull(repositoryStorageIOProvider)) {
             throw new IOException("Cloud storage client haven't been configured");
         }
@@ -48,7 +44,7 @@ public abstract class RepositorySettingsProvider<T> {
         }
     }
 
-    protected abstract RepositoryStorageIOProvider<T> createRepositoryStorageIOProvider(final Settings settings)
+    protected abstract RepositoryStorageIOProvider<T, S> createRepositoryStorageIOProvider(final Settings settings)
             throws IOException;
 
 }

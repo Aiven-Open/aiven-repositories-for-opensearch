@@ -20,10 +20,11 @@ import java.util.List;
 
 import io.aiven.elasticsearch.repositories.AbstractRepositoryPlugin;
 
+import com.azure.storage.blob.BlobServiceClient;
 import org.elasticsearch.common.settings.Setting;
 import org.elasticsearch.common.settings.Settings;
 
-public class AzureRepositoryPlugin extends AbstractRepositoryPlugin<AzureClient> {
+public class AzureRepositoryPlugin extends AbstractRepositoryPlugin<BlobServiceClient, AzureClientSettings> {
 
     public static final String REPOSITORY_TYPE = "aiven-azure";
 
