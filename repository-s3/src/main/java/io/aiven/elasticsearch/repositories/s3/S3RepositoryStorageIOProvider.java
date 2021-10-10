@@ -21,7 +21,6 @@ import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
@@ -32,6 +31,7 @@ import org.opensearch.common.settings.Settings;
 import org.opensearch.common.unit.ByteSizeUnit;
 import org.opensearch.common.unit.ByteSizeValue;
 
+import io.aiven.elasticsearch.repositories.CommonSettings;
 import io.aiven.elasticsearch.repositories.Permissions;
 import io.aiven.elasticsearch.repositories.RepositoryStorageIOProvider;
 import io.aiven.elasticsearch.repositories.io.CryptoIOProvider;
@@ -48,7 +48,7 @@ import com.amazonaws.services.s3.model.S3ObjectSummary;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-public class S3RepositoryStorageIOProvider extends RepositoryStorageIOProvider<AmazonS3> {
+public class S3RepositoryStorageIOProvider extends RepositoryStorageIOProvider<AmazonS3, S3ClientSettings> {
 
     static final Setting<String> BUCKET_NAME =
             Setting.simpleString(
@@ -65,31 +65,28 @@ public class S3RepositoryStorageIOProvider extends RepositoryStorageIOProvider<A
                     Setting.Property.NodeScope,
                     Setting.Property.Dynamic);
 
-    public S3RepositoryStorageIOProvider(final AmazonS3 client,
+    public S3RepositoryStorageIOProvider(final S3ClientSettings clientSettings,
                                          final EncryptionKeyProvider encryptionKeyProvider) {
-        super(client, encryptionKeyProvider);
+        super(new S3ClientProvider(), clientSettings, encryptionKeyProvider);
     }
 
     @Override
-    protected StorageIO createStorageIOFor(final Settings repositorySettings,
+    protected StorageIO createStorageIOFor(final AmazonS3 client,
+                                           final Settings repositorySettings,
                                            final CryptoIOProvider cryptoIOProvider) {
-        checkSettings(S3RepositoryPlugin.REPOSITORY_TYPE, BUCKET_NAME, repositorySettings);
+        CommonSettings.RepositorySettings.checkSettings(
+                S3RepositoryPlugin.REPOSITORY_TYPE, BUCKET_NAME, repositorySettings);
         final var bucketName = BUCKET_NAME.get(repositorySettings);
         final var multipartUploadPartSize =
                 Math.toIntExact(MULTIPART_UPLOAD_PART_SIZE.get(repositorySettings).getBytes());
-        return new S3StorageIO(bucketName, multipartUploadPartSize, cryptoIOProvider);
+        return new S3StorageIO(client, bucketName, multipartUploadPartSize, cryptoIOProvider);
     }
 
-    @Override
-    public void close() throws IOException {
-        if (Objects.nonNull(client)) {
-            client.shutdown();
-        }
-    }
-
-    protected class S3StorageIO implements StorageIO {
+    protected static class S3StorageIO implements StorageIO {
 
         private final Logger logger = LoggerFactory.getLogger(S3StorageIO.class);
+
+        private final AmazonS3 client;
 
         private final int partSize;
 
@@ -97,7 +94,11 @@ public class S3RepositoryStorageIOProvider extends RepositoryStorageIOProvider<A
 
         private final CryptoIOProvider cryptoIOProvider;
 
-        private S3StorageIO(final String bucketName, final int partSize, final CryptoIOProvider cryptoIOProvider) {
+        private S3StorageIO(final AmazonS3 client,
+                            final String bucketName,
+                            final int partSize,
+                            final CryptoIOProvider cryptoIOProvider) {
+            this.client = client;
             this.bucketName = bucketName;
             this.partSize = partSize;
             this.cryptoIOProvider = cryptoIOProvider;

@@ -40,32 +40,38 @@ import org.slf4j.LoggerFactory;
 
 import static io.aiven.elasticsearch.repositories.BlobStoreRepository.BUFFER_SIZE_SETTING;
 
-public abstract class RepositoryStorageIOProvider<C>
+public abstract class RepositoryStorageIOProvider<C, S extends CommonSettings.ClientSettings>
         implements CommonSettings.RepositorySettings, Closeable {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(RepositorySettingsProvider.class);
 
     public static final String REPOSITORY_METADATA_FILE_NAME = "repository_metadata.json";
 
-    protected final C client;
+    private final S clientSettings;
 
     private SecretKey encryptionKey;
 
     private final EncryptionKeyProvider encryptionKeyProvider;
 
-    public RepositoryStorageIOProvider(final C client,
+    private final ClientProvider<C, S> clientProvider;
+
+    public RepositoryStorageIOProvider(final ClientProvider<C, S> clientProvider,
+                                       final S clientSettings,
                                        final EncryptionKeyProvider encryptionKeyProvider) {
-        this.client = client;
+        this.clientProvider = clientProvider;
+        this.clientSettings = clientSettings;
         this.encryptionKeyProvider = encryptionKeyProvider;
     }
 
     public StorageIO createStorageIO(final String basePath, final Settings repositorySettings) throws IOException {
         final var bufferSize = Math.toIntExact(BUFFER_SIZE_SETTING.get(repositorySettings).getBytes());
-        Permissions.doPrivileged(() -> createOrRestoreEncryptionKey(basePath, repositorySettings));
-        return createStorageIOFor(repositorySettings, new CryptoIOProvider(encryptionKey, bufferSize));
+        final var client = clientProvider.buildClientIfNeeded(clientSettings, repositorySettings);
+        Permissions.doPrivileged(() -> createOrRestoreEncryptionKey(client, basePath, repositorySettings));
+        return createStorageIOFor(client, repositorySettings, new CryptoIOProvider(encryptionKey, bufferSize));
     }
 
-    private void createOrRestoreEncryptionKey(final String basePath,
+    private void createOrRestoreEncryptionKey(final C client,
+                                              final String basePath,
                                               final Settings repositorySettings) throws IOException {
         if (Objects.isNull(encryptionKey)) {
             final var repositoryMetadataFilePath = basePath + REPOSITORY_METADATA_FILE_NAME;
@@ -74,7 +80,7 @@ public abstract class RepositoryStorageIOProvider<C>
                     // encrypted without compression and use different Cipher compare to
                     // regular backup files, that's why CryptoIOProvider reads/writes directly to
                     // the storage without compression and encryption, and it doesn't use encryption key and buffer size
-                    createStorageIOFor(repositorySettings, new CryptoIOProvider(null, 0) {
+                    createStorageIOFor(client, repositorySettings, new CryptoIOProvider(null, 0) {
                         @Override
                         public InputStream decryptAndDecompress(final InputStream in) throws IOException {
                             return in;
@@ -105,9 +111,13 @@ public abstract class RepositoryStorageIOProvider<C>
 
     @Override
     public void close() throws IOException {
+        if (Objects.nonNull(clientProvider)) {
+            clientProvider.close();
+        }
     }
 
-    protected abstract StorageIO createStorageIOFor(final Settings repositorySettings,
+    protected abstract StorageIO createStorageIOFor(final C client,
+                                                    final Settings repositorySettings,
                                                     final CryptoIOProvider cryptoIOProvider);
 
     public interface StorageIO {

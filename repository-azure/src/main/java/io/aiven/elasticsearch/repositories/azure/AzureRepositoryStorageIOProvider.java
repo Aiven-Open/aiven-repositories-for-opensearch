@@ -33,53 +33,51 @@ import org.opensearch.common.collect.Tuple;
 import org.opensearch.common.settings.Setting;
 import org.opensearch.common.settings.Settings;
 
+import io.aiven.elasticsearch.repositories.CommonSettings;
 import io.aiven.elasticsearch.repositories.Permissions;
 import io.aiven.elasticsearch.repositories.RepositoryStorageIOProvider;
 import io.aiven.elasticsearch.repositories.io.CryptoIOProvider;
 import io.aiven.elasticsearch.repositories.security.EncryptionKeyProvider;
 
 import com.azure.storage.blob.BlobContainerClient;
+import com.azure.storage.blob.BlobServiceClient;
 import com.azure.storage.blob.models.BlobItem;
 import com.azure.storage.blob.models.BlobItemProperties;
 import com.azure.storage.blob.models.ListBlobsOptions;
 
-public class AzureRepositoryStorageIOProvider extends RepositoryStorageIOProvider<AzureClient> {
+public class AzureRepositoryStorageIOProvider
+        extends RepositoryStorageIOProvider<BlobServiceClient, AzureClientSettings> {
 
     static final Setting<String> CONTAINER_NAME = Setting.simpleString("container_name");
 
-    public AzureRepositoryStorageIOProvider(final AzureClient azureClient,
+    public AzureRepositoryStorageIOProvider(final AzureClientSettings clientSettings,
                                             final EncryptionKeyProvider encryptionKeyProvider) {
-        super(azureClient, encryptionKeyProvider);
+        super(new AzureClientProvider(), clientSettings, encryptionKeyProvider);
     }
 
     @Override
-    protected StorageIO createStorageIOFor(final Settings repositorySettings,
+    protected StorageIO createStorageIOFor(final BlobServiceClient client,
+                                           final Settings repositorySettings,
                                            final CryptoIOProvider cryptoIOProvider) {
-        checkSettings(AzureRepositoryPlugin.REPOSITORY_TYPE, CONTAINER_NAME, repositorySettings);
-        final var containerName = CONTAINER_NAME.get(repositorySettings);
         try {
-            return Permissions.doPrivileged(() -> new AzureStorageIO(containerName, cryptoIOProvider));
+            CommonSettings.RepositorySettings
+                    .checkSettings(AzureRepositoryPlugin.REPOSITORY_TYPE, CONTAINER_NAME, repositorySettings);
+            final var blobContainer = client.createBlobContainer(CONTAINER_NAME.get(repositorySettings));
+            return Permissions.doPrivileged(() -> new AzureStorageIO(blobContainer, cryptoIOProvider));
         } catch (final IOException e) {
             throw new UncheckedIOException(e);
         }
     }
 
-    @Override
-    public void close() throws IOException {
-        if (Objects.nonNull(client)) {
-            client.close();
-        }
-    }
-
-    private class AzureStorageIO implements StorageIO {
+    private static class AzureStorageIO implements StorageIO {
 
         private final CryptoIOProvider cryptoIOProvider;
 
         private final BlobContainerClient blobContainerClient;
 
-        AzureStorageIO(final String containerName, final CryptoIOProvider cryptoIOProvider) {
+        AzureStorageIO(final BlobContainerClient blobContainerClient, final CryptoIOProvider cryptoIOProvider) {
             this.cryptoIOProvider = cryptoIOProvider;
-            this.blobContainerClient = client.blobServiceClient().getBlobContainerClient(containerName);
+            this.blobContainerClient = blobContainerClient;
         }
 
         @Override

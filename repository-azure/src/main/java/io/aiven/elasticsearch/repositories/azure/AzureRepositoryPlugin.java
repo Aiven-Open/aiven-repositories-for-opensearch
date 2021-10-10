@@ -23,7 +23,9 @@ import org.opensearch.common.settings.Settings;
 
 import io.aiven.elasticsearch.repositories.AbstractRepositoryPlugin;
 
-public class AzureRepositoryPlugin extends AbstractRepositoryPlugin<AzureClient> {
+import com.azure.storage.blob.BlobServiceClient;
+
+public class AzureRepositoryPlugin extends AbstractRepositoryPlugin<BlobServiceClient, AzureClientSettings> {
 
     public static final String REPOSITORY_TYPE = "aiven-azure";
 

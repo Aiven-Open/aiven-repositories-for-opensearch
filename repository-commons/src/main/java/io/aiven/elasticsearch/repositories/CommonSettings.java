@@ -70,10 +70,21 @@ public interface CommonSettings {
                         new ByteSizeValue(100, ByteSizeUnit.MB),
                         new ByteSizeValue(100, ByteSizeUnit.MB),
                         new ByteSizeValue(64, ByteSizeUnit.GB),
-                        Setting.Property.NodeScope
+                        Setting.Property.NodeScope,
+                        Setting.Property.Dynamic
                 );
 
-        default void checkSettings(final String repoType, final Setting<String> setting, final Settings settings) {
+        /**
+         * The number of retries to use when an GCS request fails.
+         */
+        Setting<Integer> MAX_RETRIES =
+                Setting.intSetting(
+                        "max_retries", 3,
+                        Setting.Property.NodeScope,
+                        Setting.Property.Dynamic);
+
+
+        static void checkSettings(final String repoType, final Setting<String> setting, final Settings settings) {
             if (!setting.exists(settings)) {
                 throw new RepositoryException(repoType, setting.getKey() + " hasn't been defined");
             }

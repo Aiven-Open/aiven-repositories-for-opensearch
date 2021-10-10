@@ -25,18 +25,19 @@ import io.aiven.elasticsearch.repositories.RepositorySettingsProvider;
 import io.aiven.elasticsearch.repositories.RepositoryStorageIOProvider;
 import io.aiven.elasticsearch.repositories.security.EncryptionKeyProvider;
 
-public class AzureSettingsProvider extends RepositorySettingsProvider<AzureClient> {
+import com.azure.storage.blob.BlobServiceClient;
+
+public class AzureSettingsProvider extends RepositorySettingsProvider<BlobServiceClient, AzureClientSettings> {
 
     @Override
-    protected RepositoryStorageIOProvider<AzureClient> createRepositoryStorageIOProvider(
+    protected RepositoryStorageIOProvider<BlobServiceClient, AzureClientSettings> createRepositoryStorageIOProvider(
             final Settings settings) throws IOException {
         return Permissions.doPrivileged(() -> {
             final var azureClientSettings = AzureClientSettings.create(settings);
             final var encryptionKeyProvider =
                     EncryptionKeyProvider.of(azureClientSettings.publicKey(), azureClientSettings.privateKey());
             return Permissions.doPrivileged(() ->
-                    new AzureRepositoryStorageIOProvider(
-                            AzureClient.create(azureClientSettings), encryptionKeyProvider));
+                    new AzureRepositoryStorageIOProvider(azureClientSettings, encryptionKeyProvider));
         });
     }
 

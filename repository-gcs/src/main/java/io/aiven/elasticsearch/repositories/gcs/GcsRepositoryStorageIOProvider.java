@@ -33,6 +33,7 @@ import org.opensearch.common.collect.Tuple;
 import org.opensearch.common.settings.Setting;
 import org.opensearch.common.settings.Settings;
 
+import io.aiven.elasticsearch.repositories.CommonSettings;
 import io.aiven.elasticsearch.repositories.Permissions;
 import io.aiven.elasticsearch.repositories.RepositoryStorageIOProvider;
 import io.aiven.elasticsearch.repositories.io.CryptoIOProvider;
@@ -54,7 +55,7 @@ import static java.net.HttpURLConnection.HTTP_GONE;
 import static java.net.HttpURLConnection.HTTP_PRECON_FAILED;
 
 public class GcsRepositoryStorageIOProvider
-        extends RepositoryStorageIOProvider<Storage> {
+        extends RepositoryStorageIOProvider<Storage, GcsClientSettings> {
 
     static final Setting<String> BUCKET_NAME =
             Setting.simpleString(
@@ -64,25 +65,31 @@ public class GcsRepositoryStorageIOProvider
 
     private static final Logger LOGGER = LoggerFactory.getLogger(GcsRepositoryStorageIOProvider.class);
 
-    public GcsRepositoryStorageIOProvider(final Storage client,
+    public GcsRepositoryStorageIOProvider(final GcsClientSettings storageSettings,
                                           final EncryptionKeyProvider encryptionKeyProvider) {
-        super(client, encryptionKeyProvider);
+        super(new GcsClientProvider(), storageSettings, encryptionKeyProvider);
     }
 
     @Override
-    protected StorageIO createStorageIOFor(final Settings repositorySettings, final CryptoIOProvider cryptoIOProvider) {
-        checkSettings(GcsRepositoryPlugin.REPOSITORY_TYPE, BUCKET_NAME, repositorySettings);
+    protected StorageIO createStorageIOFor(final Storage storage,
+                                           final Settings repositorySettings,
+                                           final CryptoIOProvider cryptoIOProvider) {
+        CommonSettings.RepositorySettings.checkSettings(
+                GcsRepositoryPlugin.REPOSITORY_TYPE, BUCKET_NAME, repositorySettings);
         final var bucketName = BUCKET_NAME.get(repositorySettings);
-        return new GcsStorageIO(bucketName, cryptoIOProvider);
+        return new GcsStorageIO(storage, bucketName, cryptoIOProvider);
     }
 
-    private class GcsStorageIO implements StorageIO {
+    private static class GcsStorageIO implements StorageIO {
+
+        private final Storage storage;
 
         private final String bucketName;
 
         private final CryptoIOProvider cryptoIOProvider;
 
-        public GcsStorageIO(final String bucketName, final CryptoIOProvider cryptoIOProvider) {
+        public GcsStorageIO(final Storage storage, final String bucketName, final CryptoIOProvider cryptoIOProvider) {
+            this.storage = storage;
             this.bucketName = bucketName;
             this.cryptoIOProvider = cryptoIOProvider;
         }
@@ -91,7 +98,7 @@ public class GcsRepositoryStorageIOProvider
         public boolean exists(final String blobName) throws IOException {
             try {
                 final BlobId blobId = BlobId.of(bucketName, blobName);
-                final Blob blob = Permissions.doPrivileged(() -> client.get(blobId));
+                final Blob blob = Permissions.doPrivileged(() -> storage.get(blobId));
                 return blob != null;
             } catch (final Exception e) {
                 throw new BlobStoreException("Failed to check if blob [" + blobName + "] exists", e);
@@ -102,9 +109,9 @@ public class GcsRepositoryStorageIOProvider
         public InputStream read(final String blobName) throws IOException {
             return Permissions.doPrivileged(() -> {
                 try {
-                    final int maxAttempts = client.getOptions().getRetrySettings().getMaxAttempts();
+                    final int maxAttempts = storage.getOptions().getRetrySettings().getMaxAttempts();
                     final BlobId blobId = BlobId.of(bucketName, blobName);
-                    final var reader = new GcsRetryableReadChannel(client.reader(blobId), blobId, maxAttempts);
+                    final var reader = new GcsRetryableReadChannel(storage.reader(blobId), blobId, maxAttempts);
                     return cryptoIOProvider.decryptAndDecompress(Channels.newInputStream(reader));
                 } catch (final StorageException e) {
                     throw new IOException("Failed to read blob [" + blobName + "]");
@@ -133,13 +140,13 @@ public class GcsRepositoryStorageIOProvider
             // GCS will retry individual chunk uploads however when the retries are exhausted, the 
             // whole upload won't be retried anymore. Adding at least max attempts to retry the whole
             // upload from scratch.
-            final int maxAttempts = client.getOptions().getRetrySettings().getMaxAttempts();
+            final int maxAttempts = storage.getOptions().getRetrySettings().getMaxAttempts();
             for (int retry = 0; retry < maxAttempts; ++retry) {
                 try {
                     LOGGER.info("Resumable upload session for blob {}, attempt #{}/{}", blobInfo, retry, maxAttempts);
                     
                     Permissions.doPrivileged(() -> {
-                        final var writeChannel = client.writer(blobInfo, writeOptions);
+                        final var writeChannel = storage.writer(blobInfo, writeOptions);
                         cryptoIOProvider.compressAndEncrypt(
                                 inputStream,
                                 Channels.newOutputStream(new WritableByteChannel() {
@@ -222,7 +229,7 @@ public class GcsRepositoryStorageIOProvider
         public void deleteFiles(final List<String> blobNames, final boolean ignoreIfNotExists) throws IOException {
             Permissions.doPrivileged(() -> {
                 try {
-                    final var storageBatch = client.batch();
+                    final var storageBatch = storage.batch();
                     final var storageExceptionHandler = new AtomicReference<StorageException>();
                     blobNames.forEach(name ->
                             storageBatch
@@ -289,7 +296,7 @@ public class GcsRepositoryStorageIOProvider
         }
 
         private Bucket getBucket() {
-            return client.get(bucketName);
+            return storage.get(bucketName);
         }
 
         private Iterable<Blob> bucketBlobsIterator(final String path) throws IOException {

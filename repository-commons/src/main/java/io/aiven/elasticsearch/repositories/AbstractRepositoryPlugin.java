@@ -39,14 +39,14 @@ import org.bouncycastle.jce.provider.BouncyCastleProvider;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-public abstract class AbstractRepositoryPlugin<C>
+public abstract class AbstractRepositoryPlugin<C, S extends CommonSettings.ClientSettings>
         extends Plugin implements RepositoryPlugin, ReloadablePlugin {
 
     public static final Logger LOGGER = LoggerFactory.getLogger(AbstractRepositoryPlugin.class);
 
     private final String repositoryType;
 
-    private final RepositorySettingsProvider<C> repositorySettingsProvider;
+    private final RepositorySettingsProvider<C, S> repositorySettingsProvider;
 
     private final Set<String> pluginSettingKeys;
 
@@ -60,7 +60,7 @@ public abstract class AbstractRepositoryPlugin<C>
 
     protected AbstractRepositoryPlugin(final String repositoryType,
                                        final Settings settings,
-                                       final RepositorySettingsProvider<C> repositorySettingsProvider) {
+                                       final RepositorySettingsProvider<C, S> repositorySettingsProvider) {
         this.repositoryType = repositoryType;
         this.repositorySettingsProvider = repositorySettingsProvider;
         this.pluginSettingKeys = getSettings().stream().map(Setting::getKey).collect(Collectors.toSet());
