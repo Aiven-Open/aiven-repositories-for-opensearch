@@ -61,7 +61,7 @@ public class AzureRepositoryStorageIOProvider
         try {
             CommonSettings.RepositorySettings
                     .checkSettings(AzureRepositoryPlugin.REPOSITORY_TYPE, CONTAINER_NAME, repositorySettings);
-            final var blobContainer = client.createBlobContainer(CONTAINER_NAME.get(repositorySettings));
+            final var blobContainer = client.getBlobContainerClient(CONTAINER_NAME.get(repositorySettings));
             return Permissions.doPrivileged(() -> new AzureStorageIO(blobContainer, cryptoIOProvider));
         } catch (final IOException e) {
             throw new UncheckedIOException(e);
