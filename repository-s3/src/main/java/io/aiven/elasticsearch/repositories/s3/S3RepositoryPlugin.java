@@ -26,9 +26,9 @@ import org.opensearch.common.settings.Settings;
 import io.aiven.elasticsearch.repositories.AbstractRepositoryPlugin;
 import io.aiven.elasticsearch.repositories.Permissions;
 
-import com.amazonaws.services.s3.AmazonS3;
+import com.amazonaws.services.s3.AmazonS3Client;
 
-public class S3RepositoryPlugin extends AbstractRepositoryPlugin<AmazonS3, S3ClientSettings> {
+public class S3RepositoryPlugin extends AbstractRepositoryPlugin<AmazonS3Client, S3ClientSettings> {
 
     public static final String REPOSITORY_TYPE = "aiven-s3";
 

@@ -38,17 +38,16 @@ import io.aiven.elasticsearch.repositories.io.CryptoIOProvider;
 import io.aiven.elasticsearch.repositories.security.EncryptionKeyProvider;
 
 import com.amazonaws.AmazonClientException;
-import com.amazonaws.services.s3.AmazonS3;
+import com.amazonaws.services.s3.AmazonS3Client;
 import com.amazonaws.services.s3.model.DeleteObjectsRequest;
 import com.amazonaws.services.s3.model.ListObjectsV2Request;
 import com.amazonaws.services.s3.model.ListObjectsV2Result;
 import com.amazonaws.services.s3.model.MultiObjectDeleteException;
-import com.amazonaws.services.s3.model.S3ObjectInputStream;
 import com.amazonaws.services.s3.model.S3ObjectSummary;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-public class S3RepositoryStorageIOProvider extends RepositoryStorageIOProvider<AmazonS3, S3ClientSettings> {
+public class S3RepositoryStorageIOProvider extends RepositoryStorageIOProvider<AmazonS3Client, S3ClientSettings> {
 
     static final Setting<String> BUCKET_NAME =
             Setting.simpleString(
@@ -71,7 +70,7 @@ public class S3RepositoryStorageIOProvider extends RepositoryStorageIOProvider<A
     }
 
     @Override
-    protected StorageIO createStorageIOFor(final AmazonS3 client,
+    protected StorageIO createStorageIOFor(final AmazonS3Client client,
                                            final Settings repositorySettings,
                                            final CryptoIOProvider cryptoIOProvider) {
         CommonSettings.RepositorySettings.checkSettings(
@@ -86,7 +85,7 @@ public class S3RepositoryStorageIOProvider extends RepositoryStorageIOProvider<A
 
         private final Logger logger = LoggerFactory.getLogger(S3StorageIO.class);
 
-        private final AmazonS3 client;
+        private final AmazonS3Client client;
 
         private final int partSize;
 
@@ -94,7 +93,7 @@ public class S3RepositoryStorageIOProvider extends RepositoryStorageIOProvider<A
 
         private final CryptoIOProvider cryptoIOProvider;
 
-        private S3StorageIO(final AmazonS3 client,
+        private S3StorageIO(final AmazonS3Client client,
                             final String bucketName,
                             final int partSize,
                             final CryptoIOProvider cryptoIOProvider) {
@@ -115,15 +114,10 @@ public class S3RepositoryStorageIOProvider extends RepositoryStorageIOProvider<A
 
         @Override
         public InputStream read(final String blobName) throws IOException {
-            return Permissions.doPrivileged(() -> {
-                final S3ObjectInputStream objectContent;
-                try {
-                    objectContent = client.getObject(bucketName, blobName).getObjectContent();
-                } catch (final AmazonClientException e) {
-                    throw new IOException("Couldn't read blob " + blobName, e);
-                }
-                return cryptoIOProvider.decryptAndDecompress(objectContent);
-            });
+            final var maxRetries = client.getClientConfiguration().getMaxErrorRetry();
+            return Permissions.doPrivileged(() ->
+                    cryptoIOProvider.decryptAndDecompress(
+                            new S3RepeatableInputStream(client, bucketName, blobName, maxRetries)));
         }
 
         @Override
