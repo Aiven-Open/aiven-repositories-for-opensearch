@@ -26,12 +26,12 @@ import io.aiven.elasticsearch.repositories.ClientProvider;
 import com.amazonaws.ClientConfiguration;
 import com.amazonaws.auth.AWSStaticCredentialsProvider;
 import com.amazonaws.client.builder.AwsClientBuilder;
-import com.amazonaws.services.s3.AmazonS3;
+import com.amazonaws.services.s3.AmazonS3Client;
 import com.amazonaws.services.s3.AmazonS3ClientBuilder;
 
 import static io.aiven.elasticsearch.repositories.CommonSettings.RepositorySettings.MAX_RETRIES;
 
-class S3ClientProvider extends ClientProvider<AmazonS3, S3ClientSettings> {
+class S3ClientProvider extends ClientProvider<AmazonS3Client, S3ClientSettings> {
 
     static final String HTTP_USER_AGENT = "Aiven S3 Repository";
 
@@ -43,7 +43,7 @@ class S3ClientProvider extends ClientProvider<AmazonS3, S3ClientSettings> {
             );
 
     @Override
-    protected AmazonS3 buildClient(final S3ClientSettings clientSettings,
+    protected AmazonS3Client buildClient(final S3ClientSettings clientSettings,
                                    final Settings repositorySettings) {
         final var s3ClientBuilder = AmazonS3ClientBuilder.standard();
 
@@ -67,7 +67,7 @@ class S3ClientProvider extends ClientProvider<AmazonS3, S3ClientSettings> {
         s3ClientBuilder.withEndpointConfiguration(
                 new AwsClientBuilder.EndpointConfiguration(
                         endpoint, null));
-        return s3ClientBuilder.build();
+        return (AmazonS3Client) s3ClientBuilder.build();
     }
 
     @Override

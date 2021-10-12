@@ -27,7 +27,7 @@ import io.aiven.elasticsearch.repositories.RsaKeyAwareTest;
 import io.aiven.elasticsearch.repositories.io.CryptoIOProvider;
 import io.aiven.elasticsearch.repositories.security.EncryptionKeyProvider;
 
-import com.amazonaws.services.s3.AmazonS3;
+import com.amazonaws.services.s3.AmazonS3Client;
 import com.amazonaws.services.s3.model.DeleteObjectsRequest;
 import com.amazonaws.services.s3.model.DeleteObjectsResult;
 import com.amazonaws.services.s3.model.ListObjectsV2Request;
@@ -51,7 +51,7 @@ import static org.mockito.Mockito.when;
 class S3StorageIOTest extends RsaKeyAwareTest {
 
     @Mock
-    AmazonS3 mockedAmazonS3;
+    AmazonS3Client mockedAmazonS3;
 
     @Captor
     ArgumentCaptor<DeleteObjectsRequest> deleteObjectsRequestArgumentCaptor;
