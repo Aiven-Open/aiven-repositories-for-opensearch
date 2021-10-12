@@ -148,7 +148,9 @@ public class AzureRepositoryStorageIOProvider
             try {
                 return Permissions.doPrivileged(() -> {
                     final var files =
-                            blobContainerClient.listBlobsByHierarchy(path);
+                            new FilesListContainer(
+                                    blobContainerClient.getHttpPipeline(),
+                                    blobContainerClient.getBlobContainerUrl()).list(path);
                     var bytesCounter = 0L;
                     final var filesList = new ArrayList<String>();
                     for (final var blobItem : files) {
