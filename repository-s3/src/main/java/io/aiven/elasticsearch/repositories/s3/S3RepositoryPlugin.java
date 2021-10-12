@@ -28,7 +28,7 @@ import io.aiven.elasticsearch.repositories.Permissions;
 
 import com.amazonaws.services.s3.AmazonS3;
 
-public class S3RepositoryPlugin extends AbstractRepositoryPlugin<AmazonS3> {
+public class S3RepositoryPlugin extends AbstractRepositoryPlugin<AmazonS3, S3ClientSettings> {
 
     public static final String REPOSITORY_TYPE = "aiven-s3";
 

@@ -29,11 +29,11 @@ import org.opensearch.common.unit.ByteSizeValue;
 import org.opensearch.common.xcontent.NamedXContentRegistry;
 import org.opensearch.indices.recovery.RecoverySettings;
 
-public class BlobStoreRepository<C>
+public class BlobStoreRepository<C, S extends CommonSettings.ClientSettings>
         extends org.opensearch.repositories.blobstore.BlobStoreRepository
         implements CommonSettings.RepositorySettings {
 
-    private final RepositorySettingsProvider<C> repositorySettingsProvider;
+    private final RepositorySettingsProvider<C, S> repositorySettingsProvider;
 
     private final BlobPath basePath;
 
@@ -41,7 +41,7 @@ public class BlobStoreRepository<C>
                                final NamedXContentRegistry namedXContentRegistry,
                                final ClusterService clusterService,
                                final RecoverySettings recoverySettings,
-                               final RepositorySettingsProvider<C> repositorySettingsProvider) {
+                               final RepositorySettingsProvider<C, S> repositorySettingsProvider) {
         super(metadata, false, namedXContentRegistry, clusterService, recoverySettings);
         this.repositorySettingsProvider = repositorySettingsProvider;
         final String basePath = BASE_PATH.get(metadata.settings());
