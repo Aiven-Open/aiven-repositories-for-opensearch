@@ -16,7 +16,6 @@
 
 package io.aiven.elasticsearch.repositories.gcs;
 
-import java.io.IOException;
 import java.net.Authenticator;
 import java.net.InetSocketAddress;
 import java.net.PasswordAuthentication;
@@ -73,7 +72,7 @@ final class GcsClientProvider extends ClientProvider<Storage, GcsClientSettings>
     }
 
     @Override
-    public void close() throws IOException {
+    protected void closeClient() {
         client = null;
     }
 

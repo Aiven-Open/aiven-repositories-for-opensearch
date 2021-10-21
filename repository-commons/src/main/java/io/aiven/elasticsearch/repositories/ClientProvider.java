@@ -36,13 +36,23 @@ public abstract class ClientProvider<C, S extends CommonSettings.ClientSettings>
                 client = buildClient(clientSettings, repositorySettings);
                 previousRepositorySettings = repositorySettings;
             } else if (!previousRepositorySettings.equals(repositorySettings)) {
-                close();
+                closeClient();
                 client = buildClient(clientSettings, repositorySettings);
                 previousRepositorySettings = repositorySettings;
             }
         }
         return client;
     }
+
+    @Override
+    public void close() throws IOException {
+        synchronized (lock) {
+            closeClient();
+            client = null;
+        }
+    }
+
+    protected abstract void closeClient();
 
     protected abstract C buildClient(final S clientSettings, final Settings repositorySettings);
 
