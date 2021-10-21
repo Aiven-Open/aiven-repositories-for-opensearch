@@ -16,7 +16,6 @@
 
 package io.aiven.elasticsearch.repositories.azure;
 
-import java.io.IOException;
 import java.util.Objects;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.LinkedBlockingQueue;
@@ -83,7 +82,7 @@ class AzureClientProvider extends ClientProvider<BlobServiceClient, AzureClientS
     }
 
     @Override
-    public void close() throws IOException {
+    protected void closeClient() {
         if (Objects.nonNull(httpPoolExecutorService)) {
             var shutdownAttempts = 0;
             try {
@@ -106,6 +105,7 @@ class AzureClientProvider extends ClientProvider<BlobServiceClient, AzureClientS
                 LOGGER.warn("Got InterruptedException. Shutdown pull", e);
                 httpPoolExecutorService.shutdownNow();
             }
+            httpPoolExecutorService = null;
         }
     }
 

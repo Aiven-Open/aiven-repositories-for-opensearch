@@ -16,7 +16,7 @@
 
 package io.aiven.elasticsearch.repositories.s3;
 
-import java.io.IOException;
+import java.util.Objects;
 
 import org.opensearch.common.settings.Setting;
 import org.opensearch.common.settings.Settings;
@@ -71,7 +71,10 @@ class S3ClientProvider extends ClientProvider<AmazonS3Client, S3ClientSettings> 
     }
 
     @Override
-    public void close() throws IOException {
-        client.shutdown();
+    protected void closeClient() {
+        if (Objects.nonNull(client)) {
+            client.shutdown();
+        }
     }
+
 }
