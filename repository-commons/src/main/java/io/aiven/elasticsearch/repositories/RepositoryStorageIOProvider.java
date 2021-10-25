@@ -65,8 +65,12 @@ public abstract class RepositoryStorageIOProvider<C, S extends CommonSettings.Cl
 
     public StorageIO createStorageIO(final String basePath, final Settings repositorySettings) throws IOException {
         final var bufferSize = Math.toIntExact(BUFFER_SIZE_SETTING.get(repositorySettings).getBytes());
-        final var client = clientProvider.buildClientIfNeeded(clientSettings, repositorySettings);
-        Permissions.doPrivileged(() -> createOrRestoreEncryptionKey(client, basePath, repositorySettings));
+        final var client =
+                Permissions.doPrivileged(() -> {
+                    final var c = clientProvider.buildClientIfNeeded(clientSettings, repositorySettings);
+                    createOrRestoreEncryptionKey(c, basePath, repositorySettings);
+                    return c;
+                });
         return createStorageIOFor(client, repositorySettings, new CryptoIOProvider(encryptionKey, bufferSize));
     }
 
