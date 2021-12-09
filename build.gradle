@@ -32,10 +32,10 @@ allprojects {
     ext {
         slf4jVersion = "1.7.30"
         elasticVersion = "7.10.2"
-        opensearchVersion = "1.1.0"
+        opensearchVersion = "1.2.0"
         // since jackson-core is in the main classpath
         // plz keep the same version as for OpenSearch
-        jacksonDatabind = "2.11.4"
+        jacksonDatabind = "2.12.5"
     }
 
 
