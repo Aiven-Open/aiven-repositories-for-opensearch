@@ -13,6 +13,21 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+import org.gradle.util.DistributionLocator
+import org.gradle.util.GradleVersion
+
+wrapper {
+    distributionType = 'ALL'
+    doLast {
+        final DistributionLocator locator = new DistributionLocator()
+        final GradleVersion version = GradleVersion.version(wrapper.gradleVersion)
+        final URI distributionUri = locator.getDistributionFor(version, wrapper.distributionType.name().toLowerCase(Locale.ENGLISH))
+        final URI sha256Uri = new URI(distributionUri.toString() + ".sha256")
+        final String sha256Sum = new String(sha256Uri.toURL().bytes)
+        wrapper.getPropertiesFile() << "distributionSha256Sum=${sha256Sum}\n"
+        println "Added checksum to wrapper properties"
+    }
+}
 
 allprojects {
     // https://docs.gradle.org/current/userguide/java_library_plugin.html
@@ -81,7 +96,7 @@ allprojects {
         integrationTest {
             java.srcDir file('src/integration-test/java')
             resources.srcDir file('src/integration-test/resources')
-            compileClasspath += sourceSets.main.output + configurations.testRuntime
+            compileClasspath += sourceSets.main.output + configurations.testRuntimeClasspath
             runtimeClasspath += output + compileClasspath
         }
     }
@@ -95,7 +110,7 @@ allprojects {
 
     checkstyle {
         toolVersion "8.44"
-        configDir rootProject.file("checkstyle/")
+        configDirectory.set(rootProject.file("checkstyle/"))
     }
 
     test {
@@ -122,7 +137,7 @@ allprojects {
             exclude group: "org.apache.logging.log4j", module: "log4j-core"
         }
 
-        compile "org.slf4j:slf4j-api:$slf4jVersion"
+        implementation "org.slf4j:slf4j-api:$slf4jVersion"
 
         testImplementation "org.mockito:mockito-core:3.5.7"
         testImplementation "org.mockito:mockito-junit-jupiter:3.5.7"

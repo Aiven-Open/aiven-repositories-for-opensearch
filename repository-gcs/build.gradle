@@ -19,14 +19,14 @@ ext {
 }
 
 dependencies {
-    compile project(':repository-commons')
+    implementation project(':repository-commons')
 
     implementation("com.google.cloud:google-cloud-storage:$gcsVerison") {
         exclude group: "com.fasterxml.jackson.core", module: "jackson-core"
     }
 
-    testCompile project(':repository-commons').sourceSets.test.output
-    testCompile project(':repository-commons').sourceSets.integrationTest.java
+    testImplementation project(':repository-commons').sourceSets.test.output
+    testImplementation project(':repository-commons').sourceSets.integrationTest.java
 
     integrationTestImplementation "com.google.cloud:google-cloud-storage:$gcsVerison"
     integrationTestImplementation project(':repository-commons').sourceSets.integrationTest.output
