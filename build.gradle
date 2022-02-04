@@ -126,9 +126,9 @@ allprojects {
         testImplementation "org.mockito:mockito-core:4.3.0"
         testImplementation "org.mockito:mockito-junit-jupiter:4.3.0"
         testImplementation "org.opensearch:opensearch:$opensearchVersion"
-        testImplementation 'org.junit.jupiter:junit-jupiter:5.6.2'
+        testImplementation 'org.junit.jupiter:junit-jupiter:5.8.2'
 
-        testRuntimeOnly 'org.junit.jupiter:junit-jupiter-engine:5.6.2'
+        testRuntimeOnly 'org.junit.jupiter:junit-jupiter-engine:5.8.2'
 
         integrationTestImplementation sourceSets.test.output
     }
