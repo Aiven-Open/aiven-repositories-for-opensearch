@@ -30,12 +30,11 @@ allprojects {
     apply plugin: "idea"
 
     ext {
-        slf4jVersion = "1.7.30"
-        elasticVersion = "7.10.2"
+        slf4jVersion = "1.7.35"
         opensearchVersion = "1.2.4"
         // since jackson-core is in the main classpath
         // plz keep the same version as for OpenSearch
-        jacksonDatabind = "2.12.5"
+        jacksonDatabind = "2.12.6"
     }
 
 
@@ -116,7 +115,7 @@ allprojects {
 
         compileOnly "org.opensearch:opensearch:$opensearchVersion"
 
-        implementation("org.apache.logging.log4j:log4j-slf4j-impl:2.11.1") {
+        implementation("org.apache.logging.log4j:log4j-slf4j-impl:2.17.1") {
             exclude group: "org.slf4j", module: "slf4j-api"
             exclude group: "org.apache.logging.log4j", module: "log4j-api"
             exclude group: "org.apache.logging.log4j", module: "log4j-core"
@@ -124,8 +123,8 @@ allprojects {
 
         compile "org.slf4j:slf4j-api:$slf4jVersion"
 
-        testImplementation "org.mockito:mockito-core:3.5.7"
-        testImplementation "org.mockito:mockito-junit-jupiter:3.5.7"
+        testImplementation "org.mockito:mockito-core:4.3.0"
+        testImplementation "org.mockito:mockito-junit-jupiter:4.3.0"
         testImplementation "org.opensearch:opensearch:$opensearchVersion"
         testImplementation 'org.junit.jupiter:junit-jupiter:5.6.2'
 
