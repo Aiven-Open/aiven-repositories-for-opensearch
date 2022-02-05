@@ -23,5 +23,5 @@ dependencies {
     implementation "com.github.luben:zstd-jni:$zstdVersion"
     implementation "org.bouncycastle:bcprov-jdk15on:$bcVersion"
 
-    compile "org.slf4j:slf4j-api:$slf4jVersion"
+    implementation "org.slf4j:slf4j-api:$slf4jVersion"
 }
