@@ -28,7 +28,6 @@ import io.aiven.elasticsearch.repositories.CommonSettings;
 import io.aiven.elasticsearch.repositories.Permissions;
 import io.aiven.elasticsearch.repositories.RepositoryStorageIOProvider;
 import io.aiven.elasticsearch.repositories.io.CryptoIOProvider;
-import io.aiven.elasticsearch.repositories.security.EncryptionKeyProvider;
 
 import com.amazonaws.AmazonClientException;
 import com.amazonaws.services.s3.AmazonS3;
@@ -64,9 +63,8 @@ public class S3RepositoryStorageIOProvider extends RepositoryStorageIOProvider<A
                     Setting.Property.NodeScope,
                     Setting.Property.Dynamic);
 
-    public S3RepositoryStorageIOProvider(final S3ClientSettings clientSettings,
-                                         final EncryptionKeyProvider encryptionKeyProvider) {
-        super(new S3ClientProvider(), clientSettings, encryptionKeyProvider);
+    public S3RepositoryStorageIOProvider(final Map<String, S3ClientSettings> clientSettings) {
+        super(new S3ClientProvider(), clientSettings);
     }
 
     @Override

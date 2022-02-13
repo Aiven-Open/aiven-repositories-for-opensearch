@@ -25,14 +25,15 @@ import io.aiven.elasticsearch.repositories.Permissions;
 
 import com.amazonaws.services.s3.AmazonS3;
 import org.elasticsearch.common.settings.Setting;
-import org.elasticsearch.common.settings.Settings;
 
-public class S3RepositoryPlugin extends AbstractRepositoryPlugin<AmazonS3, S3ClientSettings> {
+import static io.aiven.elasticsearch.repositories.s3.S3ClientSettings.S3_PREFIX;
+
+public class S3RepositoryPlugin extends AbstractRepositoryPlugin<AmazonS3Client, S3ClientSettings> {
 
     public static final String REPOSITORY_TYPE = "aiven-s3";
 
     public S3RepositoryPlugin(final Settings settings) {
-        super(REPOSITORY_TYPE, settings, new S3SettingsProvider());
+        super(REPOSITORY_TYPE, S3_PREFIX, settings, new S3SettingsProvider());
     }
 
     @Override

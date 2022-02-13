@@ -21,7 +21,6 @@ import java.io.IOException;
 import io.aiven.elasticsearch.repositories.Permissions;
 import io.aiven.elasticsearch.repositories.RepositorySettingsProvider;
 import io.aiven.elasticsearch.repositories.RepositoryStorageIOProvider;
-import io.aiven.elasticsearch.repositories.security.EncryptionKeyProvider;
 
 import com.amazonaws.services.s3.AmazonS3;
 import org.elasticsearch.common.settings.Settings;
@@ -33,9 +32,7 @@ public class S3SettingsProvider extends RepositorySettingsProvider<AmazonS3, S3C
             final Settings settings) throws IOException {
         return Permissions.doPrivileged(() -> {
             final var s3ClientSettings = S3ClientSettings.create(settings);
-            final var encryptionKeyProvider =
-                    EncryptionKeyProvider.of(s3ClientSettings.publicKey(), s3ClientSettings.privateKey());
-            return new S3RepositoryStorageIOProvider(s3ClientSettings, encryptionKeyProvider);
+            return new S3RepositoryStorageIOProvider(s3ClientSettings);
         });
     }
 
