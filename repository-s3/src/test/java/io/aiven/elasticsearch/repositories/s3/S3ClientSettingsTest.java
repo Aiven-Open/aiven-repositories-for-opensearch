@@ -28,6 +28,14 @@ import io.aiven.elasticsearch.repositories.RsaKeyAwareTest;
 import com.amazonaws.ClientConfiguration;
 import org.junit.jupiter.api.Test;
 
+import static io.aiven.elasticsearch.repositories.s3.S3ClientSettings.AWS_ACCESS_KEY_ID;
+import static io.aiven.elasticsearch.repositories.s3.S3ClientSettings.AWS_SECRET_ACCESS_KEY;
+import static io.aiven.elasticsearch.repositories.s3.S3ClientSettings.ENDPOINT;
+import static io.aiven.elasticsearch.repositories.s3.S3ClientSettings.MAX_RETRIES;
+import static io.aiven.elasticsearch.repositories.s3.S3ClientSettings.PRIVATE_KEY_FILE;
+import static io.aiven.elasticsearch.repositories.s3.S3ClientSettings.PUBLIC_KEY_FILE;
+import static io.aiven.elasticsearch.repositories.s3.S3ClientSettings.READ_TIMEOUT;
+import static io.aiven.elasticsearch.repositories.s3.S3ClientSettings.USE_THROTTLE_RETRIES;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -38,27 +46,35 @@ class S3ClientSettingsTest extends RsaKeyAwareTest {
     void failsForEmptyAwsEndpoint() throws IOException  {
         final var secureSettings =
                 new DummySecureSettings()
-                        .setString(S3ClientSettings.AWS_ACCESS_KEY_ID.getKey(), "AWS_ACCESS_KEY_ID")
-                        .setString(S3ClientSettings.AWS_SECRET_ACCESS_KEY.getKey(), "AWS_SECRET_ACCESS_KEY")
-                        .setFile(S3ClientSettings.PUBLIC_KEY_FILE.getKey(), Files.newInputStream(publicKeyPem))
-                        .setFile(S3ClientSettings.PRIVATE_KEY_FILE.getKey(), Files.newInputStream(privateKeyPem));
+                        .setString(AWS_ACCESS_KEY_ID.getConcreteSettingForNamespace("default").getKey(),
+                                "AWS_ACCESS_KEY_ID")
+                        .setString(AWS_SECRET_ACCESS_KEY.getConcreteSettingForNamespace("default").getKey(),
+                                "AWS_SECRET_ACCESS_KEY")
+                        .setFile(PUBLIC_KEY_FILE.getConcreteSettingForNamespace("default").getKey(),
+                                Files.newInputStream(publicKeyPem))
+                        .setFile(PRIVATE_KEY_FILE.getConcreteSettingForNamespace("default").getKey(),
+                                Files.newInputStream(privateKeyPem));
 
         final var noEndpointSettings = Settings.builder().setSecureSettings(secureSettings).build();
 
         final var t =
                 assertThrows(IllegalArgumentException.class, () -> S3ClientSettings.create(noEndpointSettings));
 
-        assertEquals("Settings with name aiven.s3.client.endpoint hasn't been set", t.getMessage());
+        assertEquals("Settings with name aiven.s3.default.client.endpoint hasn't been set", t.getMessage());
     }
 
     @Test
     void failsForEmptyAwsAccessKeyID() throws IOException {
         final var secureSettings =
                 new DummySecureSettings()
-                        .setString(S3ClientSettings.AWS_SECRET_ACCESS_KEY.getKey(), "AWS_SECRET_ACCESS_KEY")
-                        .setString(S3ClientSettings.ENDPOINT.getKey(), "ENDPOINT")
-                        .setFile(S3ClientSettings.PUBLIC_KEY_FILE.getKey(), Files.newInputStream(publicKeyPem))
-                        .setFile(S3ClientSettings.PRIVATE_KEY_FILE.getKey(), Files.newInputStream(privateKeyPem));
+                        .setString(AWS_SECRET_ACCESS_KEY.getConcreteSettingForNamespace("default").getKey(),
+                                "AWS_SECRET_ACCESS_KEY")
+                        .setString(ENDPOINT.getConcreteSettingForNamespace("default").getKey(),
+                                "ENDPOINT")
+                        .setFile(PUBLIC_KEY_FILE.getConcreteSettingForNamespace("default").getKey(),
+                                Files.newInputStream(publicKeyPem))
+                        .setFile(PRIVATE_KEY_FILE.getConcreteSettingForNamespace("default").getKey(),
+                                Files.newInputStream(privateKeyPem));
 
         final var noAwsAccessKeyId = Settings.builder().setSecureSettings(secureSettings).build();
 
@@ -66,7 +82,7 @@ class S3ClientSettingsTest extends RsaKeyAwareTest {
                 assertThrows(IllegalArgumentException.class, () -> S3ClientSettings.create(noAwsAccessKeyId));
 
         assertEquals(
-                "Settings with name aiven.s3.client.aws_access_key_id hasn't been set",
+                "Settings with name aiven.s3.default.client.aws_access_key_id hasn't been set",
                 t.getMessage());
     }
 
@@ -74,10 +90,13 @@ class S3ClientSettingsTest extends RsaKeyAwareTest {
     void failsForEmptyAwsSecretAccessKey() throws IOException {
         final var secureSettings =
                 new DummySecureSettings()
-                        .setString(S3ClientSettings.AWS_ACCESS_KEY_ID.getKey(), "AWS_ACCESS_KEY_ID")
-                        .setString(S3ClientSettings.ENDPOINT.getKey(), "ENDPOINT")
-                        .setFile(S3ClientSettings.PUBLIC_KEY_FILE.getKey(), Files.newInputStream(publicKeyPem))
-                        .setFile(S3ClientSettings.PRIVATE_KEY_FILE.getKey(), Files.newInputStream(privateKeyPem));
+                        .setString(AWS_ACCESS_KEY_ID.getConcreteSettingForNamespace("default").getKey(),
+                                "AWS_ACCESS_KEY_ID")
+                        .setString(ENDPOINT.getConcreteSettingForNamespace("default").getKey(), "ENDPOINT")
+                        .setFile(PUBLIC_KEY_FILE.getConcreteSettingForNamespace("default").getKey(),
+                                Files.newInputStream(publicKeyPem))
+                        .setFile(PRIVATE_KEY_FILE.getConcreteSettingForNamespace("default").getKey(),
+                                Files.newInputStream(privateKeyPem));
 
         final var noAwsAccessKeyId = Settings.builder().setSecureSettings(secureSettings).build();
 
@@ -85,7 +104,7 @@ class S3ClientSettingsTest extends RsaKeyAwareTest {
                 assertThrows(IllegalArgumentException.class, () -> S3ClientSettings.create(noAwsAccessKeyId));
 
         assertEquals(
-                "Settings with name aiven.s3.client.aws_secret_access_key hasn't been set",
+                "Settings with name aiven.s3.default.client.aws_secret_access_key hasn't been set",
                 t.getMessage());
     }
 
@@ -94,15 +113,19 @@ class S3ClientSettingsTest extends RsaKeyAwareTest {
         final var settingsBuilder = Settings.builder().put(S3ClientSettings.ENDPOINT.getKey(), "endpoint");
         final var secureSettings =
                 new DummySecureSettings()
-                        .setString(S3ClientSettings.AWS_SECRET_ACCESS_KEY.getKey(), "AWS_SECRET_ACCESS_KEY")
-                        .setString(S3ClientSettings.AWS_ACCESS_KEY_ID.getKey(), "AWS_ACCESS_KEY_ID")
-                        .setString(S3ClientSettings.ENDPOINT.getKey(), "ENDPOINT")
-                        .setFile(S3ClientSettings.PRIVATE_KEY_FILE.getKey(), Files.newInputStream(privateKeyPem));
+                        .setString(AWS_SECRET_ACCESS_KEY.getConcreteSettingForNamespace("default").getKey(),
+                                "AWS_SECRET_ACCESS_KEY")
+                        .setString(AWS_ACCESS_KEY_ID.getConcreteSettingForNamespace("default").getKey(),
+                                "AWS_ACCESS_KEY_ID")
+                        .setString(ENDPOINT.getConcreteSettingForNamespace("default").getKey(),
+                                "ENDPOINT")
+                        .setFile(PRIVATE_KEY_FILE.getConcreteSettingForNamespace("default").getKey(),
+                                Files.newInputStream(privateKeyPem));
         final var t =
                 assertThrows(IllegalArgumentException.class, () ->
                         S3ClientSettings.create(settingsBuilder.setSecureSettings(secureSettings).build()));
 
-        assertEquals("Settings with name aiven.s3.public_key_file hasn't been set", t.getMessage());
+        assertEquals("Settings with name aiven.s3.default.public_key_file hasn't been set", t.getMessage());
     }
 
     @Test
@@ -110,31 +133,40 @@ class S3ClientSettingsTest extends RsaKeyAwareTest {
         final var settingsBuilder = Settings.builder().put(S3ClientSettings.ENDPOINT.getKey(), "endpoint");
         final var secureSettings =
                 new DummySecureSettings()
-                        .setString(S3ClientSettings.AWS_SECRET_ACCESS_KEY.getKey(), "AWS_SECRET_ACCESS_KEY")
-                        .setString(S3ClientSettings.AWS_ACCESS_KEY_ID.getKey(), "AWS_ACCESS_KEY_ID")
-                        .setString(S3ClientSettings.ENDPOINT.getKey(), "ENDPOINT")
-                        .setFile(S3ClientSettings.PUBLIC_KEY_FILE.getKey(), Files.newInputStream(publicKeyPem));
+                        .setString(AWS_SECRET_ACCESS_KEY.getConcreteSettingForNamespace("default").getKey(),
+                                "AWS_SECRET_ACCESS_KEY")
+                        .setString(AWS_ACCESS_KEY_ID.getConcreteSettingForNamespace("default").getKey(),
+                                "AWS_ACCESS_KEY_ID")
+                        .setString(ENDPOINT.getConcreteSettingForNamespace("default").getKey(),
+                                "ENDPOINT")
+                        .setFile(PUBLIC_KEY_FILE.getConcreteSettingForNamespace("default").getKey(),
+                                Files.newInputStream(publicKeyPem));
         final var t =
                 assertThrows(IllegalArgumentException.class, () ->
                         S3ClientSettings.create(settingsBuilder.setSecureSettings(secureSettings).build()));
 
-        assertEquals("Settings with name aiven.s3.private_key_file hasn't been set", t.getMessage());
+        assertEquals("Settings with name aiven.s3.default.private_key_file hasn't been set", t.getMessage());
     }
 
     @Test
     void loadDefaultSettings() throws IOException {
         final var secureSettings =
                 new DummySecureSettings()
-                        .setString(S3ClientSettings.AWS_ACCESS_KEY_ID.getKey(), "AWS_ACCESS_KEY_ID")
-                        .setString(S3ClientSettings.AWS_SECRET_ACCESS_KEY.getKey(), "AWS_SECRET_ACCESS_KEY")
-                        .setString(S3ClientSettings.ENDPOINT.getKey(), "endpoint")
-                        .setFile(S3ClientSettings.PUBLIC_KEY_FILE.getKey(), Files.newInputStream(publicKeyPem))
-                        .setFile(S3ClientSettings.PRIVATE_KEY_FILE.getKey(), Files.newInputStream(privateKeyPem));
+                        .setString(AWS_ACCESS_KEY_ID.getConcreteSettingForNamespace("default").getKey(),
+                                "AWS_ACCESS_KEY_ID")
+                        .setString(AWS_SECRET_ACCESS_KEY.getConcreteSettingForNamespace("default").getKey(),
+                                "AWS_SECRET_ACCESS_KEY")
+                        .setString(ENDPOINT.getConcreteSettingForNamespace("default").getKey(),
+                                "endpoint")
+                        .setFile(PUBLIC_KEY_FILE.getConcreteSettingForNamespace("default").getKey(),
+                                Files.newInputStream(publicKeyPem))
+                        .setFile(PRIVATE_KEY_FILE.getConcreteSettingForNamespace("default").getKey(),
+                                Files.newInputStream(privateKeyPem));
 
         final var settings =
                 Settings.builder().setSecureSettings(secureSettings).build();
 
-        final var s3ClientSettings = S3ClientSettings.create(settings);
+        final var s3ClientSettings = S3ClientSettings.create(settings).get("default");
 
         assertEquals(s3ClientSettings.awsCredentials().getAWSAccessKeyId(), "AWS_ACCESS_KEY_ID");
         assertEquals(s3ClientSettings.awsCredentials().getAWSSecretKey(), "AWS_SECRET_ACCESS_KEY");
@@ -148,21 +180,27 @@ class S3ClientSettingsTest extends RsaKeyAwareTest {
     void overrideDefaultSettings() throws IOException {
         final var secureSettings =
                 new DummySecureSettings()
-                        .setString(S3ClientSettings.AWS_ACCESS_KEY_ID.getKey(), "AWS_ACCESS_KEY_ID")
-                        .setString(S3ClientSettings.AWS_SECRET_ACCESS_KEY.getKey(), "AWS_SECRET_ACCESS_KEY")
-                        .setString(S3ClientSettings.ENDPOINT.getKey(), "http://endpoint")
-                        .setFile(S3ClientSettings.PUBLIC_KEY_FILE.getKey(), Files.newInputStream(publicKeyPem))
-                        .setFile(S3ClientSettings.PRIVATE_KEY_FILE.getKey(), Files.newInputStream(privateKeyPem));
+                        .setString(AWS_ACCESS_KEY_ID.getConcreteSettingForNamespace("default").getKey(),
+                                "AWS_ACCESS_KEY_ID")
+                        .setString(AWS_SECRET_ACCESS_KEY.getConcreteSettingForNamespace("default").getKey(),
+                                "AWS_SECRET_ACCESS_KEY")
+                        .setString(ENDPOINT.getConcreteSettingForNamespace("default").getKey(),
+                                "http://endpoint")
+                        .setFile(PUBLIC_KEY_FILE.getConcreteSettingForNamespace("default").getKey(),
+                                Files.newInputStream(publicKeyPem))
+                        .setFile(PRIVATE_KEY_FILE.getConcreteSettingForNamespace("default").getKey(),
+                                Files.newInputStream(privateKeyPem));
 
         final var settings =
                 Settings.builder()
-                        .put(S3ClientSettings.MAX_RETRIES.getKey(), 12)
-                        .put(S3ClientSettings.READ_TIMEOUT.getKey(), TimeValue.timeValueMillis(1000L))
-                        .put(S3ClientSettings.USE_THROTTLE_RETRIES.getKey(), false)
+                        .put(MAX_RETRIES.getConcreteSettingForNamespace("default").getKey(), 12)
+                        .put(READ_TIMEOUT.getConcreteSettingForNamespace("default").getKey(),
+                                TimeValue.timeValueMillis(1000L))
+                        .put(USE_THROTTLE_RETRIES.getConcreteSettingForNamespace("default").getKey(), false)
                         .setSecureSettings(secureSettings)
                         .build();
 
-        final var s3ClientSettings = S3ClientSettings.create(settings);
+        final var s3ClientSettings = S3ClientSettings.create(settings).get("default");
 
         assertEquals(s3ClientSettings.awsCredentials().getAWSAccessKeyId(), "AWS_ACCESS_KEY_ID");
         assertEquals(s3ClientSettings.awsCredentials().getAWSSecretKey(), "AWS_SECRET_ACCESS_KEY");
