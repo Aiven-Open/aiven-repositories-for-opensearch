@@ -24,12 +24,14 @@ import com.azure.storage.blob.BlobServiceClient;
 import org.elasticsearch.common.settings.Setting;
 import org.elasticsearch.common.settings.Settings;
 
+import static io.aiven.elasticsearch.repositories.azure.AzureClientSettings.AZURE_PREFIX;
+
 public class AzureRepositoryPlugin extends AbstractRepositoryPlugin<BlobServiceClient, AzureClientSettings> {
 
     public static final String REPOSITORY_TYPE = "aiven-azure";
 
     public AzureRepositoryPlugin(final Settings settings) {
-        super(REPOSITORY_TYPE, settings, new AzureSettingsProvider());
+        super(REPOSITORY_TYPE, AZURE_PREFIX, settings, new AzureSettingsProvider());
     }
 
     @Override

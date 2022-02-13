@@ -38,6 +38,10 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import static io.aiven.elasticsearch.repositories.CommonSettings.RepositorySettings.MAX_RETRIES;
+import static io.aiven.elasticsearch.repositories.azure.AzureClientSettings.AZURE_ACCOUNT;
+import static io.aiven.elasticsearch.repositories.azure.AzureClientSettings.AZURE_ACCOUNT_KEY;
+import static io.aiven.elasticsearch.repositories.azure.AzureClientSettings.PRIVATE_KEY_FILE;
+import static io.aiven.elasticsearch.repositories.azure.AzureClientSettings.PUBLIC_KEY_FILE;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
@@ -108,8 +112,9 @@ class AzureClientProviderTest extends RsaKeyAwareTest {
                         .put("some_settings_2", 210)
                         .build();
 
+        final var azureClientSettings = AzureClientSettings.create(settings);
         final var client = azureClientProvider
-                .buildClientIfNeeded(AzureClientSettings.create(settings), repoSettings);
+                .buildClientIfNeeded(azureClientSettings.get("default"), repoSettings).v2();
 
         assertEquals("AZURE_ACCOUNT", client.getAccountName());
 
@@ -130,8 +135,9 @@ class AzureClientProviderTest extends RsaKeyAwareTest {
                         .put("some_settings_2", 210)
                         .build();
 
+        final var azureClientSettings = AzureClientSettings.create(settings);
         final var client = azureClientProvider
-                .buildClientIfNeeded(AzureClientSettings.create(settings), repoSettings);
+                .buildClientIfNeeded(azureClientSettings.get("default"), repoSettings).v2();
 
         assertEquals("AZURE_ACCOUNT", client.getAccountName());
 
@@ -144,13 +150,22 @@ class AzureClientProviderTest extends RsaKeyAwareTest {
     private Settings createSettings() throws IOException  {
         final var secureSettings =
                 new DummySecureSettings()
-                        .setString(AzureClientSettings.AZURE_ACCOUNT.getKey(), "AZURE_ACCOUNT")
-                        .setString(AzureClientSettings.AZURE_ACCOUNT_KEY.getKey(), "AZURE_ACCOUNT_KEY")
-                        .setFile(AzureClientSettings.PUBLIC_KEY_FILE.getKey(), Files.newInputStream(publicKeyPem))
-                        .setFile(AzureClientSettings.PRIVATE_KEY_FILE.getKey(), Files.newInputStream(privateKeyPem));
+                        .setString(
+                                AZURE_ACCOUNT.getConcreteSettingForNamespace("default").getKey(),
+                                "AZURE_ACCOUNT"
+                        ).setString(
+                                AZURE_ACCOUNT_KEY.getConcreteSettingForNamespace("default").getKey(),
+                                "AZURE_ACCOUNT_KEY"
+                        ).setFile(
+                                PUBLIC_KEY_FILE.getConcreteSettingForNamespace("default").getKey(),
+                                Files.newInputStream(publicKeyPem)
+                        ).setFile(
+                                PRIVATE_KEY_FILE.getConcreteSettingForNamespace("default").getKey(),
+                                Files.newInputStream(privateKeyPem)
+                        );
 
         return Settings.builder()
-                .put(AzureClientSettings.MAX_RETRIES.getKey(), 12)
+                .put(AzureClientSettings.MAX_RETRIES.getConcreteSettingForNamespace("default").getKey(), 12)
                 .setSecureSettings(secureSettings)
                 .build();
     }
