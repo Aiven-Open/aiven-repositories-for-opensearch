@@ -21,7 +21,6 @@ import java.io.IOException;
 import io.aiven.elasticsearch.repositories.Permissions;
 import io.aiven.elasticsearch.repositories.RepositorySettingsProvider;
 import io.aiven.elasticsearch.repositories.RepositoryStorageIOProvider;
-import io.aiven.elasticsearch.repositories.security.EncryptionKeyProvider;
 
 import com.google.cloud.storage.Storage;
 import org.elasticsearch.common.settings.Settings;
@@ -31,14 +30,10 @@ public class GcsSettingsProvider extends RepositorySettingsProvider<Storage, Gcs
     @Override
     protected RepositoryStorageIOProvider<Storage, GcsClientSettings> createRepositoryStorageIOProvider(
             final Settings settings) throws IOException {
+
         return Permissions.doPrivileged(() -> {
             final var gcsClientSettings = GcsClientSettings.create(settings);
-            final var encryptionKeyProvider =
-                    EncryptionKeyProvider.of(
-                            gcsClientSettings.publicKey().readAllBytes(),
-                            gcsClientSettings.privateKey().readAllBytes()
-                    );
-            return new GcsRepositoryStorageIOProvider(gcsClientSettings, encryptionKeyProvider);
+            return new GcsRepositoryStorageIOProvider(gcsClientSettings);
         });
     }
 

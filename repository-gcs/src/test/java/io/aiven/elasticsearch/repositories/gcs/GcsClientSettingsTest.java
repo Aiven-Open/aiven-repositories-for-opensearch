@@ -35,16 +35,37 @@ class GcsClientSettingsTest extends RsaKeyAwareTest {
 
     @Test
     void loadSettings() throws Exception {
-        final var settings = createSettings()
+        final var settings = createSettings("default")
                 .setSecureSettings(
                         createSecureSettings(
+                                "default",
                                 getClass().getClassLoader().getResourceAsStream("test_gcs_creds.json"),
                                 Files.newInputStream(publicKeyPem),
                                 Files.newInputStream(privateKeyPem)
                         )
                 ).build();
 
-        final var gcsClientSettings = GcsClientSettings.create(settings);
+        final var gcsClientSettings = GcsClientSettings.create(settings).get("default");
+        assertEquals("some_project", gcsClientSettings.projectId());
+        assertEquals(1, gcsClientSettings.connectionTimeout());
+        assertEquals(2, gcsClientSettings.readTimeout());
+
+        assertNotNull(gcsClientSettings.gcsCredentials());
+    }
+
+    @Test
+    void loadNonDefaultClientSettings() throws IOException {
+        final var settings = createSettings("some_client")
+                .setSecureSettings(
+                        createSecureSettings(
+                                "some_client",
+                                getClass().getClassLoader().getResourceAsStream("test_gcs_creds.json"),
+                                Files.newInputStream(publicKeyPem),
+                                Files.newInputStream(privateKeyPem)
+                        )
+                ).build();
+
+        final var gcsClientSettings = GcsClientSettings.create(settings).get("some_client");
         assertEquals("some_project", gcsClientSettings.projectId());
         assertEquals(1, gcsClientSettings.connectionTimeout());
         assertEquals(2, gcsClientSettings.readTimeout());
@@ -64,20 +85,28 @@ class GcsClientSettingsTest extends RsaKeyAwareTest {
         );
     }
 
-    Settings.Builder createSettings() {
+    Settings.Builder createSettings(final String clientName) {
         return Settings.builder()
-                .put(GcsClientSettings.CONNECTION_TIMEOUT.getKey(), 1)
-                .put(GcsClientSettings.READ_TIMEOUT.getKey(), 2)
-                .put(GcsClientSettings.PROJECT_ID.getKey(), "some_project");
+                .put(GcsClientSettings.CONNECTION_TIMEOUT.getConcreteSettingForNamespace(clientName).getKey(), 1)
+                .put(GcsClientSettings.READ_TIMEOUT.getConcreteSettingForNamespace(clientName).getKey(), 2)
+                .put(GcsClientSettings.PROJECT_ID.getConcreteSettingForNamespace(clientName).getKey(), "some_project");
     }
 
-    SecureSettings createSecureSettings(final InputStream googleCredential,
+    SecureSettings createSecureSettings(final String clientName,
+                                        final InputStream googleCredential,
                                         final InputStream publicKey,
                                         final InputStream privateKey) throws IOException {
         return new DummySecureSettings()
-                .setFile(GcsClientSettings.CREDENTIALS_FILE_SETTING.getKey(), googleCredential)
-                .setFile(GcsClientSettings.PUBLIC_KEY_FILE.getKey(), publicKey)
-                .setFile(GcsClientSettings.PRIVATE_KEY_FILE.getKey(), privateKey);
+                .setFile(
+                        GcsClientSettings.CREDENTIALS_FILE_SETTING.getConcreteSettingForNamespace(clientName).getKey(),
+                        googleCredential
+                ).setFile(
+                        GcsClientSettings.PUBLIC_KEY_FILE.getConcreteSettingForNamespace(clientName).getKey(),
+                        publicKey
+                ).setFile(
+                        GcsClientSettings.PRIVATE_KEY_FILE.getConcreteSettingForNamespace(clientName).getKey(),
+                        privateKey
+                );
 
     }
 

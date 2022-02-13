@@ -18,6 +18,9 @@ package io.aiven.elasticsearch.repositories.gcs;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.TimeUnit;
 
 import io.aiven.elasticsearch.repositories.CommonSettings;
@@ -29,51 +32,94 @@ import org.elasticsearch.common.settings.Setting;
 import org.elasticsearch.common.settings.Settings;
 
 import static io.aiven.elasticsearch.repositories.CommonSettings.ClientSettings.checkSettings;
-import static io.aiven.elasticsearch.repositories.CommonSettings.ClientSettings.withPrefix;
+import static io.aiven.elasticsearch.repositories.CommonSettings.ClientSettings.getConfigValue;
+import static io.aiven.elasticsearch.repositories.CommonSettings.ClientSettings.readInputStream;
 
 public class GcsClientSettings implements CommonSettings.ClientSettings {
 
-    public static final Setting<InputStream> PUBLIC_KEY_FILE =
-            SecureSetting.secureFile(withPrefix("gcs.public_key_file"), null);
+    static final String GCS_PREFIX = AIVEN_PREFIX + "gcs.";
 
-    public static final Setting<InputStream> PRIVATE_KEY_FILE =
-            SecureSetting.secureFile(withPrefix("gcs.private_key_file"), null);
+    public static final Setting.AffixSetting<InputStream> PUBLIC_KEY_FILE =
+            Setting.affixKeySetting(
+                    GCS_PREFIX,
+                    "public_key_file",
+                    key -> SecureSetting.secureFile(key, null)
+            );
 
-    public static final Setting<InputStream> CREDENTIALS_FILE_SETTING =
-            SecureSetting.secureFile(withPrefix("gcs.client.credentials_file"), null);
+    public static final Setting.AffixSetting<InputStream> PRIVATE_KEY_FILE =
+            Setting.affixKeySetting(
+                    GCS_PREFIX,
+                    "private_key_file",
+                    key -> SecureSetting.secureFile(key, null)
+            );
 
-    public static final Setting<String> PROXY_HOST =
-            Setting.simpleString(withPrefix("gcs.client.proxy.host"), Setting.Property.NodeScope);
+    public static final Setting.AffixSetting<InputStream> CREDENTIALS_FILE_SETTING =
+            Setting.affixKeySetting(
+                    GCS_PREFIX,
+                    "client.credentials_file",
+                    key -> SecureSetting.secureFile(key, null)
+            );
 
-    public static final Setting<Integer> PROXY_PORT =
-            SecureSetting.intSetting(withPrefix("gcs.client.proxy.port"), 0, 0,
-                    Setting.Property.NodeScope);
+    public static final Setting.AffixSetting<String> PROXY_HOST =
+            Setting.affixKeySetting(
+                    GCS_PREFIX,
+                    "client.proxy.host",
+                    key -> Setting.simpleString(key, Setting.Property.NodeScope)
+            );
 
-    public static final Setting<SecureString> PROXY_USER_NAME =
-            SecureSetting.secureString(withPrefix("gcs.client.proxy.user_name"), null);
+    public static final Setting.AffixSetting<Integer> PROXY_PORT =
+            Setting.affixKeySetting(
+                    GCS_PREFIX,
+                    "client.proxy.port",
+                    key -> SecureSetting.intSetting(key, 0, 0, Setting.Property.NodeScope)
+            );
 
-    public static final Setting<SecureString> PROXY_USER_PASSWORD =
-            SecureSetting.secureString(withPrefix("gcs.client.proxy.user_password"), null);
+    public static final Setting.AffixSetting<SecureString> PROXY_USER_NAME =
+            Setting.affixKeySetting(
+                    GCS_PREFIX,
+                    "client.proxy.user_name",
+                    key -> SecureSetting.secureString(key, null)
+            );
 
-    public static final Setting<String> PROJECT_ID =
-            Setting.simpleString(withPrefix("gcs.client.project_id"), Setting.Property.NodeScope);
+    public static final Setting.AffixSetting<SecureString> PROXY_USER_PASSWORD =
+            Setting.affixKeySetting(
+                    GCS_PREFIX,
+                    "client.proxy.user_password",
+                    key -> SecureSetting.secureString(key, null)
+            );
 
-    public static final Setting<Integer> CONNECTION_TIMEOUT =
-            Setting.intSetting(withPrefix("gcs.client.connection_timeout"), -1, -1,
-                    Setting.Property.NodeScope);
+    public static final Setting.AffixSetting<String> PROJECT_ID =
+            Setting.affixKeySetting(
+                    GCS_PREFIX,
+                    "client.project_id",
+                    key -> Setting.simpleString(key, Setting.Property.NodeScope)
+            );
 
-    public static final Setting<Integer> READ_TIMEOUT =
-            Setting.intSetting(withPrefix("gcs.client.read_timeout"), -1, -1,
-                    Setting.Property.NodeScope);
+    public static final Setting.AffixSetting<Integer> CONNECTION_TIMEOUT =
+            Setting.affixKeySetting(
+                    GCS_PREFIX,
+                    "client.connection_timeout",
+                    key -> Setting.intSetting(key, -1, -1, Setting.Property.NodeScope)
+            );
+
+    public static final Setting.AffixSetting<Integer> READ_TIMEOUT =
+            Setting.affixKeySetting(
+                    GCS_PREFIX,
+                    "client.read_timeout",
+                    key -> Setting.intSetting(key, -1, -1, Setting.Property.NodeScope)
+            );
 
     /** The number of retries to use when an GCS request fails. */
-    public static final Setting<Integer> MAX_RETRIES_SETTING =
-            Setting.intSetting(withPrefix("gcs.client.max_retries"), 3, 0, 
-                    Setting.Property.NodeScope);
+    public static final Setting.AffixSetting<Integer> MAX_RETRIES_SETTING =
+            Setting.affixKeySetting(
+                    GCS_PREFIX,
+                    "client.max_retries",
+                    key -> Setting.intSetting(key, 3, 0, Setting.Property.NodeScope)
+            );
 
-    private final InputStream publicKey;
+    private final byte[] publicKey;
 
-    private final InputStream privateKey;
+    private final byte[] privateKey;
 
     private final String projectId;
 
@@ -94,8 +140,8 @@ public class GcsClientSettings implements CommonSettings.ClientSettings {
 
     private final int proxyPort;
 
-    private GcsClientSettings(final InputStream publicKey,
-                              final InputStream privateKey,
+    private GcsClientSettings(final byte[] publicKey,
+                              final byte[] privateKey,
                               final String projectId,
                               final GoogleCredentials gcsCredentials,
                               final int connectionTimeout,
@@ -118,41 +164,57 @@ public class GcsClientSettings implements CommonSettings.ClientSettings {
         this.proxyUserPassword = proxyUserPassword;
     }
 
-    public static GcsClientSettings create(final Settings settings) throws IOException {
+    public static Map<String, GcsClientSettings> create(final Settings settings) throws IOException {
         if (settings.isEmpty()) {
             throw new IllegalArgumentException("Settings for GC storage hasn't been set");
         }
-        checkSettings(CREDENTIALS_FILE_SETTING, settings);
-        checkSettings(PUBLIC_KEY_FILE, settings);
-        checkSettings(PRIVATE_KEY_FILE, settings);
-        if (PROXY_PORT.exists(settings) && PROXY_PORT.get(settings) < 0) {
+        final Set<String> clientNames = settings.getGroups(GCS_PREFIX).keySet();
+        final var clientSettings = new HashMap<String, GcsClientSettings>();
+        for (final var clientName : clientNames) {
+            clientSettings.put(clientName, createSettings(clientName, settings));
+        }
+        return Map.copyOf(clientSettings);
+    }
+
+    private static GcsClientSettings createSettings(
+            final String clientName, final Settings settings) throws IOException {
+        checkSettings(CREDENTIALS_FILE_SETTING, clientName, settings);
+        checkSettings(PUBLIC_KEY_FILE, clientName, settings);
+        checkSettings(PRIVATE_KEY_FILE, clientName, settings);
+        if (PROXY_PORT.getConcreteSettingForNamespace(clientName).exists(settings)
+                && PROXY_PORT.getConcreteSettingForNamespace(clientName).get(settings) < 0) {
             throw new IllegalArgumentException("Settings with name " + PROXY_PORT.getKey() + " must be greater than 0");
         }
         return new GcsClientSettings(
-                PUBLIC_KEY_FILE.get(settings),
-                PRIVATE_KEY_FILE.get(settings),
-                PROJECT_ID.get(settings),
-                loadCredentials(settings),
-                CONNECTION_TIMEOUT.get(settings),
-                READ_TIMEOUT.get(settings),
-                MAX_RETRIES_SETTING.get(settings),
-                PROXY_HOST.get(settings),
-                PROXY_PORT.get(settings),
-                PROXY_USER_NAME.get(settings).toString(),
-                PROXY_USER_PASSWORD.get(settings).getChars());
+                readInputStream(getConfigValue(settings, clientName, PUBLIC_KEY_FILE)),
+                readInputStream(getConfigValue(settings, clientName, PRIVATE_KEY_FILE)),
+                getConfigValue(settings, clientName, PROJECT_ID),
+                loadCredentials(settings, clientName),
+                getConfigValue(settings, clientName, CONNECTION_TIMEOUT),
+                getConfigValue(settings, clientName, READ_TIMEOUT),
+                getConfigValue(settings, clientName, MAX_RETRIES_SETTING),
+                getConfigValue(settings, clientName, PROXY_HOST),
+                getConfigValue(settings, clientName, PROXY_PORT),
+                getConfigValue(settings, clientName, PROXY_USER_NAME).toString(),
+                getConfigValue(settings, clientName, PROXY_USER_PASSWORD).getChars()
+        );
     }
 
-    private static GoogleCredentials loadCredentials(final Settings settings) throws IOException {
-        try (final var in = CREDENTIALS_FILE_SETTING.get(settings)) {
+    private static GoogleCredentials loadCredentials(
+            final Settings settings,
+            final String clientName) throws IOException {
+        try (final var in = getConfigValue(settings, clientName, CREDENTIALS_FILE_SETTING)) {
             return GoogleCredentials.fromStream(in);
         }
     }
 
-    public InputStream publicKey() {
+    @Override
+    public byte[] publicKey() {
         return publicKey;
     }
 
-    public InputStream privateKey() {
+    @Override
+    public byte[] privateKey() {
         return privateKey;
     }
 

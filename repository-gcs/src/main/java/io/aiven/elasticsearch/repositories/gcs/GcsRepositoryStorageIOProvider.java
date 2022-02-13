@@ -31,7 +31,6 @@ import io.aiven.elasticsearch.repositories.CommonSettings;
 import io.aiven.elasticsearch.repositories.Permissions;
 import io.aiven.elasticsearch.repositories.RepositoryStorageIOProvider;
 import io.aiven.elasticsearch.repositories.io.CryptoIOProvider;
-import io.aiven.elasticsearch.repositories.security.EncryptionKeyProvider;
 
 import com.google.cloud.BatchResult;
 import com.google.cloud.storage.Blob;
@@ -64,9 +63,8 @@ public class GcsRepositoryStorageIOProvider
 
     private static final Logger LOGGER = LoggerFactory.getLogger(GcsRepositoryStorageIOProvider.class);
 
-    public GcsRepositoryStorageIOProvider(final GcsClientSettings storageSettings,
-                                          final EncryptionKeyProvider encryptionKeyProvider) {
-        super(new GcsClientProvider(), storageSettings, encryptionKeyProvider);
+    public GcsRepositoryStorageIOProvider(final Map<String, GcsClientSettings> storageSettings) {
+        super(new GcsClientProvider(), storageSettings);
     }
 
     @Override

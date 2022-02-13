@@ -24,12 +24,14 @@ import com.google.cloud.storage.Storage;
 import org.elasticsearch.common.settings.Setting;
 import org.elasticsearch.common.settings.Settings;
 
+import static io.aiven.elasticsearch.repositories.gcs.GcsClientSettings.GCS_PREFIX;
+
 public class GcsRepositoryPlugin extends AbstractRepositoryPlugin<Storage, GcsClientSettings>  {
 
     public static final String REPOSITORY_TYPE = "aiven-gcs";
 
     public GcsRepositoryPlugin(final Settings settings) {
-        super(REPOSITORY_TYPE, settings, new GcsSettingsProvider());
+        super(REPOSITORY_TYPE, GCS_PREFIX, settings, new GcsSettingsProvider());
     }
 
     @Override
