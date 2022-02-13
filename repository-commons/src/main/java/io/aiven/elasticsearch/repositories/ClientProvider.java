@@ -20,7 +20,10 @@ import java.io.Closeable;
 import java.io.IOException;
 import java.util.Objects;
 
+import org.elasticsearch.common.collect.Tuple;
 import org.elasticsearch.common.settings.Settings;
+
+import io.aiven.elasticsearch.repositories.security.EncryptionKeyProvider;
 
 public abstract class ClientProvider<C, S extends CommonSettings.ClientSettings> implements Closeable {
 
@@ -30,18 +33,26 @@ public abstract class ClientProvider<C, S extends CommonSettings.ClientSettings>
 
     protected volatile C client;
 
-    public C buildClientIfNeeded(final S clientSettings, final Settings repositorySettings) throws IOException {
+    private volatile EncryptionKeyProvider encryptionKeyProvider;
+
+    public Tuple<EncryptionKeyProvider, C> buildClientIfNeeded(
+            final S clientSettings,
+            final Settings repositorySettings) throws IOException {
         synchronized (lock) {
             if (Objects.isNull(client)) {
                 client = buildClient(clientSettings, repositorySettings);
+                encryptionKeyProvider =
+                        EncryptionKeyProvider.of(clientSettings.publicKey(), clientSettings.privateKey());
                 previousRepositorySettings = repositorySettings;
             } else if (!previousRepositorySettings.equals(repositorySettings)) {
                 closeClient();
+                encryptionKeyProvider =
+                        EncryptionKeyProvider.of(clientSettings.publicKey(), clientSettings.privateKey());
                 client = buildClient(clientSettings, repositorySettings);
                 previousRepositorySettings = repositorySettings;
             }
         }
-        return client;
+        return Tuple.tuple(encryptionKeyProvider, client);
     }
 
     @Override

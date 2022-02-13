@@ -45,9 +45,9 @@ public abstract class AbstractRepositoryPlugin<C, S extends CommonSettings.Clien
 
     private final String repositoryType;
 
-    private final RepositorySettingsProvider<C, S> repositorySettingsProvider;
+    private final String repositorySettingsPrefix;
 
-    private final Set<String> pluginSettingKeys;
+    private final RepositorySettingsProvider<C, S> repositorySettingsProvider;
 
     static {
         try {
@@ -58,11 +58,12 @@ public abstract class AbstractRepositoryPlugin<C, S extends CommonSettings.Clien
     }
 
     protected AbstractRepositoryPlugin(final String repositoryType,
+                                       final String repositorySettingsPrefix,
                                        final Settings settings,
                                        final RepositorySettingsProvider<C, S> repositorySettingsProvider) {
         this.repositoryType = repositoryType;
+        this.repositorySettingsPrefix = repositorySettingsPrefix;
         this.repositorySettingsProvider = repositorySettingsProvider;
-        this.pluginSettingKeys = getSettings().stream().map(Setting::getKey).collect(Collectors.toSet());
         reload(settings);
     }
 
@@ -85,10 +86,9 @@ public abstract class AbstractRepositoryPlugin<C, S extends CommonSettings.Clien
     @Override
     public void reload(final Settings settings) {
         try {
-            final var pluginKeys = settings.filter(pluginSettingKeys::contains);
-            if (!pluginKeys.isEmpty()) {
+            if (!settings.getGroups(repositorySettingsPrefix).isEmpty()) {
                 LOGGER.info("Reload settings for repository type: {}", repositoryType);
-                repositorySettingsProvider.reload(pluginKeys);
+                repositorySettingsProvider.reload(settings);
             }
         } catch (final IOException ioe) {
             throw new UncheckedIOException(ioe);
