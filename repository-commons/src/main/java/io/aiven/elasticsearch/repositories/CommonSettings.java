@@ -29,28 +29,45 @@ public interface CommonSettings {
 
     interface ClientSettings {
 
-        String AIVEN_PREFIX = "aiven";
+        String AIVEN_PREFIX = "aiven.";
 
-        static String withPrefix(final String key) {
-            return String.format("%s.%s", AIVEN_PREFIX, key);
-        }
-
-        static <T> void checkSettings(final Setting<T> setting, Settings keystoreSettings) {
-            if (!setting.exists(keystoreSettings)) {
-                throw new IllegalArgumentException("Settings with name " + setting.getKey() + " hasn't been set");
+        static <T> void checkSettings(
+                final Setting.AffixSetting<T> setting,
+                String clientName,
+                Settings keystoreSettings) {
+            if (!setting.getConcreteSettingForNamespace(clientName).exists(keystoreSettings)) {
+                throw new IllegalArgumentException("Settings with name "
+                        + setting.getConcreteSettingForNamespace(clientName).getKey()
+                        + " hasn't been set");
             }
         }
 
-        static byte[] readInputStream(final Setting<InputStream> keySetting,
-                                      final Settings keystoreSettings) throws IOException  {
-            try (final var in = keySetting.get(keystoreSettings)) {
+        static byte[] readInputStream(InputStream keyIn) throws IOException {
+            try (final var in = keyIn) {
                 return in.readAllBytes();
             }
         }
 
+        static <T> T getConfigValue(Settings settings, String clientName, Setting.AffixSetting<T> clientSetting) {
+            final Setting<T> concreteSetting = clientSetting.getConcreteSettingForNamespace(clientName);
+            return concreteSetting.get(settings);
+        }
+
+        byte[] publicKey();
+
+        byte[] privateKey();
+
     }
 
     interface RepositorySettings {
+
+        Setting<String> CLIENT_NAME =
+                Setting.simpleString(
+                        "client",
+                        "default",
+                        Setting.Property.NodeScope,
+                        Setting.Property.Dynamic
+                );
 
         Setting<String> BASE_PATH =
                 Setting.simpleString(
