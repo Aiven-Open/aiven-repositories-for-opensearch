@@ -27,6 +27,14 @@ import io.aiven.elasticsearch.repositories.RsaKeyAwareTest;
 
 import org.junit.jupiter.api.Test;
 
+import static io.aiven.elasticsearch.repositories.azure.AzureClientSettings.AZURE_ACCOUNT;
+import static io.aiven.elasticsearch.repositories.azure.AzureClientSettings.AZURE_ACCOUNT_KEY;
+import static io.aiven.elasticsearch.repositories.azure.AzureClientSettings.AZURE_HTTP_POOL_KEEP_ALIVE;
+import static io.aiven.elasticsearch.repositories.azure.AzureClientSettings.AZURE_HTTP_POOL_MAX_THREADS;
+import static io.aiven.elasticsearch.repositories.azure.AzureClientSettings.AZURE_HTTP_POOL_MIN_THREADS;
+import static io.aiven.elasticsearch.repositories.azure.AzureClientSettings.MAX_RETRIES;
+import static io.aiven.elasticsearch.repositories.azure.AzureClientSettings.PRIVATE_KEY_FILE;
+import static io.aiven.elasticsearch.repositories.azure.AzureClientSettings.PUBLIC_KEY_FILE;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
@@ -34,57 +42,62 @@ class AzureClientSettingsTest extends RsaKeyAwareTest {
 
     @Test
     void failsForEmptyPublicKey() throws IOException {
-        final var settings =
-                Settings.builder()
-                        .setSecureSettings(
-                                new DummySecureSettings()
-                                        .setString(AzureClientSettings.AZURE_ACCOUNT.getKey(), "some_account")
-                                        .setString(AzureClientSettings.AZURE_ACCOUNT_KEY.getKey(), "some_account_key")
-                                        .setFile(
-                                                AzureClientSettings.PRIVATE_KEY_FILE.getKey(),
-                                                Files.newInputStream(privateKeyPem)
-                                        )
-                        ).build();
+        final var securitySettings =
+                new DummySecureSettings()
+                        .setString(
+                                AZURE_ACCOUNT.getConcreteSettingForNamespace("default").getKey(),
+                                "some_account"
+                        ).setString(
+                                AZURE_ACCOUNT_KEY.getConcreteSettingForNamespace("default").getKey(),
+                                "some_account_key")
+                        .setFile(
+                                PRIVATE_KEY_FILE.getConcreteSettingForNamespace("default").getKey(),
+                                Files.newInputStream(privateKeyPem)
+                        );
+        final var settings = Settings.builder().setSecureSettings(securitySettings).build();
 
         final var t = assertThrows(
                 IllegalArgumentException.class, () -> AzureClientSettings.create(settings));
-        assertEquals("Settings with name aiven.azure.public_key_file hasn't been set", t.getMessage());
+        assertEquals("Settings with name aiven.azure.default.public_key_file hasn't been set",
+                t.getMessage());
     }
 
     @Test
     void failsForEmptyPrivateKey() throws IOException {
-        final var settings =
-                Settings.builder()
-                        .setSecureSettings(
-                                new DummySecureSettings()
-                                        .setString(AzureClientSettings.AZURE_ACCOUNT.getKey(), "some_account")
-                                        .setString(
-                                                AzureClientSettings.AZURE_ACCOUNT_KEY.getKey(),
-                                                "some_account_key"
-                                        )
-                                        .setFile(
-                                                AzureClientSettings.PUBLIC_KEY_FILE.getKey(),
-                                                Files.newInputStream(publicKeyPem)
-                                        )
-                        ).build();
+        final var securitySettings =
+                new DummySecureSettings()
+                        .setString(
+                                AZURE_ACCOUNT.getConcreteSettingForNamespace("default").getKey(),
+                                "some_account"
+                        ).setString(
+                                AZURE_ACCOUNT_KEY.getConcreteSettingForNamespace("default").getKey(),
+                                "some_account_key"
+                        ).setFile(
+                                PUBLIC_KEY_FILE.getConcreteSettingForNamespace("default").getKey(),
+                                Files.newInputStream(publicKeyPem)
+                        );
+        final var settings = Settings.builder().setSecureSettings(securitySettings).build();
 
         final var t = assertThrows(
                 IllegalArgumentException.class, () -> AzureClientSettings.create(settings));
-        assertEquals("Settings with name aiven.azure.private_key_file hasn't been set", t.getMessage());
+        assertEquals("Settings with name aiven.azure.default.private_key_file hasn't been set", t.getMessage());
     }
 
     @Test
     void failsForEmptyAzureAccount() {
         final var secureSettings =
                 new DummySecureSettings()
-                        .setString(AzureClientSettings.AZURE_ACCOUNT_KEY.getKey(), "some_key");
+                        .setString(
+                                AZURE_ACCOUNT_KEY.getConcreteSettingForNamespace("default").getKey(),
+                                "some_key"
+                        );
 
         final var t =
                 assertThrows(IllegalArgumentException.class, () ->
                         AzureClientSettings.create(Settings.builder()
                                 .setSecureSettings(secureSettings).build()));
 
-        assertEquals("Settings with name aiven.azure.client.account hasn't been set", t.getMessage());
+        assertEquals("Settings with name aiven.azure.default.client.account hasn't been set", t.getMessage());
     }
 
     @Test
@@ -92,33 +105,41 @@ class AzureClientSettingsTest extends RsaKeyAwareTest {
 
         final var secureSettings =
                 new DummySecureSettings()
-                        .setString(AzureClientSettings.AZURE_ACCOUNT.getKey(), "some_account");
+                        .setString(
+                                AZURE_ACCOUNT.getConcreteSettingForNamespace("default").getKey(),
+                                "some_account"
+                        );
 
         final var t =
                 assertThrows(IllegalArgumentException.class, () ->
                         AzureClientSettings.create(Settings.builder()
                                 .setSecureSettings(secureSettings).build()));
 
-        assertEquals("Settings with name aiven.azure.client.account.key hasn't been set", t.getMessage());
+        assertEquals("Settings with name aiven.azure.default.client.account.key hasn't been set",
+                t.getMessage());
     }
 
     @Test
     void loadDefaultSettings() throws IOException {
         final var secureSettings =
                 new DummySecureSettings()
-                        .setString(AzureClientSettings.AZURE_ACCOUNT.getKey(), "some_account")
-                        .setString(AzureClientSettings.AZURE_ACCOUNT_KEY.getKey(), "some_account_key")
+                        .setString(
+                                AZURE_ACCOUNT.getConcreteSettingForNamespace("default").getKey(),
+                                "some_account"
+                        ).setString(
+                                AZURE_ACCOUNT_KEY.getConcreteSettingForNamespace("default").getKey(),
+                                "some_account_key")
                         .setFile(
-                                AzureClientSettings.PUBLIC_KEY_FILE.getKey(),
+                                PUBLIC_KEY_FILE.getConcreteSettingForNamespace("default").getKey(),
                                 Files.newInputStream(publicKeyPem)
                         )
                         .setFile(
-                                AzureClientSettings.PRIVATE_KEY_FILE.getKey(),
+                                PRIVATE_KEY_FILE.getConcreteSettingForNamespace("default").getKey(),
                                 Files.newInputStream(privateKeyPem)
                         );
 
         final var azureClientSettings =
-                AzureClientSettings.create(Settings.builder().setSecureSettings(secureSettings).build());
+                AzureClientSettings.create(Settings.builder().setSecureSettings(secureSettings).build()).get("default");
 
         assertEquals("some_account", azureClientSettings.azureAccount());
         assertEquals("some_account_key", azureClientSettings.azureAccountKey());
@@ -138,32 +159,41 @@ class AzureClientSettingsTest extends RsaKeyAwareTest {
 
     @Test
     void overrideDefaultSettings() throws IOException {
-        final var settingsBuilder = Settings.builder();
-        settingsBuilder.setSecureSettings(
+        final var securitySettings =
                 new DummySecureSettings()
-                        .setString(AzureClientSettings.AZURE_ACCOUNT.getKey(), "some_account")
-                        .setString(AzureClientSettings.AZURE_ACCOUNT_KEY.getKey(), "some_account_key")
+                        .setString(
+                             AZURE_ACCOUNT.getConcreteSettingForNamespace("default").getKey(),
+                             "some_account"
+                        ).setString(
+                             AZURE_ACCOUNT_KEY.getConcreteSettingForNamespace("default").getKey(),
+                             "some_account_key")
                         .setFile(
-                                AzureClientSettings.PUBLIC_KEY_FILE.getKey(),
-                                Files.newInputStream(publicKeyPem)
+                             PUBLIC_KEY_FILE.getConcreteSettingForNamespace("default").getKey(),
+                             Files.newInputStream(publicKeyPem)
                         )
                         .setFile(
-                                AzureClientSettings.PRIVATE_KEY_FILE.getKey(),
-                                Files.newInputStream(privateKeyPem)
-                        )
-        );
-
-        settingsBuilder.put(AzureClientSettings.MAX_RETRIES.getKey(), 42);
-
-        settingsBuilder.put(AzureClientSettings.AZURE_HTTP_POOL_MIN_THREADS.getKey(), 10);
-        settingsBuilder.put(AzureClientSettings.AZURE_HTTP_POOL_MAX_THREADS.getKey(), 32);
+                             PRIVATE_KEY_FILE.getConcreteSettingForNamespace("default").getKey(),
+                             Files.newInputStream(privateKeyPem)
+                        );
+        final var settingsBuilder = Settings.builder();
+        settingsBuilder.setSecureSettings(securitySettings);
         settingsBuilder.put(
-                AzureClientSettings.AZURE_HTTP_POOL_KEEP_ALIVE.getKey(),
-                TimeValue.timeValueMillis(1000L));
+                MAX_RETRIES.getConcreteSettingForNamespace("default").getKey(),
+                42
+        ).put(
+                AZURE_HTTP_POOL_MIN_THREADS.getConcreteSettingForNamespace("default").getKey(),
+                10
+        ).put(
+                AZURE_HTTP_POOL_MAX_THREADS.getConcreteSettingForNamespace("default").getKey(),
+                32
+        ).put(
+                AZURE_HTTP_POOL_KEEP_ALIVE.getConcreteSettingForNamespace("default").getKey(),
+                TimeValue.timeValueMillis(1000L)
+        );
 
 
         final var azureClientSettings =
-                AzureClientSettings.create(settingsBuilder.build());
+                AzureClientSettings.create(settingsBuilder.build()).get("default");
 
         assertEquals("some_account", azureClientSettings.azureAccount());
         assertEquals("some_account_key", azureClientSettings.azureAccountKey());
