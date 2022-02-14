@@ -56,24 +56,26 @@ public class S3RepositoryPluginIT extends AbstractRepositoryPluginIT {
         final var awsEndpoint = System.getProperty("integration-test.aws.endpoint");
         configureAndStartCluster(
                 S3RepositoryPlugin.class, settingsBuilder ->
-                        settingsBuilder.put(S3ClientSettings.ENDPOINT.getKey(), awsEndpoint)
-                                .setSecureSettings(new DummySecureSettings()
-                                        .setString(
-                                                S3ClientSettings.AWS_ACCESS_KEY_ID.getKey(),
-                                                awsAccessKeyId)
-                                        .setString(
-                                                S3ClientSettings.AWS_SECRET_ACCESS_KEY.getKey(),
-                                                awsSecretAccessKey)
-                                        .setString(
-                                                S3ClientSettings.ENDPOINT.getKey(),
-                                                awsEndpoint)
-                                        .setFile(
-                                                S3ClientSettings.PUBLIC_KEY_FILE.getKey(),
-                                                Files.newInputStream(publicKeyPem))
-                                        .setFile(
-                                                S3ClientSettings.PRIVATE_KEY_FILE.getKey(),
-                                                Files.newInputStream(privateKeyPem))
-                                ));
+                        settingsBuilder.put(
+                                S3ClientSettings.ENDPOINT.getConcreteSettingForNamespace("default").getKey(),
+                                        awsEndpoint
+                        ).setSecureSettings(new DummySecureSettings()
+                                .setString(
+                                        S3ClientSettings.AWS_ACCESS_KEY_ID.getConcreteSettingForNamespace("default").getKey(),
+                                        awsAccessKeyId)
+                                .setString(
+                                        S3ClientSettings.AWS_SECRET_ACCESS_KEY.getConcreteSettingForNamespace("default").getKey(),
+                                        awsSecretAccessKey)
+                                .setString(
+                                        S3ClientSettings.ENDPOINT.getConcreteSettingForNamespace("default").getKey(),
+                                        awsEndpoint)
+                                .setFile(
+                                        S3ClientSettings.PUBLIC_KEY_FILE.getConcreteSettingForNamespace("default").getKey(),
+                                        Files.newInputStream(publicKeyPem))
+                                .setFile(
+                                        S3ClientSettings.PRIVATE_KEY_FILE.getConcreteSettingForNamespace("default").getKey(),
+                                        Files.newInputStream(privateKeyPem))
+                        ));
 
         amazonS3 = AmazonS3ClientBuilder.standard()
                 .withCredentials(

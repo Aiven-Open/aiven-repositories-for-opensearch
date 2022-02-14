@@ -60,13 +60,13 @@ class GcsRepositoryPluginIT extends AbstractRepositoryPluginIT {
                     settingsBuilder.setSecureSettings(
                             new DummySecureSettings()
                                     .setFile(
-                                            GcsClientSettings.CREDENTIALS_FILE_SETTING.getKey(),
+                                            GcsClientSettings.CREDENTIALS_FILE_SETTING.getConcreteSettingForNamespace("default").getKey(),
                                             Files.newInputStream(gcsCredentialsPath))
                                     .setFile(
-                                            GcsClientSettings.PUBLIC_KEY_FILE.getKey(),
+                                            GcsClientSettings.PUBLIC_KEY_FILE.getConcreteSettingForNamespace("default").getKey(),
                                             Files.newInputStream(publicKeyPem))
                                     .setFile(
-                                            GcsClientSettings.PRIVATE_KEY_FILE.getKey(),
+                                            GcsClientSettings.PRIVATE_KEY_FILE.getConcreteSettingForNamespace("default").getKey(),
                                             Files.newInputStream(privateKeyPem))));
         } catch (final Exception e) {
             throw new RuntimeException(e);
