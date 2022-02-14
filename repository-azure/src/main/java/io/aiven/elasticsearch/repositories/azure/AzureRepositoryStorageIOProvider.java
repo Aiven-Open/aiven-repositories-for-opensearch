@@ -37,7 +37,6 @@ import io.aiven.elasticsearch.repositories.CommonSettings;
 import io.aiven.elasticsearch.repositories.Permissions;
 import io.aiven.elasticsearch.repositories.RepositoryStorageIOProvider;
 import io.aiven.elasticsearch.repositories.io.CryptoIOProvider;
-import io.aiven.elasticsearch.repositories.security.EncryptionKeyProvider;
 
 import com.azure.storage.blob.BlobContainerClient;
 import com.azure.storage.blob.BlobServiceClient;
@@ -50,9 +49,8 @@ public class AzureRepositoryStorageIOProvider
 
     static final Setting<String> CONTAINER_NAME = Setting.simpleString("container_name");
 
-    public AzureRepositoryStorageIOProvider(final AzureClientSettings clientSettings,
-                                            final EncryptionKeyProvider encryptionKeyProvider) {
-        super(new AzureClientProvider(), clientSettings, encryptionKeyProvider);
+    public AzureRepositoryStorageIOProvider(final Map<String, AzureClientSettings> clientSettings) {
+        super(new AzureClientProvider(), clientSettings);
     }
 
     @Override

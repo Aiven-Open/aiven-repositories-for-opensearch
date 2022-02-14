@@ -33,6 +33,14 @@ import org.junit.jupiter.api.Test;
 import org.junit.platform.commons.support.HierarchyTraversalMode;
 import org.junit.platform.commons.support.ReflectionSupport;
 
+import static io.aiven.elasticsearch.repositories.s3.S3ClientSettings.AWS_ACCESS_KEY_ID;
+import static io.aiven.elasticsearch.repositories.s3.S3ClientSettings.AWS_SECRET_ACCESS_KEY;
+import static io.aiven.elasticsearch.repositories.s3.S3ClientSettings.ENDPOINT;
+import static io.aiven.elasticsearch.repositories.s3.S3ClientSettings.MAX_RETRIES;
+import static io.aiven.elasticsearch.repositories.s3.S3ClientSettings.PRIVATE_KEY_FILE;
+import static io.aiven.elasticsearch.repositories.s3.S3ClientSettings.PUBLIC_KEY_FILE;
+import static io.aiven.elasticsearch.repositories.s3.S3ClientSettings.READ_TIMEOUT;
+import static io.aiven.elasticsearch.repositories.s3.S3ClientSettings.USE_THROTTLE_RETRIES;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -52,17 +60,29 @@ class S3ClientProviderTest extends RsaKeyAwareTest {
 
         final var secureSettings =
                 new DummySecureSettings()
-                        .setString(S3ClientSettings.AWS_ACCESS_KEY_ID.getKey(), "AWS_ACCESS_KEY_ID")
-                        .setString(S3ClientSettings.AWS_SECRET_ACCESS_KEY.getKey(), "AWS_SECRET_ACCESS_KEY")
-                        .setString(S3ClientSettings.ENDPOINT.getKey(), "http://endpoint")
-                        .setFile(S3ClientSettings.PUBLIC_KEY_FILE.getKey(), Files.newInputStream(publicKeyPem))
-                        .setFile(S3ClientSettings.PRIVATE_KEY_FILE.getKey(), Files.newInputStream(privateKeyPem));
+                        .setString(
+                                AWS_ACCESS_KEY_ID.getConcreteSettingForNamespace("default").getKey(),
+                                "AWS_ACCESS_KEY_ID"
+                        ).setString(
+                                AWS_SECRET_ACCESS_KEY.getConcreteSettingForNamespace("default").getKey(),
+                                "AWS_SECRET_ACCESS_KEY")
+                        .setString(
+                                ENDPOINT.getConcreteSettingForNamespace("default").getKey(),
+                                "http://endpoint"
+                        ).setFile(
+                                PUBLIC_KEY_FILE.getConcreteSettingForNamespace("default").getKey(),
+                                Files.newInputStream(publicKeyPem)
+                        ).setFile(
+                                PRIVATE_KEY_FILE.getConcreteSettingForNamespace("default").getKey(),
+                                Files.newInputStream(privateKeyPem)
+                        );
 
         final var settings =
                 Settings.builder()
-                        .put(S3ClientSettings.MAX_RETRIES.getKey(), 12)
-                        .put(S3ClientSettings.READ_TIMEOUT.getKey(), TimeValue.timeValueMillis(1000L))
-                        .put(S3ClientSettings.USE_THROTTLE_RETRIES.getKey(), false)
+                        .put(MAX_RETRIES.getConcreteSettingForNamespace("default").getKey(), 12)
+                        .put(READ_TIMEOUT.getConcreteSettingForNamespace("default").getKey(),
+                                TimeValue.timeValueMillis(1000L))
+                        .put(USE_THROTTLE_RETRIES.getConcreteSettingForNamespace("default").getKey(), false)
                         .setSecureSettings(secureSettings)
                         .build();
         final var repoSettings =
@@ -71,7 +91,11 @@ class S3ClientProviderTest extends RsaKeyAwareTest {
                         .put("some_settings_2", 210)
                         .build();
 
-        final var client = s3ClientProvider.buildClientIfNeeded(S3ClientSettings.create(settings), repoSettings);
+        final var client =
+                s3ClientProvider.buildClientIfNeeded(
+                        S3ClientSettings.create(settings).get("default"),
+                        repoSettings
+                ).v2();
         final var amazonS3Client = (AmazonS3Client) client;
 
         assertEquals(S3ClientProvider.HTTP_USER_AGENT, amazonS3Client.getClientConfiguration().getUserAgentPrefix());
@@ -88,11 +112,16 @@ class S3ClientProviderTest extends RsaKeyAwareTest {
         final var s3ClientProvider = new S3ClientProvider();
         final var secureSettings =
                 new DummySecureSettings()
-                        .setString(S3ClientSettings.AWS_ACCESS_KEY_ID.getKey(), "AWS_ACCESS_KEY_ID")
-                        .setString(S3ClientSettings.AWS_SECRET_ACCESS_KEY.getKey(), "AWS_SECRET_ACCESS_KEY")
-                        .setString(S3ClientSettings.ENDPOINT.getKey(), "http://endpoint")
-                        .setFile(S3ClientSettings.PUBLIC_KEY_FILE.getKey(), Files.newInputStream(publicKeyPem))
-                        .setFile(S3ClientSettings.PRIVATE_KEY_FILE.getKey(), Files.newInputStream(privateKeyPem));
+                        .setString(AWS_ACCESS_KEY_ID.getConcreteSettingForNamespace("default").getKey(),
+                                "AWS_ACCESS_KEY_ID")
+                        .setString(AWS_SECRET_ACCESS_KEY.getConcreteSettingForNamespace("default").getKey(),
+                                "AWS_SECRET_ACCESS_KEY")
+                        .setString(ENDPOINT.getConcreteSettingForNamespace("default").getKey(),
+                                "http://endpoint")
+                        .setFile(PUBLIC_KEY_FILE.getConcreteSettingForNamespace("default").getKey(),
+                                Files.newInputStream(publicKeyPem))
+                        .setFile(PRIVATE_KEY_FILE.getConcreteSettingForNamespace("default").getKey(),
+                                Files.newInputStream(privateKeyPem));
 
         final var settings =
                 Settings.builder().setSecureSettings(secureSettings).build();
@@ -103,7 +132,11 @@ class S3ClientProviderTest extends RsaKeyAwareTest {
                         .build();
 
 
-        final var client = s3ClientProvider.buildClientIfNeeded(S3ClientSettings.create(settings), repoSettings);
+        final var client =
+                s3ClientProvider.buildClientIfNeeded(
+                        S3ClientSettings.create(settings).get("default"),
+                        repoSettings
+                ).v2();
         final var amazonS3Client = (AmazonS3Client) client;
 
         assertEquals(S3ClientProvider.HTTP_USER_AGENT, amazonS3Client.getClientConfiguration().getUserAgentPrefix());
@@ -123,11 +156,16 @@ class S3ClientProviderTest extends RsaKeyAwareTest {
         final var s3ClientProvider = new S3ClientProvider();
         final var secureSettings =
                 new DummySecureSettings()
-                        .setString(S3ClientSettings.AWS_ACCESS_KEY_ID.getKey(), "AWS_ACCESS_KEY_ID")
-                        .setString(S3ClientSettings.AWS_SECRET_ACCESS_KEY.getKey(), "AWS_SECRET_ACCESS_KEY")
-                        .setString(S3ClientSettings.ENDPOINT.getKey(), "http://endpoint")
-                        .setFile(S3ClientSettings.PUBLIC_KEY_FILE.getKey(), Files.newInputStream(publicKeyPem))
-                        .setFile(S3ClientSettings.PRIVATE_KEY_FILE.getKey(), Files.newInputStream(privateKeyPem));
+                        .setString(AWS_ACCESS_KEY_ID.getConcreteSettingForNamespace("default").getKey(),
+                                "AWS_ACCESS_KEY_ID")
+                        .setString(AWS_SECRET_ACCESS_KEY.getConcreteSettingForNamespace("default").getKey(),
+                                "AWS_SECRET_ACCESS_KEY")
+                        .setString(ENDPOINT.getConcreteSettingForNamespace("default").getKey(),
+                                "http://endpoint")
+                        .setFile(PUBLIC_KEY_FILE.getConcreteSettingForNamespace("default").getKey(),
+                                Files.newInputStream(publicKeyPem))
+                        .setFile(PRIVATE_KEY_FILE.getConcreteSettingForNamespace("default").getKey(),
+                                Files.newInputStream(privateKeyPem));
 
         final var settings =
                 Settings.builder().setSecureSettings(secureSettings).build();
@@ -137,7 +175,11 @@ class S3ClientProviderTest extends RsaKeyAwareTest {
                 Settings.builder()
                         .put(CommonSettings.RepositorySettings.MAX_RETRIES.getKey(), 20)
                         .build();
-        final var client = s3ClientProvider.buildClientIfNeeded(S3ClientSettings.create(settings), repoSettings);
+        final var client =
+                s3ClientProvider.buildClientIfNeeded(
+                        S3ClientSettings.create(settings).get("default"),
+                        repoSettings
+                ).v2();
         final var amazonS3Client = (AmazonS3Client) client;
 
         assertEquals(S3ClientProvider.HTTP_USER_AGENT, amazonS3Client.getClientConfiguration().getUserAgentPrefix());
@@ -157,11 +199,16 @@ class S3ClientProviderTest extends RsaKeyAwareTest {
         final var s3ClientProvider = new S3ClientProvider();
         final var secureSettings =
                 new DummySecureSettings()
-                        .setString(S3ClientSettings.AWS_ACCESS_KEY_ID.getKey(), "AWS_ACCESS_KEY_ID")
-                        .setString(S3ClientSettings.AWS_SECRET_ACCESS_KEY.getKey(), "AWS_SECRET_ACCESS_KEY")
-                        .setString(S3ClientSettings.ENDPOINT.getKey(), "http://endpoint")
-                        .setFile(S3ClientSettings.PUBLIC_KEY_FILE.getKey(), Files.newInputStream(publicKeyPem))
-                        .setFile(S3ClientSettings.PRIVATE_KEY_FILE.getKey(), Files.newInputStream(privateKeyPem));
+                        .setString(AWS_ACCESS_KEY_ID.getConcreteSettingForNamespace("default").getKey(),
+                                "AWS_ACCESS_KEY_ID")
+                        .setString(AWS_SECRET_ACCESS_KEY.getConcreteSettingForNamespace("default").getKey(),
+                                "AWS_SECRET_ACCESS_KEY")
+                        .setString(ENDPOINT.getConcreteSettingForNamespace("default").getKey(),
+                                "http://endpoint")
+                        .setFile(PUBLIC_KEY_FILE.getConcreteSettingForNamespace("default").getKey(),
+                                Files.newInputStream(publicKeyPem))
+                        .setFile(PRIVATE_KEY_FILE.getConcreteSettingForNamespace("default").getKey(),
+                                Files.newInputStream(privateKeyPem));
 
         final var settings =
                 Settings.builder().setSecureSettings(secureSettings).build();
@@ -172,7 +219,11 @@ class S3ClientProviderTest extends RsaKeyAwareTest {
                         .put(CommonSettings.RepositorySettings.MAX_RETRIES.getKey(), 20)
                         .put(S3ClientProvider.ENDPOINT_NAME.getKey(), "http://new-endpoint")
                         .build();
-        final var client = s3ClientProvider.buildClientIfNeeded(S3ClientSettings.create(settings), repoSettings);
+        final var client =
+                s3ClientProvider.buildClientIfNeeded(
+                        S3ClientSettings.create(settings).get("default"),
+                        repoSettings
+                ).v2();
         final var amazonS3Client = (AmazonS3Client) client;
 
         assertEquals(S3ClientProvider.HTTP_USER_AGENT, amazonS3Client.getClientConfiguration().getUserAgentPrefix());

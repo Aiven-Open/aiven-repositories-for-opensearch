@@ -23,7 +23,6 @@ import org.opensearch.common.settings.Settings;
 import io.aiven.elasticsearch.repositories.Permissions;
 import io.aiven.elasticsearch.repositories.RepositorySettingsProvider;
 import io.aiven.elasticsearch.repositories.RepositoryStorageIOProvider;
-import io.aiven.elasticsearch.repositories.security.EncryptionKeyProvider;
 
 import com.azure.storage.blob.BlobServiceClient;
 
@@ -34,10 +33,8 @@ public class AzureSettingsProvider extends RepositorySettingsProvider<BlobServic
             final Settings settings) throws IOException {
         return Permissions.doPrivileged(() -> {
             final var azureClientSettings = AzureClientSettings.create(settings);
-            final var encryptionKeyProvider =
-                    EncryptionKeyProvider.of(azureClientSettings.publicKey(), azureClientSettings.privateKey());
             return Permissions.doPrivileged(() ->
-                    new AzureRepositoryStorageIOProvider(azureClientSettings, encryptionKeyProvider));
+                    new AzureRepositoryStorageIOProvider(azureClientSettings));
         });
     }
 

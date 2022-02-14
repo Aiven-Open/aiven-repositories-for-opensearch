@@ -47,34 +47,36 @@ public abstract class RepositoryStorageIOProvider<C, S extends CommonSettings.Cl
 
     public static final String REPOSITORY_METADATA_FILE_NAME = "repository_metadata.json";
 
-    private final S clientSettings;
+    private final Map<String, S> clientSettings;
 
     private SecretKey encryptionKey;
 
-    private final EncryptionKeyProvider encryptionKeyProvider;
-
     private final ClientProvider<C, S> clientProvider;
 
-    public RepositoryStorageIOProvider(final ClientProvider<C, S> clientProvider,
-                                       final S clientSettings,
-                                       final EncryptionKeyProvider encryptionKeyProvider) {
+    public RepositoryStorageIOProvider(final ClientProvider<C, S> clientProvider, final Map<String, S> clientSettings) {
         this.clientProvider = clientProvider;
         this.clientSettings = clientSettings;
-        this.encryptionKeyProvider = encryptionKeyProvider;
     }
 
     public StorageIO createStorageIO(final String basePath, final Settings repositorySettings) throws IOException {
         final var bufferSize = Math.toIntExact(BUFFER_SIZE_SETTING.get(repositorySettings).getBytes());
-        final var client =
+        final var encProviderAndClient =
                 Permissions.doPrivileged(() -> {
-                    final var c = clientProvider.buildClientIfNeeded(clientSettings, repositorySettings);
-                    createOrRestoreEncryptionKey(c, basePath, repositorySettings);
+                    final String clientName = CLIENT_NAME.get(repositorySettings);
+                    final var c =
+                            clientProvider.buildClientIfNeeded(clientSettings.get(clientName), repositorySettings);
+                    createOrRestoreEncryptionKey(c.v2(), c.v1(), basePath, repositorySettings);
                     return c;
                 });
-        return createStorageIOFor(client, repositorySettings, new CryptoIOProvider(encryptionKey, bufferSize));
+        return createStorageIOFor(
+                encProviderAndClient.v2(),
+                repositorySettings,
+                new CryptoIOProvider(encryptionKey, bufferSize)
+        );
     }
 
     private void createOrRestoreEncryptionKey(final C client,
+                                              final EncryptionKeyProvider encryptionKeyProvider,
                                               final String basePath,
                                               final Settings repositorySettings) throws IOException {
         if (Objects.isNull(encryptionKey)) {
