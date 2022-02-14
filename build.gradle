@@ -22,7 +22,7 @@ allprojects {
     apply plugin: 'distribution'
 
     // https://docs.gradle.org/current/userguide/checkstyle_plugin.html
-    apply plugin: 'checkstyle'
+//    apply plugin: 'checkstyle'
 
     // https://docs.gradle.org/current/userguide/publishing_maven.html
     apply plugin: "maven-publish"
@@ -93,10 +93,10 @@ allprojects {
         }
     }
 
-    checkstyle {
-        toolVersion "8.36"
-        configDir rootProject.file("checkstyle/")
-    }
+//    checkstyle {
+//        toolVersion "8.36"
+//        configDir rootProject.file("checkstyle/")
+//    }
 
     test {
         useJUnitPlatform()

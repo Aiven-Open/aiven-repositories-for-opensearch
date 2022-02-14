@@ -21,6 +21,7 @@ import java.util.Random;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
+import com.amazonaws.services.s3.AmazonS3Client;
 import io.aiven.elasticsearch.repositories.RsaKeyAwareTest;
 import io.aiven.elasticsearch.repositories.io.CryptoIOProvider;
 import io.aiven.elasticsearch.repositories.security.EncryptionKeyProvider;
@@ -50,7 +51,7 @@ import static org.mockito.Mockito.when;
 class S3StorageIOTest extends RsaKeyAwareTest {
 
     @Mock
-    AmazonS3 mockedAmazonS3;
+    AmazonS3Client mockedAmazonS3;
 
     @Captor
     ArgumentCaptor<DeleteObjectsRequest> deleteObjectsRequestArgumentCaptor;

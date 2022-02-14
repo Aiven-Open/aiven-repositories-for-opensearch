@@ -24,13 +24,13 @@ import java.util.Map;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
+import com.amazonaws.services.s3.AmazonS3Client;
 import io.aiven.elasticsearch.repositories.CommonSettings;
 import io.aiven.elasticsearch.repositories.Permissions;
 import io.aiven.elasticsearch.repositories.RepositoryStorageIOProvider;
 import io.aiven.elasticsearch.repositories.io.CryptoIOProvider;
 
 import com.amazonaws.AmazonClientException;
-import com.amazonaws.services.s3.AmazonS3;
 import com.amazonaws.services.s3.model.DeleteObjectsRequest;
 import com.amazonaws.services.s3.model.ListObjectsV2Request;
 import com.amazonaws.services.s3.model.ListObjectsV2Result;
@@ -46,7 +46,7 @@ import org.elasticsearch.common.unit.ByteSizeValue;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-public class S3RepositoryStorageIOProvider extends RepositoryStorageIOProvider<AmazonS3, S3ClientSettings> {
+public class S3RepositoryStorageIOProvider extends RepositoryStorageIOProvider<AmazonS3Client, S3ClientSettings> {
 
     static final Setting<String> BUCKET_NAME =
             Setting.simpleString(
@@ -68,7 +68,7 @@ public class S3RepositoryStorageIOProvider extends RepositoryStorageIOProvider<A
     }
 
     @Override
-    protected StorageIO createStorageIOFor(final AmazonS3 client,
+    protected StorageIO createStorageIOFor(final AmazonS3Client client,
                                            final Settings repositorySettings,
                                            final CryptoIOProvider cryptoIOProvider) {
         CommonSettings.RepositorySettings.checkSettings(
@@ -83,7 +83,7 @@ public class S3RepositoryStorageIOProvider extends RepositoryStorageIOProvider<A
 
         private final Logger logger = LoggerFactory.getLogger(S3StorageIO.class);
 
-        private final AmazonS3 client;
+        private final AmazonS3Client client;
 
         private final int partSize;
 
@@ -91,7 +91,7 @@ public class S3RepositoryStorageIOProvider extends RepositoryStorageIOProvider<A
 
         private final CryptoIOProvider cryptoIOProvider;
 
-        private S3StorageIO(final AmazonS3 client,
+        private S3StorageIO(final AmazonS3Client client,
                             final String bucketName,
                             final int partSize,
                             final CryptoIOProvider cryptoIOProvider) {
