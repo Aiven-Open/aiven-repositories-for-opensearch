@@ -15,6 +15,7 @@
  */
 
 ext {
+    azureIdentityVersion = "1.4.4"
     azureStorageBlobVerison = "12.8.0"
     azureStorageOkHttpVerison = "1.3.2"
 }
@@ -23,6 +24,12 @@ dependencies {
     implementation project(':repository-commons')
 
     implementation("com.azure:azure-core-http-okhttp:$azureStorageOkHttpVerison") {
+        exclude group: "com.fasterxml.jackson.core", module: "jackson-core"
+        exclude group: "com.fasterxml.jackson.datatype", module: "jackson-datatype-jsr310"
+        exclude group: "com.fasterxml.jackson.dataformat", module: "jackson-dataformat-xml"
+    }
+    implementation("com.azure:azure-identity:$azureIdentityVersion") {
+        exclude group: "com.sun.jna", module: "jna"
         exclude group: "com.fasterxml.jackson.core", module: "jackson-core"
         exclude group: "com.fasterxml.jackson.datatype", module: "jackson-datatype-jsr310"
         exclude group: "com.fasterxml.jackson.dataformat", module: "jackson-dataformat-xml"

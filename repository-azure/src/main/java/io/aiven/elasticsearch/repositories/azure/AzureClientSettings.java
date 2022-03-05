@@ -35,6 +35,25 @@ import static io.aiven.elasticsearch.repositories.CommonSettings.ClientSettings.
 import static io.aiven.elasticsearch.repositories.CommonSettings.ClientSettings.readInputStream;
 
 public class AzureClientSettings implements CommonSettings.ClientSettings {
+    public class AzureClientConfig {
+        private final Map<String, String> clientCredentials;
+
+        private final String tenantId;
+
+        AzureClientConfig(final Map<String, String> clientCredentials,
+                          final String tenantId) {
+            this.clientCredentials = clientCredentials;
+            this.tenantId = tenantId;
+        }
+
+        public Map<String, String> clientCredentials() {
+            return clientCredentials;
+        }
+
+        public String tenantId() {
+            return tenantId;
+        }
+    }
 
     static final String AZURE_PREFIX = AIVEN_PREFIX + "azure.";
 
@@ -118,6 +137,8 @@ public class AzureClientSettings implements CommonSettings.ClientSettings {
 
     private final String azureAccountKey;
 
+    private final AzureClientConfig azureClientConfig;
+
     private final int maxRetries;
 
     private final HttpThreadPoolSettings httpThreadPoolSettings;
@@ -132,6 +153,22 @@ public class AzureClientSettings implements CommonSettings.ClientSettings {
         this.privateKey = privateKey;
         this.azureAccount = azureAccount;
         this.azureAccountKey = azureAccountKey;
+        this.azureClientConfig = null;
+        this.maxRetries = maxRetries;
+        this.httpThreadPoolSettings = httpThreadPoolSettings;
+    }
+
+    AzureClientSettings(final byte[] publicKey,
+                        final byte[] privateKey,
+                        final String azureAccount,
+                        final AzureClientConfig azureClientConfig,
+                        final int maxRetries,
+                        final HttpThreadPoolSettings httpThreadPoolSettings) {
+        this.publicKey = publicKey;
+        this.privateKey = privateKey;
+        this.azureAccount = azureAccount;
+        this.azureAccountKey = null;
+        this.azureClientConfig = azureClientConfig;
         this.maxRetries = maxRetries;
         this.httpThreadPoolSettings = httpThreadPoolSettings;
     }
@@ -154,6 +191,10 @@ public class AzureClientSettings implements CommonSettings.ClientSettings {
 
     public String azureAccountKey() {
         return azureAccountKey;
+    }
+
+    public AzureClientConfig azureClientConfig() {
+        return azureClientConfig;
     }
 
     public int maxRetries() {

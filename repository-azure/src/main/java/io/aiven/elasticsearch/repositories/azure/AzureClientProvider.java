@@ -16,6 +16,7 @@
 
 package io.aiven.elasticsearch.repositories.azure;
 
+import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.LinkedBlockingQueue;
@@ -28,6 +29,8 @@ import io.aiven.elasticsearch.repositories.ClientProvider;
 
 import com.azure.core.http.okhttp.OkHttpAsyncHttpClientBuilder;
 import com.azure.core.http.policy.UserAgentPolicy;
+import com.azure.identity.ClientSecretCredential;
+import com.azure.identity.ClientSecretCredentialBuilder;
 import com.azure.storage.blob.BlobServiceClient;
 import com.azure.storage.blob.BlobServiceClientBuilder;
 import com.azure.storage.common.policy.RequestRetryOptions;
@@ -67,8 +70,28 @@ class AzureClientProvider extends ClientProvider<BlobServiceClient, AzureClientS
         final var maxRetries = MAX_RETRIES.get(repositorySettings) > 0
                 ? MAX_RETRIES.get(repositorySettings) : clientSettings.maxRetries();
 
-        return new BlobServiceClientBuilder()
-                .connectionString(clientSettings.azureConnectionString())
+        if (clientSettings.azureClientConfig() == null) {
+            return new BlobServiceClientBuilder()
+                    .connectionString(clientSettings.azureConnectionString())
+                    .retryOptions(
+                            new RequestRetryOptions(
+                                    RetryPolicyType.EXPONENTIAL, maxRetries,
+                                    null, null, null, null))
+                    .addPolicy(new UserAgentPolicy(HTTP_USER_AGENT))
+                    .httpClient(
+                            new OkHttpAsyncHttpClientBuilder()
+                                    .dispatcher(new Dispatcher(httpPoolExecutorService))
+                                    .build())
+                    .buildClient();
+        } else {
+            final Map<String, String> clientCredentials = clientSettings.azureClientConfig().clientCredentials();
+            final ClientSecretCredential clientSecretCredential = new ClientSecretCredentialBuilder()
+                .clientId(clientCredentials.get("client_id"))
+                .clientSecret(clientCredentials.get("secret"))
+                .tenantId(clientSettings.azureClientConfig().tenantId())
+                .build();
+            return new BlobServiceClientBuilder()
+                .credential(clientSecretCredential)
                 .retryOptions(
                         new RequestRetryOptions(
                                 RetryPolicyType.EXPONENTIAL, maxRetries,
@@ -79,6 +102,7 @@ class AzureClientProvider extends ClientProvider<BlobServiceClient, AzureClientS
                                 .dispatcher(new Dispatcher(httpPoolExecutorService))
                                 .build())
                 .buildClient();
+        }
     }
 
     @Override
