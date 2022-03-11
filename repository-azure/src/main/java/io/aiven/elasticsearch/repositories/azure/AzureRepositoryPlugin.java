@@ -42,6 +42,7 @@ public class AzureRepositoryPlugin extends AbstractRepositoryPlugin<BlobServiceC
                 AzureClientSettings.PRIVATE_KEY_FILE,
                 AzureClientSettings.AZURE_ACCOUNT,
                 AzureClientSettings.AZURE_ACCOUNT_KEY,
+                AzureClientSettings.AZURE_SAS_TOKEN,
                 AzureClientSettings.MAX_RETRIES
         );
     }

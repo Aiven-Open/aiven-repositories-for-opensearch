@@ -32,6 +32,7 @@ import static io.aiven.elasticsearch.repositories.azure.AzureClientSettings.AZUR
 import static io.aiven.elasticsearch.repositories.azure.AzureClientSettings.AZURE_HTTP_POOL_KEEP_ALIVE;
 import static io.aiven.elasticsearch.repositories.azure.AzureClientSettings.AZURE_HTTP_POOL_MAX_THREADS;
 import static io.aiven.elasticsearch.repositories.azure.AzureClientSettings.AZURE_HTTP_POOL_MIN_THREADS;
+import static io.aiven.elasticsearch.repositories.azure.AzureClientSettings.AZURE_SAS_TOKEN;
 import static io.aiven.elasticsearch.repositories.azure.AzureClientSettings.MAX_RETRIES;
 import static io.aiven.elasticsearch.repositories.azure.AzureClientSettings.PRIVATE_KEY_FILE;
 import static io.aiven.elasticsearch.repositories.azure.AzureClientSettings.PUBLIC_KEY_FILE;
@@ -49,7 +50,11 @@ class AzureClientSettingsTest extends RsaKeyAwareTest {
                                 "some_account"
                         ).setString(
                                 AZURE_ACCOUNT_KEY.getConcreteSettingForNamespace("default").getKey(),
-                                "some_account_key")
+                                "some_account_key"
+                        ).setString(
+                                AZURE_SAS_TOKEN.getConcreteSettingForNamespace("default").getKey(),
+                                ""
+                        )
                         .setFile(
                                 PRIVATE_KEY_FILE.getConcreteSettingForNamespace("default").getKey(),
                                 Files.newInputStream(privateKeyPem)
@@ -72,6 +77,9 @@ class AzureClientSettingsTest extends RsaKeyAwareTest {
                         ).setString(
                                 AZURE_ACCOUNT_KEY.getConcreteSettingForNamespace("default").getKey(),
                                 "some_account_key"
+                        ).setString(
+                                AZURE_SAS_TOKEN.getConcreteSettingForNamespace("default").getKey(),
+                                ""
                         ).setFile(
                                 PUBLIC_KEY_FILE.getConcreteSettingForNamespace("default").getKey(),
                                 Files.newInputStream(publicKeyPem)
@@ -128,7 +136,11 @@ class AzureClientSettingsTest extends RsaKeyAwareTest {
                                 "some_account"
                         ).setString(
                                 AZURE_ACCOUNT_KEY.getConcreteSettingForNamespace("default").getKey(),
-                                "some_account_key")
+                                "some_account_key"
+                        ).setString(
+                                AZURE_SAS_TOKEN.getConcreteSettingForNamespace("default").getKey(),
+                                ""
+                        )
                         .setFile(
                                 PUBLIC_KEY_FILE.getConcreteSettingForNamespace("default").getKey(),
                                 Files.newInputStream(publicKeyPem)
@@ -142,13 +154,12 @@ class AzureClientSettingsTest extends RsaKeyAwareTest {
                 AzureClientSettings.create(Settings.builder().setSecureSettings(secureSettings).build()).get("default");
 
         assertEquals("some_account", azureClientSettings.azureAccount());
-        assertEquals("some_account_key", azureClientSettings.azureAccountKey());
         assertEquals(
-                String.format(
-                        AzureClientSettings.AZURE_CONNECTION_STRING_TEMPLATE,
-                        azureClientSettings.azureAccount(),
-                        azureClientSettings.azureAccountKey()
-                ), azureClientSettings.azureConnectionString());
+            String.format(
+                "DefaultEndpointsProtocol=https;AccountName=%s;AccountKey=%s", "some_account", "some_account_key"
+            ),
+            azureClientSettings.azureConnectionString()
+        );
         assertEquals(3, azureClientSettings.maxRetries());
 
         final var httpThreadPoolSettings = azureClientSettings.httpThreadPoolSettings();
@@ -166,7 +177,11 @@ class AzureClientSettingsTest extends RsaKeyAwareTest {
                              "some_account"
                         ).setString(
                              AZURE_ACCOUNT_KEY.getConcreteSettingForNamespace("default").getKey(),
-                             "some_account_key")
+                             "some_account_key"
+                        ).setString(
+                             AZURE_SAS_TOKEN.getConcreteSettingForNamespace("default").getKey(),
+                             ""
+                        )
                         .setFile(
                              PUBLIC_KEY_FILE.getConcreteSettingForNamespace("default").getKey(),
                              Files.newInputStream(publicKeyPem)
@@ -196,13 +211,12 @@ class AzureClientSettingsTest extends RsaKeyAwareTest {
                 AzureClientSettings.create(settingsBuilder.build()).get("default");
 
         assertEquals("some_account", azureClientSettings.azureAccount());
-        assertEquals("some_account_key", azureClientSettings.azureAccountKey());
         assertEquals(
-                String.format(
-                        AzureClientSettings.AZURE_CONNECTION_STRING_TEMPLATE,
-                        azureClientSettings.azureAccount(),
-                        azureClientSettings.azureAccountKey()
-                ), azureClientSettings.azureConnectionString());
+            String.format(
+                "DefaultEndpointsProtocol=https;AccountName=%s;AccountKey=%s", "some_account", "some_account_key"
+            ),
+            azureClientSettings.azureConnectionString()
+        );
         assertEquals(42, azureClientSettings.maxRetries());
 
         final var httpThreadPoolSettings = azureClientSettings.httpThreadPoolSettings();

@@ -41,6 +41,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import static io.aiven.elasticsearch.repositories.CommonSettings.RepositorySettings.MAX_RETRIES;
 import static io.aiven.elasticsearch.repositories.azure.AzureClientSettings.AZURE_ACCOUNT;
 import static io.aiven.elasticsearch.repositories.azure.AzureClientSettings.AZURE_ACCOUNT_KEY;
+import static io.aiven.elasticsearch.repositories.azure.AzureClientSettings.AZURE_SAS_TOKEN;
 import static io.aiven.elasticsearch.repositories.azure.AzureClientSettings.PRIVATE_KEY_FILE;
 import static io.aiven.elasticsearch.repositories.azure.AzureClientSettings.PUBLIC_KEY_FILE;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -157,6 +158,9 @@ class AzureClientProviderTest extends RsaKeyAwareTest {
                         ).setString(
                                 AZURE_ACCOUNT_KEY.getConcreteSettingForNamespace("default").getKey(),
                                 "AZURE_ACCOUNT_KEY"
+                        ).setString(
+                                AZURE_SAS_TOKEN.getConcreteSettingForNamespace("default").getKey(),
+                                ""
                         ).setFile(
                                 PUBLIC_KEY_FILE.getConcreteSettingForNamespace("default").getKey(),
                                 Files.newInputStream(publicKeyPem)

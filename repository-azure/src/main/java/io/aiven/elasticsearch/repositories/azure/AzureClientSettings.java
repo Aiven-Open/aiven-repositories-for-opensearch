@@ -22,10 +22,13 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
 
+import org.opensearch.common.Nullable;
+import org.opensearch.common.Strings;
 import org.opensearch.common.settings.SecureSetting;
 import org.opensearch.common.settings.SecureString;
 import org.opensearch.common.settings.Setting;
 import org.opensearch.common.settings.Settings;
+import org.opensearch.common.settings.SettingsException;
 import org.opensearch.common.unit.TimeValue;
 
 import io.aiven.elasticsearch.repositories.CommonSettings;
@@ -37,9 +40,6 @@ import static io.aiven.elasticsearch.repositories.CommonSettings.ClientSettings.
 public class AzureClientSettings implements CommonSettings.ClientSettings {
 
     static final String AZURE_PREFIX = AIVEN_PREFIX + "azure.";
-
-    static final String AZURE_CONNECTION_STRING_TEMPLATE =
-            "DefaultEndpointsProtocol=https;AccountName=%s;AccountKey=%s";
 
     static final Setting.AffixSetting<Integer> AZURE_HTTP_POOL_MIN_THREADS =
             Setting.affixKeySetting(
@@ -102,6 +102,13 @@ public class AzureClientSettings implements CommonSettings.ClientSettings {
                     key -> SecureSetting.secureString(key, null)
             );
 
+    public static final Setting.AffixSetting<SecureString> AZURE_SAS_TOKEN =
+            Setting.affixKeySetting(
+                    AZURE_PREFIX,
+                    "client.sas_token",
+                    key -> SecureSetting.secureString(key, null)
+            );
+
     //default is 3 please take a look ExponentialBackoff azure class
     public static final Setting.AffixSetting<Integer> MAX_RETRIES =
             Setting.affixKeySetting(
@@ -116,7 +123,7 @@ public class AzureClientSettings implements CommonSettings.ClientSettings {
 
     private final String azureAccount;
 
-    private final String azureAccountKey;
+    private final String azureConnectionString;
 
     private final int maxRetries;
 
@@ -126,12 +133,13 @@ public class AzureClientSettings implements CommonSettings.ClientSettings {
                         final byte[] privateKey,
                         final String azureAccount,
                         final String azureAccountKey,
+                        final String azureSasToken,
                         final int maxRetries,
                         final HttpThreadPoolSettings httpThreadPoolSettings) {
         this.publicKey = publicKey;
         this.privateKey = privateKey;
         this.azureAccount = azureAccount;
-        this.azureAccountKey = azureAccountKey;
+        this.azureConnectionString = buildConnectionString(azureAccount, azureAccountKey, azureSasToken);
         this.maxRetries = maxRetries;
         this.httpThreadPoolSettings = httpThreadPoolSettings;
     }
@@ -144,16 +152,35 @@ public class AzureClientSettings implements CommonSettings.ClientSettings {
         return privateKey;
     }
 
+    private static String buildConnectionString(final String account,
+                                                @Nullable final String key,
+                                                @Nullable final String sasToken) {
+        final boolean hasSasToken = Strings.hasText(sasToken);
+        final boolean hasKey = Strings.hasText(key);
+        if (!hasSasToken && !hasKey) {
+            throw new SettingsException("Neither a secret key nor a shared access token was set.");
+        }
+        if (hasSasToken && hasKey) {
+            throw new SettingsException("Both a secret as well as a shared access token were set.");
+        }
+
+        final StringBuilder connectionStringBuilder = new StringBuilder();
+        connectionStringBuilder.append("DefaultEndpointsProtocol=https").append(";AccountName=").append(account);
+        if (hasKey) {
+            connectionStringBuilder.append(";AccountKey=").append(key);
+        } else {
+            connectionStringBuilder.append(";SharedAccessSignature=").append(sasToken);
+        }
+        return connectionStringBuilder.toString();
+    }
+
+
     public String azureConnectionString() {
-        return String.format(AZURE_CONNECTION_STRING_TEMPLATE, azureAccount(), azureAccountKey());
+        return azureConnectionString;
     }
 
     public String azureAccount() {
         return azureAccount;
-    }
-
-    public String azureAccountKey() {
-        return azureAccountKey;
     }
 
     public int maxRetries() {
@@ -172,6 +199,7 @@ public class AzureClientSettings implements CommonSettings.ClientSettings {
     static AzureClientSettings createSettings(final String clientName, final Settings settings) throws IOException {
         checkSettings(AZURE_ACCOUNT, clientName, settings);
         checkSettings(AZURE_ACCOUNT_KEY, clientName, settings);
+        checkSettings(AZURE_SAS_TOKEN, clientName, settings);
         checkSettings(PUBLIC_KEY_FILE, clientName, settings);
         checkSettings(PRIVATE_KEY_FILE, clientName, settings);
         return new AzureClientSettings(
@@ -179,6 +207,7 @@ public class AzureClientSettings implements CommonSettings.ClientSettings {
                 readInputStream(getConfigValue(settings, clientName, PRIVATE_KEY_FILE)),
                 getConfigValue(settings, clientName, AZURE_ACCOUNT).toString(),
                 getConfigValue(settings, clientName, AZURE_ACCOUNT_KEY).toString(),
+                getConfigValue(settings, clientName, AZURE_SAS_TOKEN).toString(),
                 getConfigValue(settings, clientName, MAX_RETRIES),
                 new HttpThreadPoolSettings(
                         getConfigValue(settings, clientName, AZURE_HTTP_POOL_MIN_THREADS),
