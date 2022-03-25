@@ -21,6 +21,8 @@ import javax.crypto.CipherOutputStream;
 import javax.crypto.SecretKey;
 import javax.crypto.spec.IvParameterSpec;
 
+import java.io.BufferedInputStream;
+import java.io.BufferedOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -30,14 +32,19 @@ import org.opensearch.core.internal.io.Streams;
 import io.aiven.elasticsearch.repositories.security.Decryption;
 import io.aiven.elasticsearch.repositories.security.Encryption;
 
-import com.github.luben.zstd.ZstdInputStream;
-import com.github.luben.zstd.ZstdOutputStream;
+import com.github.luben.zstd.RecyclingBufferPool;
+import com.github.luben.zstd.ZstdInputStreamNoFinalizer;
+import com.github.luben.zstd.ZstdOutputStreamNoFinalizer;
 
 public class CryptoIOProvider implements Encryption, Decryption {
 
     static final String CIPHER_TRANSFORMATION = "AES/CTR/NoPadding";
 
     static final int NONCE_LENGTH = 16;
+
+    static final int COMPRESSION_LEVEL = 3;
+
+    static final int BUFFER_SIZE = 16 * 1024;
 
     private final SecretKey encryptionKey;
 
@@ -52,7 +59,20 @@ public class CryptoIOProvider implements Encryption, Decryption {
                                    final OutputStream out) throws IOException {
         final var cipher = createEncryptingCipher(encryptionKey, CIPHER_TRANSFORMATION);
         out.write(cipher.getIV());
-        return Streams.copy(in, new ZstdOutputStream(new CipherOutputStream(out, cipher)), new byte[bufferSize]);
+        return Streams.copy(
+                in,
+                newBufferedOutputStream(
+                        new ZstdOutputStreamNoFinalizer(
+                                new CipherOutputStream(out, cipher),
+                                RecyclingBufferPool.INSTANCE,
+                                COMPRESSION_LEVEL)
+                ),
+                new byte[bufferSize]
+        );
+    }
+
+    private OutputStream newBufferedOutputStream(final OutputStream out) {
+        return new BufferedOutputStream(out, BUFFER_SIZE);
     }
 
     public InputStream decryptAndDecompress(final InputStream in) throws IOException {
@@ -60,7 +80,16 @@ public class CryptoIOProvider implements Encryption, Decryption {
                 encryptionKey,
                 new IvParameterSpec(in.readNBytes(NONCE_LENGTH)),
                 CIPHER_TRANSFORMATION);
-        return new ZstdInputStream(new CipherInputStream(in, cipher));
+        return newBufferedInputStream(
+                new ZstdInputStreamNoFinalizer(
+                        new CipherInputStream(in, cipher),
+                        RecyclingBufferPool.INSTANCE
+                )
+        );
+    }
+
+    private InputStream newBufferedInputStream(final InputStream in) {
+        return new BufferedInputStream(in, BUFFER_SIZE);
     }
 
 }
