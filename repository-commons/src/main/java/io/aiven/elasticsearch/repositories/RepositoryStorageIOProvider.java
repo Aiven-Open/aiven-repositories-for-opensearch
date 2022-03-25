@@ -118,6 +118,7 @@ public abstract class RepositoryStorageIOProvider<C, S extends CommonSettings.Cl
         if (Objects.nonNull(clientProvider)) {
             clientProvider.close();
         }
+        encryptionKey = null;
     }
 
     protected abstract StorageIO createStorageIOFor(final C client,
