@@ -110,7 +110,7 @@ public class GcsRetryableReadChannel implements ReadableByteChannel {
         }
         
         IOUtils.closeWhileHandlingException(delegate);
-        delegate = state.restore();
+        delegate = Permissions.doPrivileged(state::restore);
     }
 
     private <T extends Throwable> T withSuppressed(final T ex) {

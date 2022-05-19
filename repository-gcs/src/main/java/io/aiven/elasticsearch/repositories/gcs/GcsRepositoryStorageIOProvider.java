@@ -143,7 +143,7 @@ public class GcsRepositoryStorageIOProvider
             final int maxAttempts = storage.getOptions().getRetrySettings().getMaxAttempts();
             for (int retry = 0; retry < maxAttempts; ++retry) {
                 try {
-                    LOGGER.warn("Resumable upload session for blob {}, attempt #{}/{}", blobInfo, retry, maxAttempts);
+                    LOGGER.debug("Resumable upload session for blob {}, attempt #{}/{}", blobInfo, retry, maxAttempts);
                     
                     Permissions.doPrivileged(() -> {
                         final var writeChannel = storage.writer(blobInfo, writeOptions);
@@ -175,7 +175,7 @@ public class GcsRepositoryStorageIOProvider
 
                     if (errorCode == HTTP_GONE) {
                         LOGGER.warn("Retrying broken resumable upload session for blob {}, errorCode {}", 
-                            blobInfo, errorCode, ex);
+                            blobInfo.getName(), errorCode, ex);
                         storageException = ExceptionsHelper.useOrSuppress(storageException, ex);
                         inputStream.reset();
                         continue;
@@ -183,7 +183,7 @@ public class GcsRepositoryStorageIOProvider
                         throw new FileAlreadyExistsException(blobInfo.getBlobId().getName(), null, ex.getMessage());
                     } else if (ex.isRetryable() /* safe to retry the operation that caused this exception */) {
                         LOGGER.warn("Retrying broken resumable upload session for blob {}, retryable failure", 
-                            blobInfo, ex);
+                            blobInfo.getName(), ex);
                         storageException = ExceptionsHelper.useOrSuppress(storageException, ex);
                         inputStream.reset();
                         continue;
