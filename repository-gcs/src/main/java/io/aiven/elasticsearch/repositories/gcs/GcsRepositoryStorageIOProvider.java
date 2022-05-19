@@ -143,7 +143,7 @@ public class GcsRepositoryStorageIOProvider
             final int maxAttempts = storage.getOptions().getRetrySettings().getMaxAttempts();
             for (int retry = 0; retry < maxAttempts; ++retry) {
                 try {
-                    LOGGER.info("Resumable upload session for blob {}, attempt #{}/{}", blobInfo, retry, maxAttempts);
+                    LOGGER.warn("Resumable upload session for blob {}, attempt #{}/{}", blobInfo, retry, maxAttempts);
                     
                     Permissions.doPrivileged(() -> {
                         final var writeChannel = storage.writer(blobInfo, writeOptions);

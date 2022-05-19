@@ -25,6 +25,8 @@ import java.util.List;
 
 import org.opensearch.core.internal.io.IOUtils;
 
+import io.aiven.elasticsearch.repositories.Permissions;
+
 import com.google.cloud.ReadChannel;
 import com.google.cloud.RestorableState;
 import com.google.cloud.RetryHelper;
@@ -69,7 +71,7 @@ public class GcsRetryableReadChannel implements ReadableByteChannel {
         // The loop will stop on success or max attempts exhaustion
         while (true) {
             try {
-                return delegate.read(dst);
+                return Permissions.doPrivileged(() -> delegate.read(dst));
             } catch (final IOException ex) {
                 // The read() operation failed because all retry attempts have been exhausted
                 if (ex.getCause() instanceof RetryHelper.RetryHelperException) {
