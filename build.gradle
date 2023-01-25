@@ -46,7 +46,7 @@ allprojects {
 
     ext {
         slf4jVersion = "1.7.35"
-        opensearchVersion = "2.4.1"
+        opensearchVersion = "2.5.0"
         // since jackson-core is in the main classpath
         // plz keep the same version as for OpenSearch
         jacksonDatabind = "2.14.1"
