@@ -29,7 +29,7 @@ import java.util.Objects;
 
 import org.opensearch.common.collect.Tuple;
 import org.opensearch.common.settings.Settings;
-import org.opensearch.core.internal.io.Streams;
+import org.opensearch.common.util.io.Streams;
 
 import io.aiven.elasticsearch.repositories.io.CryptoIOProvider;
 import io.aiven.elasticsearch.repositories.metadata.EncryptedRepositoryMetadata;

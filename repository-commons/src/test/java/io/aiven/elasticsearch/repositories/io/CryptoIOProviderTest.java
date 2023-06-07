@@ -21,7 +21,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Random;
 
-import org.opensearch.core.internal.io.Streams;
+import org.opensearch.common.util.io.Streams;
 
 import io.aiven.elasticsearch.repositories.RsaKeyAwareTest;
 import io.aiven.elasticsearch.repositories.security.EncryptionKeyProvider;

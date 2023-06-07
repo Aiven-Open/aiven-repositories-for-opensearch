@@ -27,7 +27,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 
-import org.opensearch.core.internal.io.Streams;
+import org.opensearch.common.util.io.Streams;
 
 import io.aiven.elasticsearch.repositories.security.Decryption;
 import io.aiven.elasticsearch.repositories.security.Encryption;
