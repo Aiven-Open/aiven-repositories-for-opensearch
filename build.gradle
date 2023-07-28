@@ -49,7 +49,7 @@ allprojects {
         opensearchVersion = "2.9.0"
         // since jackson-core is in the main classpath
         // plz keep the same version as for OpenSearch
-        jacksonDatabind = "2.15.1"
+        jacksonDatabind = "2.15.2"
     }
 
 
