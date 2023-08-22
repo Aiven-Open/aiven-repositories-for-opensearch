@@ -11,6 +11,9 @@ grant {
   permission java.net.SocketPermission "*", "connect,resolve";
 
   permission java.security.SecurityPermission "putProviderProperty.BC";
-
   permission java.security.SecurityPermission "insertProvider.BC";
-};
+  permission java.security.SecurityPermission "removeProviderProperty.BC";
+  permission java.security.SecurityPermission "getProperty.*";
+  permission java.util.PropertyPermission "jdk.tls.rejectClientInitiatedRenegotiation", "write";
+
+ };
