@@ -30,8 +30,8 @@ public final class Permissions {
     }
 
     public static <T> T doPrivileged(final PrivilegedExceptionAction<T> privilegedAction) throws IOException {
-        SpecialPermission.check();
         try {
+            SpecialPermission.check();
             return AccessController.doPrivileged(privilegedAction);
         } catch (final PrivilegedActionException e) {
             throw (IOException) e.getCause();
@@ -40,6 +40,7 @@ public final class Permissions {
 
     public static void doPrivileged(final CheckedRunnable<IOException> checkedRunnable) throws IOException {
         try {
+            SpecialPermission.check();
             AccessController.doPrivileged((PrivilegedExceptionAction<Void>) () -> {
                 checkedRunnable.run();
                 return null;
