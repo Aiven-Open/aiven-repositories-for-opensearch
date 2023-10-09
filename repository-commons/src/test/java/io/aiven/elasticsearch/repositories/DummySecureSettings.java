@@ -28,7 +28,7 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import org.opensearch.common.settings.SecureSettings;
-import org.opensearch.common.settings.SecureString;
+import org.opensearch.core.common.settings.SecureString;
 
 public class DummySecureSettings implements SecureSettings {
 
