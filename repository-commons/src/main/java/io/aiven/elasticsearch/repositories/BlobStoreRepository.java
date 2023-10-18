@@ -26,6 +26,8 @@ import org.opensearch.common.blobstore.BlobPath;
 import org.opensearch.common.blobstore.BlobStore;
 import org.opensearch.core.common.Strings;
 import org.opensearch.core.common.unit.ByteSizeValue;
+import org.opensearch.core.compress.Compressor;
+import org.opensearch.core.compress.CompressorRegistry;
 import org.opensearch.core.xcontent.NamedXContentRegistry;
 import org.opensearch.indices.recovery.RecoverySettings;
 
@@ -42,7 +44,7 @@ public class BlobStoreRepository<C, S extends CommonSettings.ClientSettings>
                                final ClusterService clusterService,
                                final RecoverySettings recoverySettings,
                                final RepositorySettingsProvider<C, S> repositorySettingsProvider) {
-        super(metadata, false, namedXContentRegistry, clusterService, recoverySettings);
+        super(metadata, namedXContentRegistry, clusterService, recoverySettings);
         this.repositorySettingsProvider = repositorySettingsProvider;
         final String basePath = BASE_PATH.get(metadata.settings());
         var blobPath = BlobPath.cleanPath();
@@ -53,6 +55,11 @@ public class BlobStoreRepository<C, S extends CommonSettings.ClientSettings>
             }
         }
         this.basePath = blobPath;
+    }
+
+    @Override
+    public Compressor getCompressor() {
+        return CompressorRegistry.none();
     }
 
     @Override
