@@ -15,8 +15,8 @@
  */
 
 ext {
-    zstdVersion = "1.5.5-3"
-    bcVersion = "1.75"
+    zstdVersion = "1.5.5-5"
+    bcVersion = "1.76"
 }
 
 dependencies {
