@@ -58,8 +58,8 @@ public class S3RepositoryStorageIOProvider extends RepositoryStorageIOProvider<A
     static final Setting<ByteSizeValue> MULTIPART_UPLOAD_PART_SIZE =
             Setting.byteSizeSetting(
                     "multipart_upload_part_size",
-                    new ByteSizeValue(100, ByteSizeUnit.MB),
-                    new ByteSizeValue(100, ByteSizeUnit.MB),
+                    new ByteSizeValue(5, ByteSizeUnit.MB),
+                    new ByteSizeValue(5, ByteSizeUnit.MB),
                     new ByteSizeValue(5, ByteSizeUnit.GB),
                     Setting.Property.NodeScope,
                     Setting.Property.Dynamic);
