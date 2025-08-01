@@ -119,7 +119,7 @@ public abstract class RepositoryStorageIOProvider<C, S extends CommonSettings.Cl
                 return encryptionKey;
             });
         } catch (final Exception e) {
-            throw new IOException("Couldn't generate ", e);
+            throw new IOException("Couldn't create or read AES key for " + basePath, e);
         }
     }
 
