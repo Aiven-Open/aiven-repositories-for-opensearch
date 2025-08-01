@@ -27,6 +27,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 
+import org.opensearch.common.cache.Cache;
+import org.opensearch.common.cache.CacheBuilder;
 import org.opensearch.common.collect.Tuple;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.util.io.Streams;
@@ -49,7 +51,7 @@ public abstract class RepositoryStorageIOProvider<C, S extends CommonSettings.Cl
 
     private final S clientSettings;
 
-    private SecretKey encryptionKey;
+    private final Cache<String, SecretKey> secretKeysCache;
 
     private final EncryptionKeyProvider encryptionKeyProvider;
 
@@ -61,6 +63,7 @@ public abstract class RepositoryStorageIOProvider<C, S extends CommonSettings.Cl
         this.clientProvider = clientProvider;
         this.clientSettings = clientSettings;
         this.encryptionKeyProvider = encryptionKeyProvider;
+        this.secretKeysCache = CacheBuilder.<String, SecretKey>builder().build();
     }
 
     public StorageIO createStorageIO(final String basePath, final Settings repositorySettings) throws IOException {
@@ -71,45 +74,52 @@ public abstract class RepositoryStorageIOProvider<C, S extends CommonSettings.Cl
                     createOrRestoreEncryptionKey(c, basePath, repositorySettings);
                     return c;
                 });
-        return createStorageIOFor(client, repositorySettings, new CryptoIOProvider(encryptionKey, bufferSize));
+        final var key = secretKeysCache.get(basePath);
+        return createStorageIOFor(client, repositorySettings, new CryptoIOProvider(key, bufferSize));
     }
 
     private void createOrRestoreEncryptionKey(final C client,
                                               final String basePath,
                                               final Settings repositorySettings) throws IOException {
-        if (Objects.isNull(encryptionKey)) {
-            final var repositoryMetadataFilePath = basePath + REPOSITORY_METADATA_FILE_NAME;
-            final var encKeyRepoMetadata =
-                    // restore a repository metadata file which contains the encryption key
-                    // encrypted without compression and use different Cipher compare to
-                    // regular backup files, that's why CryptoIOProvider reads/writes directly to
-                    // the storage without compression and encryption, and it doesn't use encryption key and buffer size
-                    createStorageIOFor(client, repositorySettings, new CryptoIOProvider(null, 0) {
-                        @Override
-                        public InputStream decryptAndDecompress(final InputStream in) throws IOException {
-                            return in;
-                        }
+        try {
+            secretKeysCache.computeIfAbsent(basePath, k -> {
+                final var repositoryMetadataFilePath = k + REPOSITORY_METADATA_FILE_NAME;
+                // restore a repository metadata file which contains the encryption key
+                // encrypted without compression and use different Cipher compare to
+                // regular backup files, that's why CryptoIOProvider reads/writes directly to
+                // the storage without compression and encryption, and it doesn't use encryption key and buffer size
+                final var metadataIOProvider = new CryptoIOProvider(null, 0) {
+                    @Override
+                    public InputStream decryptAndDecompress(final InputStream in) throws IOException {
+                        return in;
+                    }
 
-                        @Override
-                        public long compressAndEncrypt(final InputStream in,
-                                                       final OutputStream out) throws IOException {
-                            return Streams.copy(in, out);
-                        }
+                    @Override
+                    public long compressAndEncrypt(final InputStream in,
+                                                   final OutputStream out) throws IOException {
+                        return Streams.copy(in, out);
+                    }
 
-                    });
-            final var repositoryMetadata = new EncryptedRepositoryMetadata(encryptionKeyProvider);
-            if (encKeyRepoMetadata.exists(repositoryMetadataFilePath)) {
-                LOGGER.info("Restore encryption key for repository. Path: {}", repositoryMetadataFilePath);
-                try (final var in = encKeyRepoMetadata.read(repositoryMetadataFilePath)) {
-                    encryptionKey = repositoryMetadata.deserialize(in.readAllBytes());
+                };
+                final var encKeyRepoMetadata = createStorageIOFor(client, repositorySettings, metadataIOProvider);
+                final var repositoryMetadata = new EncryptedRepositoryMetadata(encryptionKeyProvider);
+                final SecretKey encryptionKey;
+                if (encKeyRepoMetadata.exists(repositoryMetadataFilePath)) {
+                    LOGGER.info("Restore encryption key for repository. Path: {}", repositoryMetadataFilePath);
+                    try (final var in = encKeyRepoMetadata.read(repositoryMetadataFilePath)) {
+                        encryptionKey = repositoryMetadata.deserialize(in.readAllBytes());
+                    }
+                } else {
+                    LOGGER.info("Create new encryption key for repository. Path: {}", repositoryMetadataFilePath);
+                    encryptionKey = encryptionKeyProvider.createKey();
+                    final var repoMetadata = repositoryMetadata.serialize(encryptionKey);
+                    encKeyRepoMetadata.write(repositoryMetadataFilePath, new ByteArrayInputStream(repoMetadata),
+                            repoMetadata.length, true);
                 }
-            } else {
-                LOGGER.info("Create new encryption key for repository. Path: {}", repositoryMetadataFilePath);
-                encryptionKey = encryptionKeyProvider.createKey();
-                final var repoMetadata = repositoryMetadata.serialize(encryptionKey);
-                encKeyRepoMetadata.write(repositoryMetadataFilePath, new ByteArrayInputStream(repoMetadata),
-                        repoMetadata.length, true);
-            }
+                return encryptionKey;
+            });
+        } catch (final Exception e) {
+            throw new IOException("Couldn't generate ", e);
         }
     }
 
@@ -118,7 +128,7 @@ public abstract class RepositoryStorageIOProvider<C, S extends CommonSettings.Cl
         if (Objects.nonNull(clientProvider)) {
             clientProvider.close();
         }
-        encryptionKey = null;
+        secretKeysCache.invalidateAll();
     }
 
     protected abstract StorageIO createStorageIOFor(final C client,
