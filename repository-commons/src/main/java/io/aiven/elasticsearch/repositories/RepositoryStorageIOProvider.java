@@ -82,7 +82,7 @@ public abstract class RepositoryStorageIOProvider<C, S extends CommonSettings.Cl
                                               final String basePath,
                                               final Settings repositorySettings) throws IOException {
         try {
-            secretKeysCache.computeIfAbsent(basePath, k -> {
+            secretKeysCache.computeIfAbsent(basePath, k -> Permissions.doPrivileged(() -> {
                 final var repositoryMetadataFilePath = k + REPOSITORY_METADATA_FILE_NAME;
                 // restore a repository metadata file which contains the encryption key
                 // encrypted without compression and use different Cipher compare to
@@ -117,7 +117,7 @@ public abstract class RepositoryStorageIOProvider<C, S extends CommonSettings.Cl
                             repoMetadata.length, true);
                 }
                 return encryptionKey;
-            });
+            }));
         } catch (final Exception e) {
             throw new IOException("Couldn't create or read AES key for " + basePath, e);
         }
