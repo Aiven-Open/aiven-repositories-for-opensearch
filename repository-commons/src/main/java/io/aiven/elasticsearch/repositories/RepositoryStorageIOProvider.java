@@ -31,12 +31,12 @@ import org.opensearch.common.cache.Cache;
 import org.opensearch.common.cache.CacheBuilder;
 import org.opensearch.common.collect.Tuple;
 import org.opensearch.common.settings.Settings;
+import org.opensearch.core.internal.io.Streams;
 
 import io.aiven.elasticsearch.repositories.io.CryptoIOProvider;
 import io.aiven.elasticsearch.repositories.metadata.EncryptedRepositoryMetadata;
 import io.aiven.elasticsearch.repositories.security.EncryptionKeyProvider;
 
-import org.opensearch.core.internal.io.Streams;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -119,7 +119,7 @@ public abstract class RepositoryStorageIOProvider<C, S extends CommonSettings.Cl
                 return encryptionKey;
             });
         } catch (final Exception e) {
-            throw new IOException("Couldn't generate ", e);
+            throw new IOException("Couldn't create or read AES key for " + basePath, e);
         }
     }
 
