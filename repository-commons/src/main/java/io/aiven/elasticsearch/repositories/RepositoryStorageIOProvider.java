@@ -77,27 +77,30 @@ public abstract class RepositoryStorageIOProvider<C, S extends CommonSettings.Cl
     private void createOrRestoreEncryptionKey(final C client,
                                               final String basePath,
                                               final Settings repositorySettings) throws IOException {
+        
+        final var repositoryMetadataFilePath = basePath + REPOSITORY_METADATA_FILE_NAME;
+        final var encKeyRepoMetadata =
+                 // restore a repository metadata file which contains the encryption key
+                 // encrypted without compression and use different Cipher compare to
+                 // regular backup files, that's why CryptoIOProvider reads/writes directly to
+                 // the storage without compression and encryption, and it doesn't use encryption key and buffer size
+                 createStorageIOFor(client, repositorySettings, new CryptoIOProvider(null, 0) {
+                 
+                     @Override
+                     public InputStream decryptAndDecompress(final InputStream in) throws IOException {
+                         return in;
+                     }
+                     
+                     @Override
+                     public long compressAndEncrypt(final InputStream in,
+                         final OutputStream out) throws IOException {
+                         return Streams.copy(in, out);
+                     }
+                     
+                 });
+        final var repositoryMetadata = new EncryptedRepositoryMetadata(encryptionKeyProvider);
+            
         if (Objects.isNull(encryptionKey)) {
-            final var repositoryMetadataFilePath = basePath + REPOSITORY_METADATA_FILE_NAME;
-            final var encKeyRepoMetadata =
-                    // restore a repository metadata file which contains the encryption key
-                    // encrypted without compression and use different Cipher compare to
-                    // regular backup files, that's why CryptoIOProvider reads/writes directly to
-                    // the storage without compression and encryption, and it doesn't use encryption key and buffer size
-                    createStorageIOFor(client, repositorySettings, new CryptoIOProvider(null, 0) {
-                        @Override
-                        public InputStream decryptAndDecompress(final InputStream in) throws IOException {
-                            return in;
-                        }
-
-                        @Override
-                        public long compressAndEncrypt(final InputStream in,
-                                                       final OutputStream out) throws IOException {
-                            return Streams.copy(in, out);
-                        }
-
-                    });
-            final var repositoryMetadata = new EncryptedRepositoryMetadata(encryptionKeyProvider);
             if (encKeyRepoMetadata.exists(repositoryMetadataFilePath)) {
                 LOGGER.info("Restore encryption key for repository. Path: {}", repositoryMetadataFilePath);
                 try (final var in = encKeyRepoMetadata.read(repositoryMetadataFilePath)) {
@@ -110,6 +113,16 @@ public abstract class RepositoryStorageIOProvider<C, S extends CommonSettings.Cl
                 encKeyRepoMetadata.write(repositoryMetadataFilePath, new ByteArrayInputStream(repoMetadata),
                         repoMetadata.length, true);
             }
+        } else if (!encKeyRepoMetadata.exists(repositoryMetadataFilePath)) {
+            // While plugin does not support it directly we are fine in having same encryption key in all repositories.
+            // This bit makes sure used encryption key is written to the all repositories metadata file.
+            LOGGER.info(
+                "Metadata file does not exist, write already created encryption key to the repository. Path: {}",
+                repositoryMetadataFilePath
+            );
+            final var repoMetadata = repositoryMetadata.serialize(encryptionKey);
+            encKeyRepoMetadata.write(repositoryMetadataFilePath, new ByteArrayInputStream(repoMetadata),
+                repoMetadata.length, true);
         }
     }
 
