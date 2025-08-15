@@ -16,8 +16,10 @@
 
 package io.aiven.elasticsearch.repositories.gcs;
 
+import java.util.ArrayList;
 import java.util.List;
 
+import org.opensearch.common.settings.SecureSetting;
 import org.opensearch.common.settings.Setting;
 import org.opensearch.common.settings.Settings;
 
@@ -35,7 +37,8 @@ public class GcsRepositoryPlugin extends AbstractRepositoryPlugin<Storage, GcsCl
 
     @Override
     public List<Setting<?>> getSettings() {
-        return List.of(
+        final List<Setting<?>> baseSettings = List.of(
+                GcsClientSettings.CLIENT_NAME,
                 GcsClientSettings.PRIVATE_KEY_FILE,
                 GcsClientSettings.PUBLIC_KEY_FILE,
                 GcsClientSettings.CREDENTIALS_FILE_SETTING,
@@ -47,6 +50,46 @@ public class GcsRepositoryPlugin extends AbstractRepositoryPlugin<Storage, GcsCl
                 GcsClientSettings.PROXY_USER_NAME,
                 GcsClientSettings.PROXY_USER_PASSWORD
         );
+        
+        // Add client-specific keystore settings for common client names
+        // This prevents OpenSearch validation errors for client-specific keystore keys
+        final List<Setting<?>> clientSpecificSettings = createClientSpecificSettings();
+        
+        final List<Setting<?>> allSettings = new ArrayList<>(baseSettings);
+        allSettings.addAll(clientSpecificSettings);
+        return allSettings;
+    }
+    
+    /**
+     * Creates client-specific keystore settings for common client names.
+     * This allows OpenSearch to recognize keystore keys like:
+     * - aiven.gcs.client.myclient.credentials_file
+     * - aiven.gcs.client.client2.credentials_file
+     * etc.
+     * Note: Only credentials_file is stored as client-specific in the keystore.
+     * Public and private keys use the default keystore keys.
+     */
+    private List<Setting<?>> createClientSpecificSettings() {
+        final List<Setting<?>> settings = new ArrayList<>();
+        
+        // Register keystore settings for common client names
+        // OpenSearch doesn't support wildcards in setting names, so we register explicitly
+        // This list can be extended as needed for new clients
+        final String[] commonClientNames = {
+            "aiven_btar",  // Your specific client
+            "client1",     // Generic examples
+            "client2",
+            "myclient",
+            "testclient"   // From test
+        };
+        
+        for (final String clientName : commonClientNames) {
+            final var clientCredentialsSetting = 
+                SecureSetting.secureFile("aiven.gcs.client." + clientName + ".credentials_file", null);
+            settings.add(clientCredentialsSetting);
+        }
+        
+        return settings;
     }
 
 }

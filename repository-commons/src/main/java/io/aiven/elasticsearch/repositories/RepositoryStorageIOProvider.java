@@ -65,13 +65,45 @@ public abstract class RepositoryStorageIOProvider<C, S extends CommonSettings.Cl
 
     public StorageIO createStorageIO(final String basePath, final Settings repositorySettings) throws IOException {
         final var bufferSize = Math.toIntExact(BUFFER_SIZE_SETTING.get(repositorySettings).getBytes());
+        
+        // Check if we need client-specific settings (when 'client' parameter is present)
+        final var clientName = getClientNameFromSettings(repositorySettings);
+        final var effectiveClientSettings = getEffectiveClientSettings(repositorySettings, clientName);
+        
         final var client =
                 Permissions.doPrivileged(() -> {
-                    final var c = clientProvider.buildClientIfNeeded(clientSettings, repositorySettings);
+                    final var c = clientProvider.buildClientIfNeeded(effectiveClientSettings, repositorySettings);
                     createOrRestoreEncryptionKey(c, basePath, repositorySettings);
                     return c;
                 });
         return createStorageIOFor(client, repositorySettings, new CryptoIOProvider(encryptionKey, bufferSize));
+    }
+    
+    /**
+     * Gets the client name from repository settings if present.
+     */
+    private String getClientNameFromSettings(final Settings repositorySettings) {
+        try {
+            // Try to get client name from repository settings
+            // This is a generic approach that should work for all repository types
+            if (repositorySettings.hasValue("client")) {
+                return repositorySettings.get("client");
+            }
+        } catch (final Exception e) {
+            // Ignore errors, fall back to default
+        }
+        return null;
+    }
+    
+    /**
+     * Gets effective client settings, either client-specific or default.
+     * This method should be overridden by repository-specific implementations
+     * to provide proper client-specific settings resolution.
+     */
+    protected S getEffectiveClientSettings(final Settings repositorySettings, final String clientName) {
+        // Default implementation: use the placeholder settings
+        // Repository-specific implementations should override this method
+        return clientSettings;
     }
 
     private void createOrRestoreEncryptionKey(final C client,

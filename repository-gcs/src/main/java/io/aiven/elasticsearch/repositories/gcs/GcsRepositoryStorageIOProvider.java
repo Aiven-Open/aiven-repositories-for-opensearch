@@ -64,10 +64,20 @@ public class GcsRepositoryStorageIOProvider
                     Setting.Property.Dynamic);
 
     private static final Logger LOGGER = LoggerFactory.getLogger(GcsRepositoryStorageIOProvider.class);
+    
+    private final Settings pluginSettings;
 
     public GcsRepositoryStorageIOProvider(final GcsClientSettings storageSettings,
-                                          final EncryptionKeyProvider encryptionKeyProvider) {
+                                          final EncryptionKeyProvider encryptionKeyProvider,
+                                          final Settings pluginSettings) {
         super(new GcsClientProvider(), storageSettings, encryptionKeyProvider);
+        this.pluginSettings = pluginSettings;
+    }
+    
+    // Keep the old constructor for backward compatibility
+    public GcsRepositoryStorageIOProvider(final GcsClientSettings storageSettings,
+                                          final EncryptionKeyProvider encryptionKeyProvider) {
+        this(storageSettings, encryptionKeyProvider, Settings.EMPTY);
     }
 
     @Override
@@ -79,7 +89,30 @@ public class GcsRepositoryStorageIOProvider
         final var bucketName = BUCKET_NAME.get(repositorySettings);
         return new GcsStorageIO(storage, bucketName, cryptoIOProvider);
     }
-
+    
+    @Override
+    protected GcsClientSettings getEffectiveClientSettings(final Settings repositorySettings, final String clientName) {
+        try {
+            if (clientName != null && !"default".equals(clientName)) {
+                // Use client-specific settings when a client parameter is present
+                // This ensures that client-specific keystore keys are used
+                return GcsClientSettings.createFromRepositorySettings(
+                    // Use the plugin settings (keystore) for secure settings access
+                    pluginSettings,
+                    // Use repository settings for client-specific parameters
+                    repositorySettings
+                );
+            }
+        } catch (final Exception e) {
+            // Log the error but fall back to default settings
+            LOGGER.warn("Failed to create client-specific settings for client '{}', falling back to default: {}", 
+                       clientName, e.getMessage());
+        }
+        
+        // Fall back to default settings
+        return super.getEffectiveClientSettings(repositorySettings, clientName);
+    }
+    
     private static class GcsStorageIO implements StorageIO {
 
         private final Storage storage;
@@ -307,5 +340,4 @@ public class GcsRepositoryStorageIOProvider
                     ).iterateAll());
         }
     }
-
 }

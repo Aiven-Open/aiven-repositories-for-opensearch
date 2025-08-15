@@ -22,7 +22,12 @@ import java.util.Objects;
 
 import org.opensearch.common.settings.Settings;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 public abstract class ClientProvider<C, S extends CommonSettings.ClientSettings> implements Closeable {
+
+    private static final Logger LOGGER = LoggerFactory.getLogger(ClientProvider.class);
 
     private final Object lock = new Object();
 
@@ -32,16 +37,36 @@ public abstract class ClientProvider<C, S extends CommonSettings.ClientSettings>
 
     public C buildClientIfNeeded(final S clientSettings, final Settings repositorySettings) throws IOException {
         synchronized (lock) {
+            // Check if client name has changed - this is critical for credential resolution
+            final var currentClientName = getClientName(repositorySettings);
+            final var previousClientName = previousRepositorySettings != null 
+                ? getClientName(previousRepositorySettings) : null;
+            
             if (Objects.isNull(client)) {
+                // First time: create client
                 client = buildClient(clientSettings, repositorySettings);
                 previousRepositorySettings = repositorySettings;
-            } else if (!previousRepositorySettings.equals(repositorySettings)) {
+            } else if (!Objects.equals(currentClientName, previousClientName) 
+                       || !previousRepositorySettings.equals(repositorySettings)) {
+                // Client name changed OR other settings changed: recreate client
+                LOGGER.debug("Recreating client: client name changed from '{}' to '{}' or other settings changed", 
+                           previousClientName, currentClientName);
                 closeClient();
                 client = buildClient(clientSettings, repositorySettings);
                 previousRepositorySettings = repositorySettings;
             }
+            // If client name is the same AND other settings are the same: reuse existing client
         }
         return client;
+    }
+    
+    /**
+     * Extracts the client name from repository settings.
+     * This method is overridden by specific implementations to handle their client parameter.
+     */
+    protected String getClientName(final Settings repositorySettings) {
+        // Default implementation - subclasses should override this
+        return null;
     }
 
     @Override

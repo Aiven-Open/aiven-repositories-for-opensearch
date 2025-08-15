@@ -42,11 +42,14 @@ import static io.aiven.elasticsearch.repositories.CommonSettings.RepositorySetti
 final class GcsClientProvider extends ClientProvider<Storage, GcsClientSettings> {
 
     static final String HTTP_USER_AGENT = "Aiven GCS Repository";
+    
+    private static final Logger LOGGER = LoggerFactory.getLogger(GcsClientProvider.class);
 
     @Override
     protected Storage buildClient(final GcsClientSettings clientSettings,
                                   final Settings repositorySettings) {
         final StorageOptions.Builder storageOptionsBuilder = StorageOptions.newBuilder();
+        
         if (!Strings.isNullOrEmpty(clientSettings.projectId())) {
             storageOptionsBuilder.setProjectId(clientSettings.projectId());
         }
@@ -75,6 +78,12 @@ final class GcsClientProvider extends ClientProvider<Storage, GcsClientSettings>
     @Override
     protected void closeClient() {
         client = null;
+    }
+    
+    @Override
+    protected String getClientName(final Settings repositorySettings) {
+        // Extract client name from GCS repository settings
+        return GcsClientSettings.CLIENT_NAME.get(repositorySettings);
     }
 
     private HttpTransportFactory createHttpTransportFactory(final GcsClientSettings gcsClientSettings) {

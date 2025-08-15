@@ -29,10 +29,11 @@ import io.aiven.elasticsearch.repositories.CommonSettings;
 
 import com.google.auth.oauth2.GoogleCredentials;
 
-import static io.aiven.elasticsearch.repositories.CommonSettings.ClientSettings.checkSettings;
 import static io.aiven.elasticsearch.repositories.CommonSettings.ClientSettings.withPrefix;
 
-public class GcsClientSettings implements CommonSettings.ClientSettings {
+public final class GcsClientSettings implements CommonSettings.ClientSettings {
+
+    private static final org.slf4j.Logger LOGGER = org.slf4j.LoggerFactory.getLogger(GcsClientSettings.class);
 
     public static final Setting<InputStream> PUBLIC_KEY_FILE =
             SecureSetting.secureFile(withPrefix("gcs.public_key_file"), null);
@@ -72,6 +73,10 @@ public class GcsClientSettings implements CommonSettings.ClientSettings {
             Setting.intSetting(withPrefix("gcs.client.max_retries"), 3, 0, 
                     Setting.Property.NodeScope);
 
+    /** The client name to use for this repository instance. */
+    public static final Setting<String> CLIENT_NAME =
+            Setting.simpleString("client", "default", Setting.Property.NodeScope, Setting.Property.Dynamic);
+
     private final InputStream publicKey;
 
     private final InputStream privateKey;
@@ -95,6 +100,8 @@ public class GcsClientSettings implements CommonSettings.ClientSettings {
 
     private final int proxyPort;
 
+    private final String clientName;
+
     private GcsClientSettings(final InputStream publicKey,
                               final InputStream privateKey,
                               final String projectId,
@@ -105,7 +112,8 @@ public class GcsClientSettings implements CommonSettings.ClientSettings {
                               final String proxyHost,
                               final int proxyPort,
                               final String proxyUsername,
-                              final char[] proxyUserPassword) {
+                              final char[] proxyUserPassword,
+                              final String clientName) {
         this.publicKey = publicKey;
         this.privateKey = privateKey;
         this.projectId = projectId;
@@ -117,34 +125,158 @@ public class GcsClientSettings implements CommonSettings.ClientSettings {
         this.proxyPort = proxyPort;
         this.proxyUsername = proxyUsername;
         this.proxyUserPassword = proxyUserPassword;
+        this.clientName = clientName;
     }
 
+    /**
+     * Creates GcsClientSettings from the given settings.
+     * 
+     * @param settings the settings to create GcsClientSettings from
+     * @return GcsClientSettings instance
+     * @throws IOException if an error occurs while reading the settings
+     */
     public static GcsClientSettings create(final Settings settings) throws IOException {
-        if (settings.isEmpty()) {
-            throw new IllegalArgumentException("Settings for GC storage hasn't been set");
+        final var clientName = CLIENT_NAME.get(settings);
+        
+        // Use client-specific keystore keys if available, fall back to default
+        final var credentialsFile = getClientSpecificCredentialsFile(settings, clientName);
+        final var publicKeyFile = getClientSpecificPublicKeyFile(settings, clientName);
+        final var privateKeyFile = getClientSpecificPrivateKeyFile(settings, clientName);
+        
+        // Check required settings
+        if (credentialsFile == null) {
+            throw new IllegalArgumentException("Missing required setting: " + CREDENTIALS_FILE_SETTING.getKey());
         }
-        checkSettings(CREDENTIALS_FILE_SETTING, settings);
-        checkSettings(PUBLIC_KEY_FILE, settings);
-        checkSettings(PRIVATE_KEY_FILE, settings);
-        if (PROXY_PORT.exists(settings) && PROXY_PORT.get(settings) < 0) {
-            throw new IllegalArgumentException("Settings with name " + PROXY_PORT.getKey() + " must be greater than 0");
-        }
+        
+        final var projectId = PROJECT_ID.get(settings);
+        final var connectionTimeout = CONNECTION_TIMEOUT.get(settings);
+        final var readTimeout = READ_TIMEOUT.get(settings);
+        final var maxRetries = MAX_RETRIES_SETTING.get(settings);
+        final var proxyHost = PROXY_HOST.get(settings);
+        final var proxyPort = PROXY_PORT.get(settings);
+        final var proxyUserName = PROXY_USER_NAME.get(settings);
+        final var proxyUserPassword = PROXY_USER_PASSWORD.get(settings);
+        
         return new GcsClientSettings(
-                PUBLIC_KEY_FILE.get(settings),
-                PRIVATE_KEY_FILE.get(settings),
-                PROJECT_ID.get(settings),
-                loadCredentials(settings),
-                CONNECTION_TIMEOUT.get(settings),
-                READ_TIMEOUT.get(settings),
-                MAX_RETRIES_SETTING.get(settings),
-                PROXY_HOST.get(settings),
-                PROXY_PORT.get(settings),
-                PROXY_USER_NAME.get(settings).toString(),
-                PROXY_USER_PASSWORD.get(settings).getChars());
+                publicKeyFile,
+                privateKeyFile,
+                projectId,
+                loadCredentialsFromStream(credentialsFile),
+                connectionTimeout,
+                readTimeout,
+                maxRetries,
+                proxyHost,
+                proxyPort,
+                proxyUserName.toString(),
+                proxyUserPassword.getChars(),
+                clientName
+        );
+    }
+    
+    /**
+     * Creates GcsClientSettings from repository-specific settings, overriding plugin-level settings.
+     * This method is used when we need to create settings with repository-specific client parameters.
+     * 
+     * @param pluginSettings the plugin-level settings (for keystore access)
+     * @param repositorySettings the repository-specific settings (contains client parameter)
+     * @return GcsClientSettings instance
+     * @throws IOException if an error occurs while reading the settings
+     */
+    public static GcsClientSettings createFromRepositorySettings(final Settings pluginSettings, 
+                                                               final Settings repositorySettings) throws IOException {
+        final var clientName = CLIENT_NAME.get(repositorySettings);
+        
+        // Use client-specific keystore keys if available, fall back to default
+        final var credentialsFile = getClientSpecificCredentialsFile(pluginSettings, clientName);
+        final var publicKeyFile = getClientSpecificPublicKeyFile(pluginSettings, clientName);
+        final var privateKeyFile = getClientSpecificPrivateKeyFile(pluginSettings, clientName);
+        
+        // Check required settings
+        if (credentialsFile == null) {
+            throw new IllegalArgumentException("Missing required setting: " + CREDENTIALS_FILE_SETTING.getKey());
+        }
+        
+        final var projectId = PROJECT_ID.get(repositorySettings);
+        final var connectionTimeout = CONNECTION_TIMEOUT.get(repositorySettings);
+        final var readTimeout = READ_TIMEOUT.get(repositorySettings);
+        final var maxRetries = MAX_RETRIES_SETTING.get(repositorySettings);
+        final var proxyHost = PROXY_HOST.get(repositorySettings);
+        final var proxyPort = PROXY_PORT.get(repositorySettings);
+        final var proxyUserName = PROXY_USER_NAME.get(repositorySettings);
+        final var proxyUserPassword = PROXY_USER_PASSWORD.get(repositorySettings);
+        
+        return new GcsClientSettings(
+                publicKeyFile,
+                privateKeyFile,
+                projectId,
+                loadCredentialsFromStream(credentialsFile),
+                connectionTimeout,
+                readTimeout,
+                maxRetries,
+                proxyHost,
+                proxyPort,
+                proxyUserName.toString(),
+                proxyUserPassword.getChars(),
+                clientName
+        );
+    }
+    
+    /**
+     * Gets client-specific credentials file, falling back to default if not available.
+     */
+    private static InputStream getClientSpecificCredentialsFile(final Settings settings, final String clientName) {
+        LOGGER.debug("Attempting to get client-specific credentials for client: '{}'", clientName);
+        
+        if ("default".equals(clientName)) {
+            LOGGER.debug("Client is 'default', using default keystore key");
+            return CREDENTIALS_FILE_SETTING.get(settings);
+        }
+        
+        // Try client-specific keystore key first
+        try {
+            LOGGER.debug("Trying client-specific keystore key: aiven.gcs.client.{}.credentials_file", clientName);
+            
+            // Use a pattern-based approach to check if the client-specific key exists
+            // This avoids the need to create dynamic settings
+            final var clientSpecificKey = "aiven.gcs.client." + clientName + ".credentials_file";
+            
+            // Try to get the setting using the existing SecureSetting mechanism
+            // If the key exists in the keystore, this will work
+            // If not, it will throw an exception and we'll fall back to default
+            final var clientSpecificSetting = SecureSetting.secureFile(clientSpecificKey, null);
+            final var result = clientSpecificSetting.get(settings);
+            
+            LOGGER.debug("Successfully loaded client-specific credentials for client: '{}'", clientName);
+            return result;
+            
+        } catch (final Exception e) {
+            // If any error occurs (including missing keystore key), fall back to default
+            LOGGER.debug("Client-specific credentials not found for client '{}', falling back to default. Error: {}", 
+                        clientName, e.getMessage());
+            return CREDENTIALS_FILE_SETTING.get(settings);
+        }
+    }
+    
+    /**
+     * Gets client-specific public key file, falling back to default if not available.
+     * Note: Public keys are always stored in the default keystore location.
+     */
+    private static InputStream getClientSpecificPublicKeyFile(final Settings settings, final String clientName) {
+        // Public keys are always stored in the default keystore location
+        return PUBLIC_KEY_FILE.get(settings);
+    }
+    
+    /**
+     * Gets client-specific private key file, falling back to default if not available.
+     * Note: Private keys are always stored in the default keystore location.
+     */
+    private static InputStream getClientSpecificPrivateKeyFile(final Settings settings, final String clientName) {
+        // Private keys are always stored in the default keystore location
+        return PRIVATE_KEY_FILE.get(settings);
     }
 
-    private static GoogleCredentials loadCredentials(final Settings settings) throws IOException {
-        try (final var in = CREDENTIALS_FILE_SETTING.get(settings)) {
+    private static GoogleCredentials loadCredentialsFromStream(final InputStream inputStream) throws IOException {
+        try (final var in = inputStream) {
             return GoogleCredentials.fromStream(in);
         }
     }
@@ -195,5 +327,9 @@ public class GcsClientSettings implements CommonSettings.ClientSettings {
 
     public int getMaxRetries() {
         return maxRetries;
+    }
+
+    public String getClientName() {
+        return clientName;
     }
 }

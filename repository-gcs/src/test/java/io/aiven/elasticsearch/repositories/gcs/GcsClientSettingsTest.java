@@ -60,7 +60,7 @@ class GcsClientSettingsTest extends RsaKeyAwareTest {
                         IllegalArgumentException.class, () -> GcsClientSettings.create(Settings.EMPTY));
 
         assertEquals(
-                "Settings for GC storage hasn't been set",
+                "Missing required setting: aiven.gcs.client.credentials_file",
                 e.getMessage()
         );
     }

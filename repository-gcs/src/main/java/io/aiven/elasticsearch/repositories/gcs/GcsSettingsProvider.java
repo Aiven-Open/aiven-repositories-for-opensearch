@@ -33,14 +33,17 @@ public class GcsSettingsProvider extends RepositorySettingsProvider<Storage, Gcs
     protected RepositoryStorageIOProvider<Storage, GcsClientSettings> createRepositoryStorageIOProvider(
             final Settings settings) throws IOException {
         return Permissions.doPrivileged(() -> {
-            final var gcsClientSettings = GcsClientSettings.create(settings);
+            // Create placeholder GcsClientSettings - the actual settings will be created per repository
+            // with repository-specific settings that contain the 'client' parameter
+            final var placeholderSettings = GcsClientSettings.create(settings);
             final var encryptionKeyProvider =
                     EncryptionKeyProvider.of(
-                            gcsClientSettings.publicKey().readAllBytes(),
-                            gcsClientSettings.privateKey().readAllBytes()
+                            // Use default keystore keys for encryption (these are always default)
+                            GcsClientSettings.PUBLIC_KEY_FILE.get(settings).readAllBytes(),
+                            GcsClientSettings.PRIVATE_KEY_FILE.get(settings).readAllBytes()
                     );
-            return new GcsRepositoryStorageIOProvider(gcsClientSettings, encryptionKeyProvider);
+            // Pass the plugin settings so that client-specific keystore keys can be accessed
+            return new GcsRepositoryStorageIOProvider(placeholderSettings, encryptionKeyProvider, settings);
         });
     }
-
 }
