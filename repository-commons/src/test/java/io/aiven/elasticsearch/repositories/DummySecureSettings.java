@@ -56,9 +56,14 @@ public class DummySecureSettings implements SecureSettings {
         try (final var bytesStream = new ByteArrayOutputStream()) {
             in.transferTo(bytesStream);
             bytesStream.flush();
-            files.put(setting, bytesStream.toByteArray());
-            return this;
+            return setFile(setting, bytesStream.toByteArray());
         }
+    }
+
+    public DummySecureSettings setFile(final String setting,
+                                       final byte[] in) throws IOException {
+        files.put(setting, in);
+        return this;
     }
 
     @Override

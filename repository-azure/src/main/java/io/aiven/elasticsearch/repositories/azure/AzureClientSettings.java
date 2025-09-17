@@ -21,6 +21,8 @@ import java.io.InputStream;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import org.opensearch.common.settings.SecureSetting;
 import org.opensearch.common.settings.SecureString;
@@ -33,10 +35,13 @@ import io.aiven.elasticsearch.repositories.CommonSettings;
 import static io.aiven.elasticsearch.repositories.CommonSettings.ClientSettings.checkSettings;
 import static io.aiven.elasticsearch.repositories.CommonSettings.ClientSettings.getConfigValue;
 import static io.aiven.elasticsearch.repositories.CommonSettings.ClientSettings.readInputStream;
+import static org.opensearch.common.settings.SecureSetting.secureFile;
+import static org.opensearch.common.settings.SecureSetting.secureString;
+import static org.opensearch.common.settings.Setting.intSetting;
 
 public class AzureClientSettings implements CommonSettings.ClientSettings {
 
-    static final String AZURE_PREFIX = AIVEN_PREFIX + "azure.";
+    static final String AZURE_PREFIX = AIVEN_PREFIX + "azure.client.";
 
     static final String AZURE_CONNECTION_STRING_TEMPLATE =
             "DefaultEndpointsProtocol=https;AccountName=%s;AccountKey=%s";
@@ -45,8 +50,8 @@ public class AzureClientSettings implements CommonSettings.ClientSettings {
             Setting.affixKeySetting(
                     AZURE_PREFIX,
                     "http.thread_pool.min",
-                    key -> Setting.intSetting(key,
-                            Runtime.getRuntime().availableProcessors() * 2 - 1, 1,
+                    key -> intSetting(key,
+                            LegacyFallback.AZURE_HTTP_POOL_MIN_THREADS,
                             Setting.Property.NodeScope)
             );
 
@@ -54,8 +59,8 @@ public class AzureClientSettings implements CommonSettings.ClientSettings {
             Setting.affixKeySetting(
                     AZURE_PREFIX,
                     "http.thread_pool.max",
-                    key -> Setting.intSetting(key,
-                            Runtime.getRuntime().availableProcessors() * 2 - 1, 1,
+                    key -> intSetting(key,
+                            LegacyFallback.AZURE_HTTP_POOL_MAX_THREADS,
                             Setting.Property.NodeScope)
             );
 
@@ -63,14 +68,16 @@ public class AzureClientSettings implements CommonSettings.ClientSettings {
             Setting.affixKeySetting(
                     AZURE_PREFIX,
                     "http.thread_pool.keep_alive",
-                    key -> Setting.timeSetting(key, TimeValue.timeValueSeconds(30L), Setting.Property.NodeScope)
+                    key -> Setting.timeSetting(key,
+                                               LegacyFallback.AZURE_HTTP_POOL_KEEP_ALIVE,
+                                               Setting.Property.NodeScope)
             );
 
     static final Setting.AffixSetting<Integer> AZURE_HTTP_POOL_WORKING_QUEUE_SIZE =
             Setting.affixKeySetting(
                     AZURE_PREFIX,
                     "http.thread_pool.working_queue_size",
-                    key -> Setting.intSetting(key, 1000, 10, Setting.Property.NodeScope)
+                    key -> intSetting(key, LegacyFallback.AZURE_HTTP_POOL_WORKING_QUEUE_SIZE, 10, Setting.Property.NodeScope)
             );
 
 
@@ -78,28 +85,28 @@ public class AzureClientSettings implements CommonSettings.ClientSettings {
             Setting.affixKeySetting(
                     AZURE_PREFIX,
                     "public_key_file",
-                    key -> SecureSetting.secureFile(key, null)
+                    key -> secureFile(key, LegacyFallback.PUBLIC_KEY_FILE)
             );
 
     public static final Setting.AffixSetting<InputStream> PRIVATE_KEY_FILE =
             Setting.affixKeySetting(
                     AZURE_PREFIX,
                     "private_key_file",
-                    key -> SecureSetting.secureFile(key, null)
+                    key -> secureFile(key, LegacyFallback.PRIVATE_KEY_FILE)
             );
 
     public static final Setting.AffixSetting<SecureString> AZURE_ACCOUNT =
             Setting.affixKeySetting(
                     AZURE_PREFIX,
-                    "client.account",
-                    key -> SecureSetting.secureString(key, null)
+                    "account",
+                    key -> secureString(key, LegacyFallback.AZURE_ACCOUNT)
             );
 
     public static final Setting.AffixSetting<SecureString> AZURE_ACCOUNT_KEY =
             Setting.affixKeySetting(
                     AZURE_PREFIX,
-                    "client.account.key",
-                    key -> SecureSetting.secureString(key, null)
+                    "account.key",
+                    key -> secureString(key, LegacyFallback.AZURE_ACCOUNT_KEY)
             );
 
     //default is 3 please take a look ExponentialBackoff azure class
@@ -107,7 +114,7 @@ public class AzureClientSettings implements CommonSettings.ClientSettings {
             Setting.affixKeySetting(
                     AZURE_PREFIX,
                     "max_retries",
-                    key -> Setting.intSetting(key, 3, Setting.Property.NodeScope)
+                    key -> intSetting(key, LegacyFallback.MAX_RETRIES, Setting.Property.NodeScope)
             );
 
     private final byte[] publicKey;
@@ -161,12 +168,31 @@ public class AzureClientSettings implements CommonSettings.ClientSettings {
     }
 
     public static Map<String, AzureClientSettings> create(final Settings settings) throws IOException {
-        final Set<String> clientNames = settings.getGroups(AZURE_PREFIX).keySet();
+        if (settings.isEmpty()) {
+            throw new IllegalArgumentException("Settings for Azure haven't been set");
+        }
+
         final var clientSettings = new HashMap<String, AzureClientSettings>();
+        final var filteredSettings = settings.filter(key -> !LegacyFallback.KEY_MAP.containsKey(key));
+        final Set<String> clientNames = filteredSettings.getGroups(AZURE_PREFIX).keySet();
         for (final var clientName : clientNames) {
             clientSettings.put(clientName, createSettings(clientName, settings));
         }
+
+        if (!clientSettings.containsKey(DEFAULT_CLIENT_NAME) && hasLegacyDefaultOrLegacyCredentials(settings)) {
+            // this won't find any settings under the default client,
+            // but it will pull all the fallback static settings
+            clientSettings.put(DEFAULT_CLIENT_NAME, createSettings(DEFAULT_CLIENT_NAME, settings));
+        }
+
         return Map.copyOf(clientSettings);
+    }
+
+    private static boolean hasLegacyDefaultOrLegacyCredentials(final Settings settings) {
+        return getConfigValue(settings, DEFAULT_CLIENT_NAME, AZURE_ACCOUNT) != null
+               || getConfigValue(settings, DEFAULT_CLIENT_NAME, AZURE_ACCOUNT_KEY) != null
+               || getConfigValue(settings, DEFAULT_CLIENT_NAME, PUBLIC_KEY_FILE) != null
+               || getConfigValue(settings, DEFAULT_CLIENT_NAME, PRIVATE_KEY_FILE) != null;
     }
 
     static AzureClientSettings createSettings(final String clientName, final Settings settings) throws IOException {
@@ -230,4 +256,41 @@ public class AzureClientSettings implements CommonSettings.ClientSettings {
 
     }
 
+    public static class LegacyFallback {
+        static final Setting<Integer> AZURE_HTTP_POOL_MIN_THREADS =
+            Setting.intSetting("aiven.azure.http.thread_pool.min",
+                               Runtime.getRuntime().availableProcessors() * 2 - 1, 1,
+                               Setting.Property.NodeScope);
+        static final Setting<Integer> AZURE_HTTP_POOL_MAX_THREADS =
+            Setting.intSetting("aiven.azure.http.thread_pool.max",
+                               Runtime.getRuntime().availableProcessors() * 2 - 1, 1,
+                               Setting.Property.NodeScope);
+        static final Setting<TimeValue> AZURE_HTTP_POOL_KEEP_ALIVE =
+            Setting.timeSetting("aiven.azure.http.thread_pool.keep_alive", TimeValue.timeValueSeconds(30L),
+                                Setting.Property.NodeScope);
+        static final Setting<Integer> AZURE_HTTP_POOL_WORKING_QUEUE_SIZE =
+            Setting.intSetting("aiven.azure.http.thread_pool.working_queue_size", 1000, 10,
+                               Setting.Property.NodeScope);
+        static final Setting<InputStream> PUBLIC_KEY_FILE =
+            SecureSetting.secureFile("aiven.azure.public_key_file", null);
+        static final Setting<InputStream> PRIVATE_KEY_FILE =
+            SecureSetting.secureFile("aiven.azure.private_key_file", null);
+        static final Setting<SecureString> AZURE_ACCOUNT =
+            SecureSetting.secureString("aiven.azure.client.account", null);
+        static final Setting<SecureString> AZURE_ACCOUNT_KEY =
+            SecureSetting.secureString("aiven.azure.client.account.key", null);
+        static final Setting<Integer> MAX_RETRIES =
+            Setting.intSetting("aiven.azure.max_retries", 3, Setting.Property.NodeScope);
+
+        public static final Map<String, Setting<?>> KEY_MAP;
+
+        static {
+            KEY_MAP = Stream.of(AZURE_HTTP_POOL_MIN_THREADS, AZURE_HTTP_POOL_MAX_THREADS,
+                               AZURE_HTTP_POOL_KEEP_ALIVE, AZURE_HTTP_POOL_WORKING_QUEUE_SIZE,
+                               PUBLIC_KEY_FILE, PRIVATE_KEY_FILE,
+                               AZURE_ACCOUNT, AZURE_ACCOUNT_KEY,
+                               MAX_RETRIES)
+                            .collect(Collectors.toMap(Setting::getKey, s -> s));
+        }
+    }
 }

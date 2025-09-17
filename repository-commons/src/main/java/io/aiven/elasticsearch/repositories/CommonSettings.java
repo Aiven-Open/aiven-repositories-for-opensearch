@@ -19,27 +19,47 @@ package io.aiven.elasticsearch.repositories;
 import java.io.IOException;
 import java.io.InputStream;
 
+import org.opensearch.common.settings.SecureSetting;
+import org.opensearch.common.settings.SecureString;
 import org.opensearch.common.settings.Setting;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.unit.ByteSizeUnit;
 import org.opensearch.common.unit.ByteSizeValue;
 import org.opensearch.repositories.RepositoryException;
 
+import static org.opensearch.common.Strings.isNullOrEmpty;
+
 public interface CommonSettings {
 
     interface ClientSettings {
 
+        String DEFAULT_CLIENT_NAME = "default";
         String AIVEN_PREFIX = "aiven.";
 
         static <T> void checkSettings(
                 final Setting.AffixSetting<T> setting,
                 String clientName,
                 Settings keystoreSettings) {
-            if (!setting.getConcreteSettingForNamespace(clientName).exists(keystoreSettings)) {
+            if (!existsOrFallbackExists(setting.getConcreteSettingForNamespace(clientName), keystoreSettings)) {
                 throw new IllegalArgumentException("Settings with name "
                         + setting.getConcreteSettingForNamespace(clientName).getKey()
                         + " hasn't been set");
             }
+        }
+
+        static <T> boolean existsOrFallbackExists(final Setting<T> setting, final Settings settings) {
+            // Secure settings do not have "fallbackSetting" configured, instead use their own fallback logic.
+            if (setting instanceof SecureSetting) {
+                final var keyExists = setting.existsOrFallbackExists(settings);
+                // SecureStringSetting: SecureString(new char[0]) - means "setting does not exist"
+                // SecureFileSetting: value == null means "setting does not exist"
+                final var value = setting.get(settings);
+                final var valueExists = value instanceof SecureString
+                                        ? !isNullOrEmpty(value.toString())
+                                        : value != null;
+                return keyExists || valueExists;
+            }
+            return setting.existsOrFallbackExists(settings);
         }
 
         static byte[] readInputStream(InputStream keyIn) throws IOException {
@@ -56,7 +76,6 @@ public interface CommonSettings {
         byte[] publicKey();
 
         byte[] privateKey();
-
     }
 
     interface RepositorySettings {

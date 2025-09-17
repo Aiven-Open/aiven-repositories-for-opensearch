@@ -17,7 +17,6 @@
 package io.aiven.elasticsearch.repositories;
 
 import java.io.IOException;
-import java.util.Objects;
 
 import org.opensearch.cluster.metadata.RepositoryMetadata;
 import org.opensearch.cluster.service.ClusterService;
@@ -33,17 +32,19 @@ public class BlobStoreRepository<C, S extends CommonSettings.ClientSettings>
         extends org.opensearch.repositories.blobstore.BlobStoreRepository
         implements CommonSettings.RepositorySettings {
 
-    private final RepositorySettingsProvider<C, S> repositorySettingsProvider;
+    private final RepositorySettingsService<C, S> repositorySettingsProvider;
 
     private final BlobPath basePath;
+    private final String repositoryName;
 
     public BlobStoreRepository(final RepositoryMetadata metadata,
                                final NamedXContentRegistry namedXContentRegistry,
                                final ClusterService clusterService,
                                final RecoverySettings recoverySettings,
-                               final RepositorySettingsProvider<C, S> repositorySettingsProvider) {
+                               final RepositorySettingsService<C, S> repositorySettingsProvider) {
         super(metadata, false, namedXContentRegistry, clusterService, recoverySettings);
         this.repositorySettingsProvider = repositorySettingsProvider;
+        this.repositoryName = metadata.name();
         final String basePath = BASE_PATH.get(metadata.settings());
         var blobPath = BlobPath.cleanPath();
         if (!Strings.isNullOrEmpty(basePath)) {
@@ -67,10 +68,8 @@ public class BlobStoreRepository<C, S extends CommonSettings.ClientSettings>
 
     @Override
     protected BlobStore createBlobStore() throws Exception {
-        final var storageIo =
-                repositorySettingsProvider
-                        .repositoryStorageIOProvider()
-                        .createStorageIO(basePath().buildAsString(), metadata.settings());
+        final var storageIo = repositorySettingsProvider.createStorageIO(
+            basePath().buildAsString(), repositoryName, metadata.settings());
 
         return new BlobStore() {
             @Override
@@ -80,9 +79,7 @@ public class BlobStoreRepository<C, S extends CommonSettings.ClientSettings>
 
             @Override
             public void close() throws IOException {
-                if (Objects.nonNull(repositorySettingsProvider.repositoryStorageIOProvider())) {
-                    repositorySettingsProvider.repositoryStorageIOProvider().close();
-                }
+                repositorySettingsProvider.closeRepository(repositoryName);
             }
         };
     }

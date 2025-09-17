@@ -16,12 +16,15 @@
 
 package io.aiven.elasticsearch.repositories.gcs;
 
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 
 import org.opensearch.common.settings.Setting;
 import org.opensearch.common.settings.Settings;
 
 import io.aiven.elasticsearch.repositories.AbstractRepositoryPlugin;
+import io.aiven.elasticsearch.repositories.RepositorySettingsService;
 
 import com.google.cloud.storage.Storage;
 
@@ -32,23 +35,29 @@ public class GcsRepositoryPlugin extends AbstractRepositoryPlugin<Storage, GcsCl
     public static final String REPOSITORY_TYPE = "aiven-gcs";
 
     public GcsRepositoryPlugin(final Settings settings) {
-        super(REPOSITORY_TYPE, GCS_PREFIX, settings, new GcsSettingsProvider());
+        super(REPOSITORY_TYPE, GCS_PREFIX, settings);
+    }
+
+    protected RepositorySettingsService<Storage, GcsClientSettings> createRepositorySettingsService() {
+        return new GcsSettingsProvider();
     }
 
     @Override
     public List<Setting<?>> getSettings() {
-        return List.of(
-                GcsClientSettings.PRIVATE_KEY_FILE,
-                GcsClientSettings.PUBLIC_KEY_FILE,
-                GcsClientSettings.CREDENTIALS_FILE_SETTING,
-                GcsClientSettings.PROJECT_ID,
-                GcsClientSettings.CONNECTION_TIMEOUT,
-                GcsClientSettings.READ_TIMEOUT,
-                GcsClientSettings.PROXY_HOST,
-                GcsClientSettings.PROXY_PORT,
-                GcsClientSettings.PROXY_USER_NAME,
-                GcsClientSettings.PROXY_USER_PASSWORD
-        );
+        final List<Setting<?>> settings = new ArrayList<>();
+        Collections.addAll(settings,
+                           GcsClientSettings.PRIVATE_KEY_FILE,
+                           GcsClientSettings.PUBLIC_KEY_FILE,
+                           GcsClientSettings.CREDENTIALS_FILE_SETTING,
+                           GcsClientSettings.PROJECT_ID,
+                           GcsClientSettings.CONNECTION_TIMEOUT,
+                           GcsClientSettings.READ_TIMEOUT,
+                           GcsClientSettings.PROXY_HOST,
+                           GcsClientSettings.PROXY_PORT,
+                           GcsClientSettings.PROXY_USER_NAME,
+                           GcsClientSettings.PROXY_USER_PASSWORD);
+        settings.addAll(GcsClientSettings.LegacyFallback.KEY_MAP.values());
+        return settings;
     }
 
 }

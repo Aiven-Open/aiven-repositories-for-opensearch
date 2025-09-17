@@ -63,8 +63,8 @@ public class S3RepositoryStorageIOProvider extends RepositoryStorageIOProvider<A
                     Setting.Property.NodeScope,
                     Setting.Property.Dynamic);
 
-    public S3RepositoryStorageIOProvider(final Map<String, S3ClientSettings> clientSettings) {
-        super(new S3ClientProvider(), clientSettings);
+    public S3RepositoryStorageIOProvider() {
+        super(new S3ClientProvider());
     }
 
     @Override

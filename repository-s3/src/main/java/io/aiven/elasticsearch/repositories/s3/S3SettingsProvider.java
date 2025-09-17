@@ -17,24 +17,30 @@
 package io.aiven.elasticsearch.repositories.s3;
 
 import java.io.IOException;
+import java.util.Map;
 
 import org.opensearch.common.settings.Settings;
 
 import io.aiven.elasticsearch.repositories.Permissions;
-import io.aiven.elasticsearch.repositories.RepositorySettingsProvider;
+import io.aiven.elasticsearch.repositories.RepositorySettingsService;
 import io.aiven.elasticsearch.repositories.RepositoryStorageIOProvider;
 
 import com.amazonaws.services.s3.AmazonS3Client;
 
-public class S3SettingsProvider extends RepositorySettingsProvider<AmazonS3Client, S3ClientSettings> {
+public class S3SettingsProvider extends RepositorySettingsService<AmazonS3Client, S3ClientSettings> {
+
+    public S3SettingsProvider() {
+        super();
+    }
 
     @Override
-    protected RepositoryStorageIOProvider<AmazonS3Client, S3ClientSettings> createRepositoryStorageIOProvider(
-            final Settings settings) throws IOException {
-        return Permissions.doPrivileged(() -> {
-            final var s3ClientSettings = S3ClientSettings.create(settings);
-            return new S3RepositoryStorageIOProvider(s3ClientSettings);
-        });
+    protected Map<String, S3ClientSettings> getEffectiveClientSettings(final Settings settings) throws IOException {
+        return Permissions.doPrivileged(() -> S3ClientSettings.create(settings));
+    }
+
+    @Override
+    protected RepositoryStorageIOProvider<AmazonS3Client, S3ClientSettings> createRepositoryStorageIOProvider() {
+        return new S3RepositoryStorageIOProvider();
     }
 
 }

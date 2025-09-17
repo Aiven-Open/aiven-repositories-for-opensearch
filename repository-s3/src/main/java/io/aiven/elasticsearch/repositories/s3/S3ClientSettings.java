@@ -21,6 +21,8 @@ import java.io.InputStream;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import org.opensearch.common.settings.SecureSetting;
 import org.opensearch.common.settings.SecureString;
@@ -30,7 +32,6 @@ import org.opensearch.common.unit.TimeValue;
 
 import io.aiven.elasticsearch.repositories.CommonSettings.ClientSettings;
 
-import com.amazonaws.ClientConfiguration;
 import com.amazonaws.auth.AWSCredentials;
 import com.amazonaws.auth.BasicAWSCredentials;
 
@@ -40,66 +41,62 @@ import static io.aiven.elasticsearch.repositories.CommonSettings.ClientSettings.
 
 public class S3ClientSettings implements ClientSettings {
 
-    static final String S3_PREFIX = AIVEN_PREFIX + "s3.";
+    static final String S3_PREFIX = AIVEN_PREFIX + "s3.client.";
 
     public static final Setting.AffixSetting<InputStream> PUBLIC_KEY_FILE =
             Setting.affixKeySetting(
                     S3_PREFIX,
                     "public_key_file",
-                    key -> SecureSetting.secureFile(key, null)
+                    key -> SecureSetting.secureFile(key, LegacyFallback.PUBLIC_KEY_FILE)
             );
 
     public static final Setting.AffixSetting<InputStream> PRIVATE_KEY_FILE =
             Setting.affixKeySetting(
                     S3_PREFIX,
                     "private_key_file",
-                    key -> SecureSetting.secureFile(key, null)
+                    key -> SecureSetting.secureFile(key, LegacyFallback.PRIVATE_KEY_FILE)
             );
 
     public static final Setting.AffixSetting<SecureString> AWS_SECRET_ACCESS_KEY =
             Setting.affixKeySetting(
                     S3_PREFIX,
-                    "client.aws_secret_access_key",
-                    key -> SecureSetting.secureString(key, null)
+                    "aws_secret_access_key",
+                    key -> SecureSetting.secureString(key, LegacyFallback.AWS_SECRET_ACCESS_KEY)
             );
 
     public static final Setting.AffixSetting<SecureString> AWS_ACCESS_KEY_ID =
             Setting.affixKeySetting(
                     S3_PREFIX,
-                    "client.aws_access_key_id",
-                    key -> SecureSetting.secureString(key, null)
+                    "aws_access_key_id",
+                    key -> SecureSetting.secureString(key, LegacyFallback.AWS_ACCESS_KEY_ID)
             );
 
     public static final Setting.AffixSetting<SecureString> ENDPOINT =
             Setting.affixKeySetting(
                     S3_PREFIX,
-                    "client.endpoint",
-                    key -> SecureSetting.secureString(key, null)
+                    "endpoint",
+                    key -> SecureSetting.secureString(key, LegacyFallback.ENDPOINT)
             );
 
     public static final Setting.AffixSetting<Integer> MAX_RETRIES =
             Setting.affixKeySetting(
                     S3_PREFIX,
-                    "client.max_retries",
-                    key -> Setting.intSetting(key,
-                            ClientConfiguration.DEFAULT_RETRY_POLICY.getMaxErrorRetry(), Setting.Property.NodeScope)
+                    "max_retries",
+                    key -> Setting.intSetting(key, LegacyFallback.MAX_RETRIES, Setting.Property.NodeScope)
             );
 
     public static final Setting.AffixSetting<Boolean> USE_THROTTLE_RETRIES =
             Setting.affixKeySetting(
                     S3_PREFIX,
-                    "client.use_throttle_retries",
-                    key -> Setting.boolSetting(key,
-                            ClientConfiguration.DEFAULT_THROTTLE_RETRIES, Setting.Property.NodeScope)
+                    "use_throttle_retries",
+                    key -> Setting.boolSetting(key, LegacyFallback.USE_THROTTLE_RETRIES, Setting.Property.NodeScope)
             );
 
     public static final Setting.AffixSetting<TimeValue> READ_TIMEOUT =
             Setting.affixKeySetting(
                     S3_PREFIX,
-                    "client.read_timeout",
-                    key -> Setting.timeSetting(key,
-                            TimeValue.timeValueMillis(ClientConfiguration.DEFAULT_SOCKET_TIMEOUT),
-                            Setting.Property.NodeScope)
+                    "read_timeout",
+                    key -> Setting.timeSetting(key, LegacyFallback.READ_TIMEOUT, Setting.Property.NodeScope)
             );
 
     private final byte[] publicKey;
@@ -167,12 +164,29 @@ public class S3ClientSettings implements ClientSettings {
         if (settings.isEmpty()) {
             throw new IllegalArgumentException("Settings for AWS S3 haven't been set");
         }
-        final Set<String> clientNames = settings.getGroups(S3_PREFIX).keySet();
+
         final var clientSettings = new HashMap<String, S3ClientSettings>();
+        final var filteredSettings = settings.filter(key -> !LegacyFallback.KEY_MAP.containsKey(key));
+        final Set<String> clientNames = filteredSettings.getGroups(S3_PREFIX).keySet();
         for (final var clientName : clientNames) {
             clientSettings.put(clientName, createSettings(clientName, settings));
         }
+
+        if (!clientSettings.containsKey(DEFAULT_CLIENT_NAME) && hasLegacyDefaultOrLegacyCredentials(settings)) {
+            // this won't find any settings under the default client,
+            // but it will pull all the fallback static settings
+            clientSettings.put(DEFAULT_CLIENT_NAME, createSettings(DEFAULT_CLIENT_NAME, settings));
+        }
+
         return Map.copyOf(clientSettings);
+    }
+
+    private static boolean hasLegacyDefaultOrLegacyCredentials(final Settings settings) {
+        return getConfigValue(settings, DEFAULT_CLIENT_NAME, AWS_ACCESS_KEY_ID) != null
+               || getConfigValue(settings, DEFAULT_CLIENT_NAME, AWS_SECRET_ACCESS_KEY) != null
+               || getConfigValue(settings, DEFAULT_CLIENT_NAME, ENDPOINT) != null
+               || getConfigValue(settings, DEFAULT_CLIENT_NAME, PUBLIC_KEY_FILE) != null
+               || getConfigValue(settings, DEFAULT_CLIENT_NAME, PRIVATE_KEY_FILE) != null;
     }
 
     static S3ClientSettings createSettings(final String clientName, final Settings settings) throws IOException {
@@ -195,4 +209,31 @@ public class S3ClientSettings implements ClientSettings {
         );
     }
 
+    public static class LegacyFallback {
+        static final Setting<InputStream> PUBLIC_KEY_FILE =
+            SecureSetting.secureFile("aiven.s3.public_key_file", null);
+        static final Setting<InputStream> PRIVATE_KEY_FILE =
+            SecureSetting.secureFile("aiven.s3.private_key_file", null);
+        static final Setting<SecureString> AWS_SECRET_ACCESS_KEY =
+            SecureSetting.secureString("aiven.s3.client.aws_secret_access_key", null);
+        static final Setting<SecureString> AWS_ACCESS_KEY_ID =
+            SecureSetting.secureString("aiven.s3.client.aws_access_key_id", null);
+        static final Setting<SecureString> ENDPOINT =
+            SecureSetting.secureString("aiven.s3.client.endpoint", null);
+        public static final Setting<Integer> MAX_RETRIES =
+            Setting.intSetting("aiven.s3.client.max_retries", 3, Setting.Property.NodeScope);
+        public static final Setting<Boolean> USE_THROTTLE_RETRIES =
+            Setting.boolSetting("aiven.s3.client.use_throttle_retries", true, Setting.Property.NodeScope);
+        public static final Setting<TimeValue> READ_TIMEOUT =
+            Setting.timeSetting("aiven.s3.client.read_timeout", TimeValue.timeValueMillis(50 * 1000),
+                                Setting.Property.NodeScope);
+
+        public static final Map<String, Setting<?>> KEY_MAP;
+
+        static {
+            KEY_MAP = Stream.of(PUBLIC_KEY_FILE, PRIVATE_KEY_FILE, AWS_SECRET_ACCESS_KEY, AWS_ACCESS_KEY_ID, ENDPOINT,
+                               MAX_RETRIES, USE_THROTTLE_RETRIES, READ_TIMEOUT)
+                            .collect(Collectors.toMap(Setting::getKey, s -> s));
+        }
+    }
 }
