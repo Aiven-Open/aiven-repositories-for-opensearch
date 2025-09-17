@@ -22,6 +22,8 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import org.opensearch.common.settings.SecureSetting;
 import org.opensearch.common.settings.Setting;
@@ -32,90 +34,105 @@ import io.aiven.elasticsearch.repositories.CommonSettings;
 
 import com.google.auth.oauth2.GoogleCredentials;
 
-import static io.aiven.elasticsearch.repositories.CommonSettings.ClientSettings.checkSettings;
 import static io.aiven.elasticsearch.repositories.CommonSettings.ClientSettings.getConfigValue;
 import static io.aiven.elasticsearch.repositories.CommonSettings.ClientSettings.readInputStream;
+import static org.opensearch.common.settings.SecureSetting.secureFile;
+import static org.opensearch.common.settings.SecureSetting.secureString;
+import static org.opensearch.common.settings.Setting.intSetting;
+import static org.opensearch.common.settings.Setting.simpleString;
 
+/**
+ * Settings for Google Cloud Storage client.
+ * Some of the settings are using fallback to the old settings when the default client is used, or some of
+ * the settings are not present for the named client. This is to keep backward compatibility with the old settings.
+ */
 public class GcsClientSettings implements CommonSettings.ClientSettings {
 
-    static final String GCS_PREFIX = AIVEN_PREFIX + "gcs.";
+    static final String GCS_PREFIX = AIVEN_PREFIX + "gcs.client.";
 
     public static final Setting.AffixSetting<InputStream> PUBLIC_KEY_FILE =
             Setting.affixKeySetting(
-                    GCS_PREFIX,
-                    "public_key_file",
-                    key -> SecureSetting.secureFile(key, null)
+                GCS_PREFIX,
+                "public_key_file",
+                key -> secureFile(key, LegacyFallback.PUBLIC_KEY_FILE)
             );
 
     public static final Setting.AffixSetting<InputStream> PRIVATE_KEY_FILE =
             Setting.affixKeySetting(
-                    GCS_PREFIX,
-                    "private_key_file",
-                    key -> SecureSetting.secureFile(key, null)
+                GCS_PREFIX,
+                "private_key_file",
+                // Fallback to old setting name for private key, when the default client is used.
+                key -> secureFile(key, LegacyFallback.PRIVATE_KEY_FILE)
             );
 
     public static final Setting.AffixSetting<InputStream> CREDENTIALS_FILE_SETTING =
             Setting.affixKeySetting(
-                    GCS_PREFIX,
-                    "client.credentials_file",
-                    key -> SecureSetting.secureFile(key, null)
+                GCS_PREFIX,
+                "credentials_file",
+                // Fallback to old setting name for credentials file, when the default client is used.
+                key -> secureFile(key, LegacyFallback.CREDENTIALS_FILE_SETTING)
             );
 
     public static final Setting.AffixSetting<String> PROXY_HOST =
             Setting.affixKeySetting(
-                    GCS_PREFIX,
-                    "client.proxy.host",
-                    key -> Setting.simpleString(key, Setting.Property.NodeScope)
+                GCS_PREFIX,
+                "proxy.host",
+                key -> simpleString(key,
+                                    LegacyFallback.PROXY_HOST,
+                                    Setting.Property.NodeScope)
             );
 
     public static final Setting.AffixSetting<Integer> PROXY_PORT =
             Setting.affixKeySetting(
-                    GCS_PREFIX,
-                    "client.proxy.port",
-                    key -> SecureSetting.intSetting(key, 0, 0, Setting.Property.NodeScope)
+                GCS_PREFIX,
+                "proxy.port",
+                key -> intSetting(key,
+                                  LegacyFallback.PROXY_PORT,
+                                  0,
+                                  Setting.Property.NodeScope)
             );
 
     public static final Setting.AffixSetting<SecureString> PROXY_USER_NAME =
             Setting.affixKeySetting(
-                    GCS_PREFIX,
-                    "client.proxy.user_name",
-                    key -> SecureSetting.secureString(key, null)
+                GCS_PREFIX,
+                "proxy.user_name",
+                key -> secureString(key, LegacyFallback.PROXY_USER_NAME)
             );
 
     public static final Setting.AffixSetting<SecureString> PROXY_USER_PASSWORD =
             Setting.affixKeySetting(
-                    GCS_PREFIX,
-                    "client.proxy.user_password",
-                    key -> SecureSetting.secureString(key, null)
+                GCS_PREFIX,
+                "proxy.user_password",
+                key -> secureString(key, LegacyFallback.PROXY_USER_PASSWORD)
             );
 
     public static final Setting.AffixSetting<String> PROJECT_ID =
             Setting.affixKeySetting(
-                    GCS_PREFIX,
-                    "client.project_id",
-                    key -> Setting.simpleString(key, Setting.Property.NodeScope)
+                GCS_PREFIX,
+                "project_id",
+                key -> simpleString(key, LegacyFallback.PROJECT_ID, Setting.Property.NodeScope)
             );
 
     public static final Setting.AffixSetting<Integer> CONNECTION_TIMEOUT =
             Setting.affixKeySetting(
                     GCS_PREFIX,
-                    "client.connection_timeout",
-                    key -> Setting.intSetting(key, -1, -1, Setting.Property.NodeScope)
+                    "connection_timeout",
+                    key -> Setting.intSetting(key, LegacyFallback.CONNECTION_TIMEOUT, -1, Setting.Property.NodeScope)
             );
 
     public static final Setting.AffixSetting<Integer> READ_TIMEOUT =
             Setting.affixKeySetting(
                     GCS_PREFIX,
-                    "client.read_timeout",
-                    key -> Setting.intSetting(key, -1, -1, Setting.Property.NodeScope)
+                    "read_timeout",
+                    key -> Setting.intSetting(key, LegacyFallback.READ_TIMEOUT, -1, Setting.Property.NodeScope)
             );
 
     /** The number of retries to use when an GCS request fails. */
     public static final Setting.AffixSetting<Integer> MAX_RETRIES_SETTING =
             Setting.affixKeySetting(
                     GCS_PREFIX,
-                    "client.max_retries",
-                    key -> Setting.intSetting(key, 3, 0, Setting.Property.NodeScope)
+                    "max_retries",
+                    key -> Setting.intSetting(key, LegacyFallback.MAX_RETRIES_SETTING, 0, Setting.Property.NodeScope)
             );
 
     private final byte[] publicKey;
@@ -169,19 +186,33 @@ public class GcsClientSettings implements CommonSettings.ClientSettings {
         if (settings.isEmpty()) {
             throw new IllegalArgumentException("Settings for GC storage hasn't been set");
         }
-        final Set<String> clientNames = settings.getGroups(GCS_PREFIX).keySet();
         final var clientSettings = new HashMap<String, GcsClientSettings>();
+        final var filteredSettings = settings.filter(key -> !LegacyFallback.KEY_MAP.containsKey(key));
+        final Set<String> clientNames = filteredSettings.getGroups(GCS_PREFIX, true).keySet();
         for (final var clientName : clientNames) {
             clientSettings.put(clientName, createSettings(clientName, settings));
         }
+
+        if (!clientSettings.containsKey(DEFAULT_CLIENT_NAME) && hasLegacyDefaultOrLegacyCredentials(settings)) {
+            // this won't find any settings under the default client,
+            // but it will pull all the fallback static settings
+            clientSettings.put(DEFAULT_CLIENT_NAME, createSettings(DEFAULT_CLIENT_NAME, settings));
+        }
+
         return Map.copyOf(clientSettings);
+    }
+
+    private static boolean hasLegacyDefaultOrLegacyCredentials(final Settings settings) {
+        return getConfigValue(settings, DEFAULT_CLIENT_NAME, CREDENTIALS_FILE_SETTING) != null
+               || getConfigValue(settings, DEFAULT_CLIENT_NAME, PUBLIC_KEY_FILE) != null
+               || getConfigValue(settings, DEFAULT_CLIENT_NAME, PRIVATE_KEY_FILE) != null;
     }
 
     private static GcsClientSettings createSettings(
             final String clientName, final Settings settings) throws IOException {
-        checkSettings(CREDENTIALS_FILE_SETTING, clientName, settings);
-        checkSettings(PUBLIC_KEY_FILE, clientName, settings);
-        checkSettings(PRIVATE_KEY_FILE, clientName, settings);
+        CommonSettings.ClientSettings.checkSettings(CREDENTIALS_FILE_SETTING, clientName, settings);
+        CommonSettings.ClientSettings.checkSettings(PUBLIC_KEY_FILE, clientName, settings);
+        CommonSettings.ClientSettings.checkSettings(PRIVATE_KEY_FILE, clientName, settings);
         if (PROXY_PORT.getConcreteSettingForNamespace(clientName).exists(settings)
                 && PROXY_PORT.getConcreteSettingForNamespace(clientName).get(settings) < 0) {
             throw new IllegalArgumentException("Settings with name " + PROXY_PORT.getKey() + " must be greater than 0");
@@ -257,5 +288,39 @@ public class GcsClientSettings implements CommonSettings.ClientSettings {
 
     public int getMaxRetries() {
         return maxRetries;
+    }
+
+    public static class LegacyFallback {
+        static final Setting<InputStream> PUBLIC_KEY_FILE =
+            SecureSetting.secureFile("aiven.gcs.public_key_file", null);
+        static final Setting<InputStream> PRIVATE_KEY_FILE =
+            SecureSetting.secureFile("aiven.gcs.private_key_file", null);
+        static final Setting<InputStream> CREDENTIALS_FILE_SETTING =
+            SecureSetting.secureFile("aiven.gcs.client.credentials_file", null);
+        static final Setting<String> PROXY_HOST =
+            Setting.simpleString("aiven.gcs.client.proxy.host", Setting.Property.NodeScope);
+        static final Setting<Integer> PROXY_PORT =
+            SecureSetting.intSetting("aiven.gcs.client.proxy.port", 0, 0, Setting.Property.NodeScope);
+        static final Setting<SecureString> PROXY_USER_NAME =
+            SecureSetting.secureString("aiven.gcs.client.proxy.user_name", null);
+        static final Setting<SecureString> PROXY_USER_PASSWORD =
+            SecureSetting.secureString("aiven.gcs.client.proxy.user_password", null);
+        static final Setting<String> PROJECT_ID =
+            Setting.simpleString("aiven.gcs.client.project_id", Setting.Property.NodeScope);
+        static final Setting<Integer> CONNECTION_TIMEOUT =
+            Setting.intSetting("aiven.gcs.client.connection_timeout", -1, -1, Setting.Property.NodeScope);
+        static final Setting<Integer> READ_TIMEOUT =
+            Setting.intSetting("aiven.gcs.client.read_timeout", -1, -1, Setting.Property.NodeScope);
+        static final Setting<Integer> MAX_RETRIES_SETTING =
+            Setting.intSetting("aiven.gcs.client.max_retries", 3, 0, Setting.Property.NodeScope);
+
+        public static final Map<String, Setting<?>> KEY_MAP;
+
+        static {
+            KEY_MAP = Stream.of(PUBLIC_KEY_FILE, PRIVATE_KEY_FILE, CREDENTIALS_FILE_SETTING, PROXY_HOST, PROXY_PORT,
+                                PROXY_USER_NAME, PROXY_USER_PASSWORD, PROJECT_ID, CONNECTION_TIMEOUT, READ_TIMEOUT,
+                                MAX_RETRIES_SETTING)
+                            .collect(Collectors.toMap(Setting::getKey, s -> s));
+        }
     }
 }

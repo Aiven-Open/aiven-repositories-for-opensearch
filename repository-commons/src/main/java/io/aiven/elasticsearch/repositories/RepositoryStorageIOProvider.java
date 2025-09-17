@@ -43,28 +43,27 @@ import static io.aiven.elasticsearch.repositories.BlobStoreRepository.BUFFER_SIZ
 public abstract class RepositoryStorageIOProvider<C, S extends CommonSettings.ClientSettings>
         implements CommonSettings.RepositorySettings, Closeable {
 
-    private static final Logger LOGGER = LoggerFactory.getLogger(RepositorySettingsProvider.class);
+    private static final Logger LOGGER = LoggerFactory.getLogger(RepositoryStorageIOProvider.class);
 
     public static final String REPOSITORY_METADATA_FILE_NAME = "repository_metadata.json";
-
-    private final Map<String, S> clientSettings;
 
     private SecretKey encryptionKey;
 
     private final ClientProvider<C, S> clientProvider;
 
-    public RepositoryStorageIOProvider(final ClientProvider<C, S> clientProvider, final Map<String, S> clientSettings) {
+    public RepositoryStorageIOProvider(final ClientProvider<C, S> clientProvider) {
         this.clientProvider = clientProvider;
-        this.clientSettings = clientSettings;
     }
 
-    public StorageIO createStorageIO(final String basePath, final Settings repositorySettings) throws IOException {
+    public StorageIO createStorageIO(
+        final String basePath,
+        final S clientSettings,
+        final Settings repositorySettings
+    ) throws IOException {
         final var bufferSize = Math.toIntExact(BUFFER_SIZE_SETTING.get(repositorySettings).getBytes());
         final var encProviderAndClient =
                 Permissions.doPrivileged(() -> {
-                    final String clientName = CLIENT_NAME.get(repositorySettings);
-                    final var c =
-                            clientProvider.buildClientIfNeeded(clientSettings.get(clientName), repositorySettings);
+                    final var c = clientProvider.buildClientIfNeeded(clientSettings, repositorySettings);
                     createOrRestoreEncryptionKey(c.v2(), c.v1(), basePath, repositorySettings);
                     return c;
                 });
@@ -130,9 +129,7 @@ public abstract class RepositoryStorageIOProvider<C, S extends CommonSettings.Cl
 
     @Override
     public void close() throws IOException {
-        if (Objects.nonNull(clientProvider)) {
-            clientProvider.close();
-        }
+        clientProvider.close();
         encryptionKey = null;
     }
 
@@ -159,7 +156,6 @@ public abstract class RepositoryStorageIOProvider<C, S extends CommonSettings.Cl
         List<String> listDirectories(final String path) throws IOException;
 
         Map<String, Long> listFiles(final String path, final String prefix) throws IOException;
-
     }
 
 }

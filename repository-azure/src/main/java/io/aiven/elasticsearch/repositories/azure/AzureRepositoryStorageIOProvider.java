@@ -49,8 +49,8 @@ public class AzureRepositoryStorageIOProvider
 
     static final Setting<String> CONTAINER_NAME = Setting.simpleString("container_name");
 
-    public AzureRepositoryStorageIOProvider(final Map<String, AzureClientSettings> clientSettings) {
-        super(new AzureClientProvider(), clientSettings);
+    public AzureRepositoryStorageIOProvider() {
+        super(new AzureClientProvider());
     }
 
     @Override

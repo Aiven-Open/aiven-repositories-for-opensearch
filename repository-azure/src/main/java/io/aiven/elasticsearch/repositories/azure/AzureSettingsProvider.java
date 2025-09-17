@@ -17,25 +17,30 @@
 package io.aiven.elasticsearch.repositories.azure;
 
 import java.io.IOException;
+import java.util.Map;
 
 import org.opensearch.common.settings.Settings;
 
 import io.aiven.elasticsearch.repositories.Permissions;
-import io.aiven.elasticsearch.repositories.RepositorySettingsProvider;
+import io.aiven.elasticsearch.repositories.RepositorySettingsService;
 import io.aiven.elasticsearch.repositories.RepositoryStorageIOProvider;
 
 import com.azure.storage.blob.BlobServiceClient;
 
-public class AzureSettingsProvider extends RepositorySettingsProvider<BlobServiceClient, AzureClientSettings> {
+public class AzureSettingsProvider extends RepositorySettingsService<BlobServiceClient, AzureClientSettings> {
+
+    public AzureSettingsProvider() {
+        super();
+    }
 
     @Override
-    protected RepositoryStorageIOProvider<BlobServiceClient, AzureClientSettings> createRepositoryStorageIOProvider(
-            final Settings settings) throws IOException {
-        return Permissions.doPrivileged(() -> {
-            final var azureClientSettings = AzureClientSettings.create(settings);
-            return Permissions.doPrivileged(() ->
-                    new AzureRepositoryStorageIOProvider(azureClientSettings));
-        });
+    protected Map<String, AzureClientSettings> getEffectiveClientSettings(final Settings settings) throws IOException {
+        return Permissions.doPrivileged(() -> AzureClientSettings.create(settings));
+    }
+
+    @Override
+    protected RepositoryStorageIOProvider<BlobServiceClient, AzureClientSettings> createRepositoryStorageIOProvider() {
+        return new AzureRepositoryStorageIOProvider();
     }
 
 }

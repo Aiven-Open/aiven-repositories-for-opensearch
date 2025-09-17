@@ -17,25 +17,30 @@
 package io.aiven.elasticsearch.repositories.gcs;
 
 import java.io.IOException;
+import java.util.Map;
 
 import org.opensearch.common.settings.Settings;
 
 import io.aiven.elasticsearch.repositories.Permissions;
-import io.aiven.elasticsearch.repositories.RepositorySettingsProvider;
+import io.aiven.elasticsearch.repositories.RepositorySettingsService;
 import io.aiven.elasticsearch.repositories.RepositoryStorageIOProvider;
 
 import com.google.cloud.storage.Storage;
 
-public class GcsSettingsProvider extends RepositorySettingsProvider<Storage, GcsClientSettings> {
+public class GcsSettingsProvider extends RepositorySettingsService<Storage, GcsClientSettings> {
+
+    public GcsSettingsProvider() {
+        super();
+    }
 
     @Override
-    protected RepositoryStorageIOProvider<Storage, GcsClientSettings> createRepositoryStorageIOProvider(
-            final Settings settings) throws IOException {
+    protected Map<String, GcsClientSettings> getEffectiveClientSettings(final Settings settings) throws IOException {
+        return  Permissions.doPrivileged(() -> GcsClientSettings.create(settings));
+    }
 
-        return Permissions.doPrivileged(() -> {
-            final var gcsClientSettings = GcsClientSettings.create(settings);
-            return new GcsRepositoryStorageIOProvider(gcsClientSettings);
-        });
+    @Override
+    protected RepositoryStorageIOProvider<Storage, GcsClientSettings> createRepositoryStorageIOProvider() {
+        return new GcsRepositoryStorageIOProvider();
     }
 
 }
