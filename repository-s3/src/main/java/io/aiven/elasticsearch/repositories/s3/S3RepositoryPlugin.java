@@ -16,15 +16,15 @@
 
 package io.aiven.elasticsearch.repositories.s3;
 
-import java.io.IOException;
-import java.io.UncheckedIOException;
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 
 import org.opensearch.common.settings.Setting;
 import org.opensearch.common.settings.Settings;
 
 import io.aiven.elasticsearch.repositories.AbstractRepositoryPlugin;
-import io.aiven.elasticsearch.repositories.Permissions;
+import io.aiven.elasticsearch.repositories.RepositorySettingsService;
 
 import com.amazonaws.services.s3.AmazonS3Client;
 
@@ -35,27 +35,28 @@ public class S3RepositoryPlugin extends AbstractRepositoryPlugin<AmazonS3Client,
     public static final String REPOSITORY_TYPE = "aiven-s3";
 
     public S3RepositoryPlugin(final Settings settings) {
-        super(REPOSITORY_TYPE, S3_PREFIX, settings, new S3SettingsProvider());
+        super(REPOSITORY_TYPE, S3_PREFIX, settings);
+    }
+
+    @Override
+    protected RepositorySettingsService<AmazonS3Client, S3ClientSettings> createRepositorySettingsService() {
+        return new S3SettingsProvider();
     }
 
     @Override
     public List<Setting<?>> getSettings() {
-        try {
-            //due to the load of constants for AWS SDK use check permissions here
-            return Permissions.doPrivileged(() ->
-                    List.of(
-                            S3ClientSettings.PUBLIC_KEY_FILE,
-                            S3ClientSettings.PRIVATE_KEY_FILE,
-                            S3ClientSettings.AWS_SECRET_ACCESS_KEY,
-                            S3ClientSettings.AWS_ACCESS_KEY_ID,
-                            S3ClientSettings.ENDPOINT,
-                            S3ClientSettings.MAX_RETRIES,
-                            S3ClientSettings.READ_TIMEOUT,
-                            S3ClientSettings.USE_THROTTLE_RETRIES
-                    ));
-        } catch (final IOException e) {
-            throw new UncheckedIOException(e);
-        }
+        final List<Setting<?>> settings = new ArrayList<>();
+        Collections.addAll(settings,
+                           S3ClientSettings.PUBLIC_KEY_FILE,
+                           S3ClientSettings.PRIVATE_KEY_FILE,
+                           S3ClientSettings.AWS_SECRET_ACCESS_KEY,
+                           S3ClientSettings.AWS_ACCESS_KEY_ID,
+                           S3ClientSettings.ENDPOINT,
+                           S3ClientSettings.MAX_RETRIES,
+                           S3ClientSettings.READ_TIMEOUT,
+                           S3ClientSettings.USE_THROTTLE_RETRIES);
+        settings.addAll(S3ClientSettings.LegacyFallback.KEY_MAP.values());
+        return settings;
     }
 
 }

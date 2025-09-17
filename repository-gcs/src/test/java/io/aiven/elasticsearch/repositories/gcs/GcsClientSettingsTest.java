@@ -86,29 +86,35 @@ class GcsClientSettingsTest extends RsaKeyAwareTest {
         );
     }
 
-    Settings.Builder createSettings(final String clientName) {
-        return Settings.builder()
-                .put(GcsClientSettings.CONNECTION_TIMEOUT.getConcreteSettingForNamespace(clientName).getKey(), 1)
-                .put(GcsClientSettings.READ_TIMEOUT.getConcreteSettingForNamespace(clientName).getKey(), 2)
-                .put(GcsClientSettings.PROJECT_ID.getConcreteSettingForNamespace(clientName).getKey(), "some_project");
+    public static Settings.Builder createSettings(final String clientName) {
+        return createSettings(Settings.builder(), clientName, "some_project");
     }
 
-    SecureSettings createSecureSettings(final String clientName,
+    public static Settings.Builder createSettings(final Settings.Builder builder, final String clientName, final String projectId) {
+        return builder
+                .put(GcsClientSettings.CONNECTION_TIMEOUT.getConcreteSettingForNamespace(clientName).getKey(), 1)
+                .put(GcsClientSettings.READ_TIMEOUT.getConcreteSettingForNamespace(clientName).getKey(), 2)
+                .put(GcsClientSettings.PROJECT_ID.getConcreteSettingForNamespace(clientName).getKey(), projectId);
+    }
+
+    public static SecureSettings createSecureSettings(final String clientName,
                                         final InputStream googleCredential,
                                         final InputStream publicKey,
                                         final InputStream privateKey) throws IOException {
-        return new DummySecureSettings()
-                .setFile(
-                        GcsClientSettings.CREDENTIALS_FILE_SETTING.getConcreteSettingForNamespace(clientName).getKey(),
-                        googleCredential
-                ).setFile(
-                        GcsClientSettings.PUBLIC_KEY_FILE.getConcreteSettingForNamespace(clientName).getKey(),
-                        publicKey
-                ).setFile(
-                        GcsClientSettings.PRIVATE_KEY_FILE.getConcreteSettingForNamespace(clientName).getKey(),
-                        privateKey
-                );
+        return createSecureSettings(new DummySecureSettings(), clientName, googleCredential, publicKey, privateKey);
+    }
 
+    public static SecureSettings createSecureSettings(final DummySecureSettings settings,
+                                                      final String clientName,
+                                                      final InputStream googleCredential,
+                                                      final InputStream publicKey,
+                                                      final InputStream privateKey) throws IOException {
+        return settings.setFile(GcsClientSettings.CREDENTIALS_FILE_SETTING.getConcreteSettingForNamespace(clientName).getKey(),
+                                googleCredential)
+                       .setFile(GcsClientSettings.PUBLIC_KEY_FILE.getConcreteSettingForNamespace(clientName).getKey(),
+                                publicKey)
+                       .setFile(GcsClientSettings.PRIVATE_KEY_FILE.getConcreteSettingForNamespace(clientName).getKey(),
+                                privateKey);
     }
 
 }

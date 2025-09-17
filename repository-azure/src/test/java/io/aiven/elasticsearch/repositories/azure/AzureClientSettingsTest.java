@@ -58,7 +58,7 @@ class AzureClientSettingsTest extends RsaKeyAwareTest {
 
         final var t = assertThrows(
                 IllegalArgumentException.class, () -> AzureClientSettings.create(settings));
-        assertEquals("Settings with name aiven.azure.default.public_key_file hasn't been set",
+        assertEquals("Settings with name aiven.azure.client.default.public_key_file hasn't been set",
                 t.getMessage());
     }
 
@@ -80,7 +80,7 @@ class AzureClientSettingsTest extends RsaKeyAwareTest {
 
         final var t = assertThrows(
                 IllegalArgumentException.class, () -> AzureClientSettings.create(settings));
-        assertEquals("Settings with name aiven.azure.default.private_key_file hasn't been set", t.getMessage());
+        assertEquals("Settings with name aiven.azure.client.default.private_key_file hasn't been set", t.getMessage());
     }
 
     @Test
@@ -97,7 +97,7 @@ class AzureClientSettingsTest extends RsaKeyAwareTest {
                         AzureClientSettings.create(Settings.builder()
                                 .setSecureSettings(secureSettings).build()));
 
-        assertEquals("Settings with name aiven.azure.default.client.account hasn't been set", t.getMessage());
+        assertEquals("Settings with name aiven.azure.client.default.account hasn't been set", t.getMessage());
     }
 
     @Test
@@ -115,7 +115,7 @@ class AzureClientSettingsTest extends RsaKeyAwareTest {
                         AzureClientSettings.create(Settings.builder()
                                 .setSecureSettings(secureSettings).build()));
 
-        assertEquals("Settings with name aiven.azure.default.client.account.key hasn't been set",
+        assertEquals("Settings with name aiven.azure.client.default.account.key hasn't been set",
                 t.getMessage());
     }
 

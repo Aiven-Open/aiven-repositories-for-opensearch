@@ -47,6 +47,7 @@ allprojects {
     ext {
         slf4jVersion = "1.7.35"
         opensearchVersion = "2.19.3"
+        supportedFromOpenSearchVersion = "^2.17.0"
         // since jackson-core is in the main classpath
         // plz keep the same version as for OpenSearch
         jacksonDatabind = "2.18.2"
@@ -85,7 +86,7 @@ allprojects {
         filesMatching('plugin-descriptor.properties') {
             expand(version: project.version,
                     javaVersion: java.sourceCompatibility,
-                    opensearchVersion: opensearchVersion
+                    supportedFromOpenSearchVersion: supportedFromOpenSearchVersion
             )
         }
     }

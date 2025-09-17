@@ -16,12 +16,15 @@
 
 package io.aiven.elasticsearch.repositories.azure;
 
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 
 import org.opensearch.common.settings.Setting;
 import org.opensearch.common.settings.Settings;
 
 import io.aiven.elasticsearch.repositories.AbstractRepositoryPlugin;
+import io.aiven.elasticsearch.repositories.RepositorySettingsService;
 
 import com.azure.storage.blob.BlobServiceClient;
 
@@ -32,18 +35,24 @@ public class AzureRepositoryPlugin extends AbstractRepositoryPlugin<BlobServiceC
     public static final String REPOSITORY_TYPE = "aiven-azure";
 
     public AzureRepositoryPlugin(final Settings settings) {
-        super(REPOSITORY_TYPE, AZURE_PREFIX, settings, new AzureSettingsProvider());
+        super(REPOSITORY_TYPE, AZURE_PREFIX, settings);
+    }
+
+    protected RepositorySettingsService<BlobServiceClient, AzureClientSettings> createRepositorySettingsService() {
+        return new AzureSettingsProvider();
     }
 
     @Override
     public List<Setting<?>> getSettings() {
-        return List.of(
-                AzureClientSettings.PUBLIC_KEY_FILE,
-                AzureClientSettings.PRIVATE_KEY_FILE,
-                AzureClientSettings.AZURE_ACCOUNT,
-                AzureClientSettings.AZURE_ACCOUNT_KEY,
-                AzureClientSettings.MAX_RETRIES
-        );
+        final List<Setting<?>> settings = new ArrayList<>();
+        Collections.addAll(settings,
+                           AzureClientSettings.PUBLIC_KEY_FILE,
+                           AzureClientSettings.PRIVATE_KEY_FILE,
+                           AzureClientSettings.AZURE_ACCOUNT,
+                           AzureClientSettings.AZURE_ACCOUNT_KEY,
+                           AzureClientSettings.MAX_RETRIES);
+        settings.addAll(AzureClientSettings.LegacyFallback.KEY_MAP.values());
+        return settings;
     }
 
 }

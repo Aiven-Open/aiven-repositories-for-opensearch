@@ -60,7 +60,7 @@ class S3ClientSettingsTest extends RsaKeyAwareTest {
         final var t =
                 assertThrows(IllegalArgumentException.class, () -> S3ClientSettings.create(noEndpointSettings));
 
-        assertEquals("Settings with name aiven.s3.default.client.endpoint hasn't been set", t.getMessage());
+        assertEquals("Settings with name aiven.s3.client.default.endpoint hasn't been set", t.getMessage());
     }
 
     @Test
@@ -82,7 +82,7 @@ class S3ClientSettingsTest extends RsaKeyAwareTest {
                 assertThrows(IllegalArgumentException.class, () -> S3ClientSettings.create(noAwsAccessKeyId));
 
         assertEquals(
-                "Settings with name aiven.s3.default.client.aws_access_key_id hasn't been set",
+                "Settings with name aiven.s3.client.default.aws_access_key_id hasn't been set",
                 t.getMessage());
     }
 
@@ -104,7 +104,7 @@ class S3ClientSettingsTest extends RsaKeyAwareTest {
                 assertThrows(IllegalArgumentException.class, () -> S3ClientSettings.create(noAwsAccessKeyId));
 
         assertEquals(
-                "Settings with name aiven.s3.default.client.aws_secret_access_key hasn't been set",
+                "Settings with name aiven.s3.client.default.aws_secret_access_key hasn't been set",
                 t.getMessage());
     }
 
@@ -125,7 +125,7 @@ class S3ClientSettingsTest extends RsaKeyAwareTest {
                 assertThrows(IllegalArgumentException.class, () ->
                         S3ClientSettings.create(settingsBuilder.setSecureSettings(secureSettings).build()));
 
-        assertEquals("Settings with name aiven.s3.default.public_key_file hasn't been set", t.getMessage());
+        assertEquals("Settings with name aiven.s3.client.default.public_key_file hasn't been set", t.getMessage());
     }
 
     @Test
@@ -145,7 +145,7 @@ class S3ClientSettingsTest extends RsaKeyAwareTest {
                 assertThrows(IllegalArgumentException.class, () ->
                         S3ClientSettings.create(settingsBuilder.setSecureSettings(secureSettings).build()));
 
-        assertEquals("Settings with name aiven.s3.default.private_key_file hasn't been set", t.getMessage());
+        assertEquals("Settings with name aiven.s3.client.default.private_key_file hasn't been set", t.getMessage());
     }
 
     @Test

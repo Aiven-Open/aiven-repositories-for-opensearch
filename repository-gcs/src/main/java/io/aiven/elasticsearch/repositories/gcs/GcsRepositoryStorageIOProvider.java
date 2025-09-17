@@ -56,7 +56,7 @@ import static java.net.HttpURLConnection.HTTP_PRECON_FAILED;
 public class GcsRepositoryStorageIOProvider
         extends RepositoryStorageIOProvider<Storage, GcsClientSettings> {
 
-    static final Setting<String> BUCKET_NAME =
+    public static final Setting<String> BUCKET_NAME =
             Setting.simpleString(
                     "bucket_name",
                     Setting.Property.NodeScope,
@@ -64,8 +64,8 @@ public class GcsRepositoryStorageIOProvider
 
     private static final Logger LOGGER = LoggerFactory.getLogger(GcsRepositoryStorageIOProvider.class);
 
-    public GcsRepositoryStorageIOProvider(final Map<String, GcsClientSettings> storageSettings) {
-        super(new GcsClientProvider(), storageSettings);
+    public GcsRepositoryStorageIOProvider() {
+        super(new GcsClientProvider());
     }
 
     @Override
@@ -78,7 +78,7 @@ public class GcsRepositoryStorageIOProvider
         return new GcsStorageIO(storage, bucketName, cryptoIOProvider);
     }
 
-    private static class GcsStorageIO implements StorageIO {
+    public static class GcsStorageIO implements StorageIO {
 
         private final Storage storage;
 
