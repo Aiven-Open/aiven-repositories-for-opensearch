@@ -26,45 +26,37 @@ import org.opensearch.common.settings.Settings;
 import io.aiven.elasticsearch.repositories.security.EncryptionKeyProvider;
 
 public abstract class ClientProvider<C, S extends CommonSettings.ClientSettings> implements Closeable {
-
-    private final Object lock = new Object();
-
-    private volatile Settings previousRepositorySettings;
-
-    protected volatile C client;
-
-    private volatile EncryptionKeyProvider encryptionKeyProvider;
+    private EncryptionKeyProvider encryptionKeyProvider;
+    private Settings previousRepositorySettings;
+    protected C client;
 
     public Tuple<EncryptionKeyProvider, C> buildClientIfNeeded(
-            final S clientSettings,
-            final Settings repositorySettings) throws IOException {
-        synchronized (lock) {
-            if (Objects.isNull(client)) {
-                client = buildClient(clientSettings, repositorySettings);
-                encryptionKeyProvider =
-                        EncryptionKeyProvider.of(clientSettings.publicKey(), clientSettings.privateKey());
-                previousRepositorySettings = repositorySettings;
-            } else if (!previousRepositorySettings.equals(repositorySettings)) {
-                closeClient();
-                encryptionKeyProvider =
-                        EncryptionKeyProvider.of(clientSettings.publicKey(), clientSettings.privateKey());
-                client = buildClient(clientSettings, repositorySettings);
-                previousRepositorySettings = repositorySettings;
-            }
+        final S clientSettings,
+        final Settings repositorySettings
+    ) {
+        if (Objects.isNull(client)) {
+            client = buildClient(clientSettings, repositorySettings);
+            encryptionKeyProvider =
+                EncryptionKeyProvider.of(clientSettings.publicKey(), clientSettings.privateKey());
+            previousRepositorySettings = repositorySettings;
+        } else if (!previousRepositorySettings.equals(repositorySettings)) {
+            closeClient();
+            encryptionKeyProvider =
+                EncryptionKeyProvider.of(clientSettings.publicKey(), clientSettings.privateKey());
+            client = buildClient(clientSettings, repositorySettings);
+            previousRepositorySettings = repositorySettings;
         }
         return Tuple.tuple(encryptionKeyProvider, client);
     }
 
     @Override
     public void close() throws IOException {
-        synchronized (lock) {
-            closeClient();
-            client = null;
-        }
+        closeClient();
+        client = null;
     }
 
+    /** Close the client connection gracefully, if applicable. Note, this method is called under lock. */
     protected abstract void closeClient();
 
     protected abstract C buildClient(final S clientSettings, final Settings repositorySettings);
-
 }

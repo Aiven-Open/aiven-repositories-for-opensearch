@@ -74,6 +74,7 @@ final class GcsClientProvider extends ClientProvider<Storage, GcsClientSettings>
 
     @Override
     protected void closeClient() {
+        // NOTE: GCS client connections are stateless and don't need graceful shutdown. This is a no-op.
         client = null;
     }
 

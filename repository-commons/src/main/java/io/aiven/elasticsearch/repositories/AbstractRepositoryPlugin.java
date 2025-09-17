@@ -45,7 +45,11 @@ public abstract class AbstractRepositoryPlugin<C, S extends CommonSettings.Clien
 
     private final String repositorySettingsPrefix;
 
-    private final RepositorySettingsProvider<C, S> repositorySettingsProvider;
+    /**
+     * This is a settings provider and is shared across all BlobStoreRepository instances.
+     * Settings are reloaded via the {@link #reload(Settings)} method.
+     */
+    private final RepositorySettingsService<C, S> repositorySettingsProvider;
 
     static {
         try {
@@ -57,13 +61,18 @@ public abstract class AbstractRepositoryPlugin<C, S extends CommonSettings.Clien
 
     protected AbstractRepositoryPlugin(final String repositoryType,
                                        final String repositorySettingsPrefix,
-                                       final Settings settings,
-                                       final RepositorySettingsProvider<C, S> repositorySettingsProvider) {
+                                       final Settings settings) {
         this.repositoryType = repositoryType;
         this.repositorySettingsPrefix = repositorySettingsPrefix;
-        this.repositorySettingsProvider = repositorySettingsProvider;
+        this.repositorySettingsProvider = createRepositorySettingsService();
         reload(settings);
     }
+
+    /**
+     * Overridable for tests.
+     * @return a new repository settings service instance
+     */
+    protected abstract RepositorySettingsService<C, S> createRepositorySettingsService();
 
     @Override
     public Map<String, Repository.Factory> getRepositories(final Environment env,
@@ -81,13 +90,23 @@ public abstract class AbstractRepositoryPlugin<C, S extends CommonSettings.Clien
                 clusterService, recoverySettings, repositorySettingsProvider);
     }
 
+    public RepositorySettingsService<C, S> getRepositorySettingsProvider() {
+        return repositorySettingsProvider;
+    }
+
+    @Override
+    public void close() throws IOException {
+        repositorySettingsProvider.close();
+    }
+
     @Override
     public void reload(final Settings settings) {
         try {
-            if (!settings.getGroups(repositorySettingsPrefix).isEmpty()) {
-                LOGGER.info("Reload settings for repository type: {}", repositoryType);
-                repositorySettingsProvider.reload(settings);
+            if (settings.getByPrefix(repositorySettingsPrefix).isEmpty()) {
+                return;
             }
+            LOGGER.info("Reload settings for repository type: {}", repositoryType);
+            repositorySettingsProvider.reload(settings);
         } catch (final IOException ioe) {
             throw new UncheckedIOException(ioe);
         }
