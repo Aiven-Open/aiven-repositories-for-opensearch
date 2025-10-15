@@ -45,8 +45,8 @@ allprojects {
     apply plugin: "idea"
 
     ext {
-        slf4jVersion = "1.7.35"
-        opensearchVersion = "3.2.0"
+        slf4jVersion = "2.0.17"
+        opensearchVersion = "3.3.0"
         supportedFromOpenSearchVersion = "^3.0.0"
         // since jackson-core is in the main classpath
         // plz keep the same version as for OpenSearch
