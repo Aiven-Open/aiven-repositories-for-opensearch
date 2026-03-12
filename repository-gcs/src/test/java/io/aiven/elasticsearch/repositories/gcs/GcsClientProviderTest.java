@@ -76,6 +76,101 @@ class GcsClientProviderTest extends RsaKeyAwareTest {
     }
 
     @Test
+    void provideInitializationWithDifferentClients() throws Exception {
+        final var gcsClientProvider = new GcsClientProvider();
+
+        final var secureSettings = createFullSecureSettingsWithProxyUsernameAndPassword();
+        secureSettings.setFile(
+                GcsClientSettings.CREDENTIALS_FILE_SETTING.getConcreteSettingForNamespace("additional").getKey(),
+                getClass().getClassLoader().getResourceAsStream("test2_gcs_creds.json")
+        ).setFile(
+                GcsClientSettings.PRIVATE_KEY_FILE.getConcreteSettingForNamespace("additional").getKey(),
+                Files.newInputStream(privateKeyPem)
+        ).setFile(
+                GcsClientSettings.PUBLIC_KEY_FILE.getConcreteSettingForNamespace("additional").getKey(),
+                Files.newInputStream(publicKeyPem)
+        ).setString(
+                GcsClientSettings.PROXY_USER_NAME.getConcreteSettingForNamespace("additional").getKey(),
+                "some2_user_name"
+        ).setString(
+                GcsClientSettings.PROXY_USER_PASSWORD.getConcreteSettingForNamespace("additional").getKey(),
+                "some2_user_password"
+        );
+
+        final var proxySettingsWithUsernameAndPassword = Settings.builder()
+                .put(CommonSettings.RepositorySettings.BASE_PATH.getKey(), "base_path/")
+                .put(GcsClientSettings.CONNECTION_TIMEOUT.getConcreteSettingForNamespace("default").getKey(), 1)
+                .put(GcsClientSettings.READ_TIMEOUT.getConcreteSettingForNamespace("default").getKey(), 2)
+                .put(GcsClientSettings.PROXY_HOST.getConcreteSettingForNamespace("default").getKey(), "socks.test.io")
+                .put(GcsClientSettings.PROXY_PORT.getConcreteSettingForNamespace("default").getKey(), 1234)
+                .put(GcsClientSettings.PROJECT_ID.getConcreteSettingForNamespace("default").getKey(), "some_project")
+                .put(GcsClientSettings.CONNECTION_TIMEOUT.getConcreteSettingForNamespace("additional").getKey(), 100)
+                .put(GcsClientSettings.READ_TIMEOUT.getConcreteSettingForNamespace("additional").getKey(), 101)
+                .put(GcsClientSettings.PROXY_HOST.getConcreteSettingForNamespace("additional").getKey(), "socks2.test.io")
+                .put(GcsClientSettings.PROXY_PORT.getConcreteSettingForNamespace("additional").getKey(), 5678)
+                .put(GcsClientSettings.PROJECT_ID.getConcreteSettingForNamespace("additional").getKey(), "some2_project")
+                .setSecureSettings(secureSettings).build();
+
+        final var clientSettings = GcsClientSettings.create(proxySettingsWithUsernameAndPassword);
+
+        final var defaultClient = gcsClientProvider
+                .buildClientIfNeeded(
+                        clientSettings.get("default"),
+                        Settings.builder()
+                                .put("some_settings_1", 20)
+                                .put("some_settings_2", 210)
+                                .build()
+
+                ).v2();
+
+        final var additionalClient = gcsClientProvider
+                .buildClientIfNeeded(
+                        clientSettings.get("additional"),
+                        Settings.builder()
+                                .put("some_settings_3", 21)
+                                .put("some_settings_4", 220)
+                                .build()
+                ).v2();
+
+        assertTrue(defaultClient.getOptions().getTransportOptions() instanceof HttpTransportOptions);
+
+        final var defaultHttpTransportOptions = (HttpTransportOptions) defaultClient.getOptions().getTransportOptions();
+        final var defaultNetHttpTransport = (NetHttpTransport) defaultHttpTransportOptions.getHttpTransportFactory().create();
+
+        final var defaultProxy = extractProxy(defaultNetHttpTransport);
+        final var defaultInetSocketAddress = (InetSocketAddress) defaultProxy.address();
+
+        assertEquals(1, defaultHttpTransportOptions.getConnectTimeout());
+        assertEquals(2, defaultHttpTransportOptions.getReadTimeout());
+        assertEquals(GcsClientProvider.HTTP_USER_AGENT, defaultClient.getOptions().getUserAgent());
+        assertEquals("some_project", defaultClient.getOptions().getProjectId());
+
+        assertEquals("socks.test.io", defaultInetSocketAddress.getHostName());
+        assertEquals(1234, defaultInetSocketAddress.getPort());
+        assertEquals(loadCredentials(), defaultClient.getOptions().getCredentials());
+        assertEquals(3, defaultClient.getOptions().getRetrySettings().getMaxAttempts());
+
+        assertTrue(additionalClient.getOptions().getTransportOptions() instanceof HttpTransportOptions);
+
+        final var additionalHttpTransportOptions = (HttpTransportOptions) additionalClient.getOptions().getTransportOptions();
+        final var additionalNetHttpTransport = (NetHttpTransport) additionalHttpTransportOptions.getHttpTransportFactory().create();
+
+        final var additionalProxy = extractProxy(additionalNetHttpTransport);
+        final var additionalInetSocketAddress = (InetSocketAddress) additionalProxy.address();
+
+        assertEquals(100, additionalHttpTransportOptions.getConnectTimeout());
+        assertEquals(101, additionalHttpTransportOptions.getReadTimeout());
+        assertEquals(GcsClientProvider.HTTP_USER_AGENT, additionalClient.getOptions().getUserAgent());
+        assertEquals("some2_project", additionalClient.getOptions().getProjectId());
+
+        assertEquals("socks2.test.io", additionalInetSocketAddress.getHostName());
+        assertEquals(5678, additionalInetSocketAddress.getPort());
+        assertEquals(loadCredentials(), additionalClient.getOptions().getCredentials());
+        assertEquals(3, additionalClient.getOptions().getRetrySettings().getMaxAttempts());
+    }
+
+
+    @Test
     void provideInitializationWithProxyConfigurationWithUsernameAndPassword() throws Exception {
         final var gcsClientProvider = new GcsClientProvider();
         final var proxySettingsWithUsernameAndPassword = Settings.builder()
@@ -260,38 +355,6 @@ class GcsClientProviderTest extends RsaKeyAwareTest {
                 ).setString(
                         GcsClientSettings.PROXY_USER_PASSWORD.getConcreteSettingForNamespace("default").getKey(),
                         "some_user_password"
-                );
-    }
-
-    private DummySecureSettings createNoGcsCredentialFileSettings() throws IOException {
-        return new DummySecureSettings()
-                .setFile(
-                        GcsClientSettings.PUBLIC_KEY_FILE.getConcreteSettingForNamespace("default").getKey(),
-                        Files.newInputStream(publicKeyPem)
-                ).setFile(
-                        GcsClientSettings.PRIVATE_KEY_FILE.getConcreteSettingForNamespace("default").getKey(),
-                        Files.newInputStream(privateKeyPem)
-                );
-    }
-
-    private DummySecureSettings createPublicRsaKeyOnlySecureSettings() throws IOException {
-        return new DummySecureSettings()
-                .setFile(
-                        GcsClientSettings.CREDENTIALS_FILE_SETTING.getConcreteSettingForNamespace("default").getKey(),
-                        getClass().getClassLoader().getResourceAsStream("test_gcs_creds.json")
-                ).setFile(
-                        GcsClientSettings.PUBLIC_KEY_FILE.getConcreteSettingForNamespace("default").getKey(),
-                        Files.newInputStream(publicKeyPem));
-    }
-
-    private DummySecureSettings createPrivateRsaKeyOnlySecureSettings() throws IOException {
-        return new DummySecureSettings()
-                .setFile(
-                        GcsClientSettings.CREDENTIALS_FILE_SETTING.getConcreteSettingForNamespace("default").getKey(),
-                        getClass().getClassLoader().getResourceAsStream("test_gcs_creds.json")
-                ).setFile(
-                        GcsClientSettings.PRIVATE_KEY_FILE.getConcreteSettingForNamespace("default").getKey(),
-                        Files.newInputStream(privateKeyPem)
                 );
     }
 
