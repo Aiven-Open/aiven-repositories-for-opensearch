@@ -56,7 +56,6 @@ public class GcsRepositoryPlugin extends AbstractRepositoryPlugin<Storage, GcsCl
                            GcsClientSettings.PROXY_PORT,
                            GcsClientSettings.PROXY_USER_NAME,
                            GcsClientSettings.PROXY_USER_PASSWORD);
-        settings.addAll(GcsClientSettings.LegacyFallback.KEY_MAP.values());
         return settings;
     }
 

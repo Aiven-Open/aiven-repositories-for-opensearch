@@ -50,7 +50,7 @@ public interface CommonSettings {
         static <T> boolean existsOrFallbackExists(final Setting<T> setting, final Settings settings) {
             // Secure settings do not have "fallbackSetting" configured, instead use their own fallback logic.
             if (setting instanceof SecureSetting) {
-                final var keyExists = setting.existsOrFallbackExists(settings);
+                final var keyExists = setting.exists(settings);
                 // SecureStringSetting: SecureString(new char[0]) - means "setting does not exist"
                 // SecureFileSetting: value == null means "setting does not exist"
                 final var value = setting.get(settings);
@@ -59,7 +59,7 @@ public interface CommonSettings {
                                         : value != null;
                 return keyExists || valueExists;
             }
-            return setting.existsOrFallbackExists(settings);
+            return setting.exists(settings);
         }
 
         static byte[] readInputStream(InputStream keyIn) throws IOException {
