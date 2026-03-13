@@ -46,7 +46,7 @@ allprojects {
 
     ext {
         slf4jVersion = "1.7.35"
-        opensearchVersion = "2.19.3"
+        opensearchVersion = "2.19.4"
         supportedFromOpenSearchVersion = "^2.17.0"
         // since jackson-core is in the main classpath
         // plz keep the same version as for OpenSearch
