@@ -16,6 +16,9 @@
 
 package io.aiven.elasticsearch.repositories.gcs;
 
+import java.io.ByteArrayInputStream;
+import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.net.Authenticator;
 import java.net.InetSocketAddress;
 import java.net.PasswordAuthentication;
@@ -29,6 +32,7 @@ import io.aiven.elasticsearch.repositories.ClientProvider;
 import com.google.api.client.http.HttpTransport;
 import com.google.api.client.http.javanet.NetHttpTransport;
 import com.google.auth.http.HttpTransportFactory;
+import com.google.auth.oauth2.GoogleCredentials;
 import com.google.cloud.http.HttpTransportOptions;
 import com.google.cloud.storage.Storage;
 import com.google.cloud.storage.StorageOptions;
@@ -52,6 +56,15 @@ final class GcsClientProvider extends ClientProvider<Storage, GcsClientSettings>
         }
         final var maxRetries = MAX_RETRIES.get(repositorySettings) > 0
                 ? MAX_RETRIES.get(repositorySettings) : clientSettings.getMaxRetries();
+        final GoogleCredentials credentials;
+        try {
+            credentials = GoogleCredentials.fromStream(
+                    new ByteArrayInputStream(clientSettings.gcsCredentials()),
+                    createHttpTransportFactory(clientSettings)
+            );
+        } catch (final IOException e) {
+            throw new UncheckedIOException(e);
+        }
         storageOptionsBuilder
                 .setTransportOptions(
                         HttpTransportOptions.newBuilder()
@@ -67,7 +80,7 @@ final class GcsClientProvider extends ClientProvider<Storage, GcsClientSettings>
                                 .toBuilder()
                                 .setMaxAttempts(maxRetries)
                                 .build())
-                .setCredentials(clientSettings.gcsCredentials());
+                .setCredentials(credentials);
 
         return storageOptionsBuilder.build().getService();
     }
@@ -78,7 +91,7 @@ final class GcsClientProvider extends ClientProvider<Storage, GcsClientSettings>
         client = null;
     }
 
-    private HttpTransportFactory createHttpTransportFactory(final GcsClientSettings gcsClientSettings) {
+    protected static HttpTransportFactory createHttpTransportFactory(final GcsClientSettings gcsClientSettings) {
         if (!Strings.isNullOrEmpty(gcsClientSettings.getProxyHost())) {
             return new ProxyHttpTransportFactory(
                     gcsClientSettings.getProxyHost(),
