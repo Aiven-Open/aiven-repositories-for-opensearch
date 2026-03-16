@@ -151,20 +151,20 @@ public class GcsRepositoryPluginTest extends RsaKeyAwareTest {
         Files.write(credentialsFile, serviceAccountFileContent(projectIdDefault));
 
         final var settings = Settings.builder()
-                                     .put("aiven.gcs.client.project_id", projectIdDefault)
-                                     .put("aiven.gcs.client.connection_timeout", 1000)
-                                     .put("aiven.gcs.client.read_timeout", 10)
-                                     .put("aiven.gcs.client.proxy.host", "localhost")
-                                     .put("aiven.gcs.client.proxy.port", 8080)
+                                     .put("aiven.gcs.client.default.project_id", projectIdDefault)
+                                     .put("aiven.gcs.client.default.connection_timeout", 1000)
+                                     .put("aiven.gcs.client.default.read_timeout", 10)
+                                     .put("aiven.gcs.client.default.proxy.host", "localhost")
+                                     .put("aiven.gcs.client.default.proxy.port", 8080)
                                      .setSecureSettings(new DummySecureSettings()
-                                                            .setFile("aiven.gcs.private_key_file",
+                                                            .setFile("aiven.gcs.client.default.private_key_file",
                                                                      Files.newInputStream(privateKeyPem))
-                                                            .setFile("aiven.gcs.public_key_file",
+                                                            .setFile("aiven.gcs.client.default.public_key_file",
                                                                      Files.newInputStream(publicKeyPem))
-                                                            .setFile("aiven.gcs.client.credentials_file",
+                                                            .setFile("aiven.gcs.client.default.credentials_file",
                                                                      Files.newInputStream(credentialsFile))
-                                                            .setString("aiven.gcs.client.proxy.user_name", "usr")
-                                                            .setString("aiven.gcs.client.proxy.user_password", "pwd"))
+                                                            .setString("aiven.gcs.client.default.proxy.user_name", "usr")
+                                                            .setString("aiven.gcs.client.default.proxy.user_password", "pwd"))
                                      .build();
         plugin = new TestGcsRepositoryPlugin(settings);
         assertNotNull(plugin); // This mean that plugin initialized without issues.
