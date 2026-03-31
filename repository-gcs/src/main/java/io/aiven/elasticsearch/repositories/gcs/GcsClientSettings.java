@@ -141,7 +141,7 @@ public class GcsClientSettings implements CommonSettings.ClientSettings {
 
     private final String projectId;
 
-    private final GoogleCredentials gcsCredentials;
+    private final byte[] gcsCredentials;
 
     private final int connectionTimeout;
 
@@ -161,7 +161,7 @@ public class GcsClientSettings implements CommonSettings.ClientSettings {
     private GcsClientSettings(final byte[] publicKey,
                               final byte[] privateKey,
                               final String projectId,
-                              final GoogleCredentials gcsCredentials,
+                              final byte[] gcsCredentials,
                               final int connectionTimeout,
                               final int readTimeout,
                               final int maxRetries,
@@ -221,7 +221,7 @@ public class GcsClientSettings implements CommonSettings.ClientSettings {
                 readInputStream(getConfigValue(settings, clientName, PUBLIC_KEY_FILE)),
                 readInputStream(getConfigValue(settings, clientName, PRIVATE_KEY_FILE)),
                 getConfigValue(settings, clientName, PROJECT_ID),
-                loadCredentials(settings, clientName),
+                readInputStream(getConfigValue(settings, clientName, CREDENTIALS_FILE_SETTING)),
                 getConfigValue(settings, clientName, CONNECTION_TIMEOUT),
                 getConfigValue(settings, clientName, READ_TIMEOUT),
                 getConfigValue(settings, clientName, MAX_RETRIES_SETTING),
@@ -254,7 +254,7 @@ public class GcsClientSettings implements CommonSettings.ClientSettings {
         return projectId;
     }
 
-    public GoogleCredentials gcsCredentials() {
+    public byte[] gcsCredentials() {
         return gcsCredentials;
     }
 

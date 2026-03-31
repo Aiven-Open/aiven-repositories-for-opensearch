@@ -58,9 +58,10 @@ class GcsClientProviderTest extends RsaKeyAwareTest {
                         .put("some_settings_1", 20)
                         .put("some_settings_2", 210)
                         .build();
+        final var gcsClientSettings = GcsClientSettings.create(settings).get("default");
         final var client =
                 gcsClientProvider.buildClientIfNeeded(
-                        GcsClientSettings.create(settings).get("default"),
+                        gcsClientSettings,
                         repoSettings
                 ).v2();
 
@@ -71,7 +72,7 @@ class GcsClientProviderTest extends RsaKeyAwareTest {
         assertEquals(GcsClientProvider.HTTP_USER_AGENT, client.getOptions().getUserAgent());
         assertEquals("some_project", client.getOptions().getProjectId());
 
-        assertEquals(loadCredentials(), client.getOptions().getCredentials());
+        assertEquals(loadCredentials(gcsClientSettings), client.getOptions().getCredentials());
         assertEquals(3, client.getOptions().getRetrySettings().getMaxAttempts());
     }
 
@@ -86,6 +87,7 @@ class GcsClientProviderTest extends RsaKeyAwareTest {
                 .put(GcsClientSettings.PROXY_PORT.getConcreteSettingForNamespace("default").getKey(), 1234)
                 .put(GcsClientSettings.PROJECT_ID.getConcreteSettingForNamespace("default").getKey(), "some_project")
                 .setSecureSettings(createFullSecureSettingsWithProxyUsernameAndPassword()).build();
+        final var gcsClientSettings = GcsClientSettings.create(proxySettingsWithUsernameAndPassword).get("default");
         final var repoSettings =
                 Settings.builder()
                         .put("some_settings_1", 20)
@@ -94,7 +96,7 @@ class GcsClientProviderTest extends RsaKeyAwareTest {
 
         final var client = gcsClientProvider
                 .buildClientIfNeeded(
-                        GcsClientSettings.create(proxySettingsWithUsernameAndPassword).get("default"),
+                        gcsClientSettings,
                         repoSettings
                 ).v2();
 
@@ -113,7 +115,7 @@ class GcsClientProviderTest extends RsaKeyAwareTest {
 
         assertEquals("socks.test.io", inetSocketAddress.getHostName());
         assertEquals(1234, inetSocketAddress.getPort());
-        assertEquals(loadCredentials(), client.getOptions().getCredentials());
+        assertEquals(loadCredentials(gcsClientSettings), client.getOptions().getCredentials());
         assertEquals(3, client.getOptions().getRetrySettings().getMaxAttempts());
     }
 
@@ -133,9 +135,10 @@ class GcsClientProviderTest extends RsaKeyAwareTest {
                         .put("some_settings_1", 20)
                         .put("some_settings_2", 210)
                         .build();
+        final var gcsClientSettings = GcsClientSettings.create(proxySettingsWithoutUsernameAndPassword).get("default");
         final var client = gcsClientProvider
                 .buildClientIfNeeded(
-                        GcsClientSettings.create(proxySettingsWithoutUsernameAndPassword).get("default"),
+                        gcsClientSettings,
                         repoSettings
                 ).v2();
 
@@ -154,7 +157,7 @@ class GcsClientProviderTest extends RsaKeyAwareTest {
 
         assertEquals("socks5.test.io", inetSocketAddress.getHostName());
         assertEquals(12345, inetSocketAddress.getPort());
-        assertEquals(loadCredentials(), client.getOptions().getCredentials());
+        assertEquals(loadCredentials(gcsClientSettings), client.getOptions().getCredentials());
         assertEquals(3, client.getOptions().getRetrySettings().getMaxAttempts());
     }
 
@@ -169,9 +172,10 @@ class GcsClientProviderTest extends RsaKeyAwareTest {
                         .put("some_settings_2", 210)
                         .build();
 
+        final var gcsClientSettings = GcsClientSettings.create(settings).get("default");
         final var client = gcsClientProvider
                 .buildClientIfNeeded(
-                        GcsClientSettings.create(settings).get("default"),
+                        gcsClientSettings,
                         repoSettings
                 ).v2();
         assertNotNull(client);
@@ -184,7 +188,7 @@ class GcsClientProviderTest extends RsaKeyAwareTest {
         assertEquals(3, client.getOptions().getRetrySettings().getMaxAttempts());
         //skip project id since GCS client returns default one
 
-        assertEquals(loadCredentials(), client.getOptions().getCredentials());
+        assertEquals(loadCredentials(gcsClientSettings), client.getOptions().getCredentials());
     }
 
     @Test
@@ -197,10 +201,10 @@ class GcsClientProviderTest extends RsaKeyAwareTest {
                         .put(MAX_RETRIES.getKey(), 20)
                         .put("some_settings_2", 210)
                         .build();
-
+        final var gcsClientSettings = GcsClientSettings.create(settings).get("default");
         final var client = gcsClientProvider
                 .buildClientIfNeeded(
-                        GcsClientSettings.create(settings).get("default"),
+                        gcsClientSettings,
                         repoSettings
                 ).v2();
         assertNotNull(client);
@@ -213,7 +217,7 @@ class GcsClientProviderTest extends RsaKeyAwareTest {
         assertEquals(20, client.getOptions().getRetrySettings().getMaxAttempts());
         //skip project id since GCS client returns default one
 
-        assertEquals(loadCredentials(), client.getOptions().getCredentials());
+        assertEquals(loadCredentials(gcsClientSettings), client.getOptions().getCredentials());
     }
 
     private Proxy extractProxy(final NetHttpTransport netHttpTransport) throws Exception {
@@ -295,9 +299,9 @@ class GcsClientProviderTest extends RsaKeyAwareTest {
                 );
     }
 
-    GoogleCredentials loadCredentials() throws IOException {
+    GoogleCredentials loadCredentials(final GcsClientSettings gcsClientSettings) throws IOException {
         try (final var in = getClass().getClassLoader().getResourceAsStream("test_gcs_creds.json")) {
-            return UserCredentials.fromStream(in);
+            return UserCredentials.fromStream(in, GcsClientProvider.createHttpTransportFactory(gcsClientSettings));
         }
     }
 
