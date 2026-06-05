@@ -32,7 +32,7 @@ import org.opensearch.plugins.ReloadablePlugin;
 import org.opensearch.plugins.RepositoryPlugin;
 import org.opensearch.repositories.Repository;
 
-import org.bouncycastle.jce.provider.BouncyCastleProvider;
+import org.bouncycastle.jcajce.provider.BouncyCastleFipsProvider;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -53,7 +53,7 @@ public abstract class AbstractRepositoryPlugin<C, S extends CommonSettings.Clien
 
     static {
         try {
-            Permissions.doPrivileged(() -> Security.addProvider(new BouncyCastleProvider()));
+            Permissions.doPrivileged(() -> Security.addProvider(new BouncyCastleFipsProvider()));
         } catch (final IOException e) {
             throw new RuntimeException(e);
         }

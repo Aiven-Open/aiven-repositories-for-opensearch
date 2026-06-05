@@ -16,12 +16,13 @@
 
 ext {
     zstdVersion = "1.5.5-5"
-    bcVersion = "1.76"
+    bcVersion = "2.1.2"
 }
 
 dependencies {
     compileOnly "com.github.luben:zstd-jni:$zstdVersion"
-    implementation "org.bouncycastle:bcprov-jdk15to18:$bcVersion"
+    compileOnly "org.bouncycastle:bc-fips:${bcVersion}"
 
     implementation "org.slf4j:slf4j-api:$slf4jVersion"
+    testCompileOnly "org.bouncycastle:bc-fips:${bcVersion}"
 }
