@@ -28,6 +28,7 @@ import java.security.NoSuchProviderException;
 import java.security.SecureRandom;
 import java.util.Objects;
 
+import org.bouncycastle.jcajce.provider.BouncyCastleFipsProvider;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -56,7 +57,7 @@ public final class EncryptionKeyProvider
         Objects.requireNonNull(rsaPrivateKey, "rsaPrivateKey hasn't been set");
         try {
             final var rsaKeyPair = RsaKeysReader.readRsaKeyPair(rsaPublicKey, rsaPrivateKey);
-            final var kg = KeyGenerator.getInstance("AES", "BC");
+            final var kg = KeyGenerator.getInstance("AES", BouncyCastleFipsProvider.PROVIDER_NAME);
             kg.init(KEY_SIZE, SecureRandom.getInstanceStrong());
             return new EncryptionKeyProvider(rsaKeyPair, kg);
         } catch (final NoSuchAlgorithmException | NoSuchProviderException e) {

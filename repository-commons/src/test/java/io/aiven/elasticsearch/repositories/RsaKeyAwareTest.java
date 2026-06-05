@@ -51,7 +51,7 @@ public abstract class RsaKeyAwareTest {
     @BeforeAll
     static void generateRsaKeyPair(@TempDir final Path tmpFolder)
             throws NoSuchAlgorithmException, IOException, NoSuchProviderException {
-        final var keyPair = KeyPairGenerator.getInstance("RSA", "BC");
+        final var keyPair = KeyPairGenerator.getInstance("RSA", BouncyCastleFipsProvider.PROVIDER_NAME);
         keyPair.initialize(2048, SecureRandom.getInstanceStrong());
         rsaKeyPair = keyPair.generateKeyPair();
 

@@ -49,7 +49,7 @@ dependencies {
         exclude group: "com.fasterxml.jackson.datatype", module: "jackson-datatype-jsr310"
         exclude group: "com.fasterxml.jackson.dataformat", module: "jackson-dataformat-xml"
     }
-
+    testImplementation "org.bouncycastle:bc-fips:2.1.2"
     testImplementation project(':repository-commons').sourceSets.test.output
     testImplementation project(':repository-commons').sourceSets.integrationTest.java
 

@@ -26,6 +26,8 @@ import java.security.NoSuchProviderException;
 import java.security.SecureRandom;
 import java.util.Objects;
 
+import org.bouncycastle.jcajce.provider.BouncyCastleFipsProvider;
+
 public interface Encryption {
 
     default Cipher createEncryptingCipher(final Key key,
@@ -33,7 +35,7 @@ public interface Encryption {
         Objects.requireNonNull(key, "key hasn't been set");
         Objects.requireNonNull(transformation, "transformation hasn't been set");
         try {
-            final var cipher = Cipher.getInstance(transformation, "BC");
+            final var cipher = Cipher.getInstance(transformation, BouncyCastleFipsProvider.PROVIDER_NAME);
             cipher.init(
                     Cipher.ENCRYPT_MODE,
                     key,

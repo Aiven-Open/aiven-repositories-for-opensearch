@@ -28,6 +28,8 @@ import java.security.SecureRandom;
 import java.security.spec.AlgorithmParameterSpec;
 import java.util.Objects;
 
+import org.bouncycastle.jcajce.provider.BouncyCastleFipsProvider;
+
 public interface Decryption {
 
     default Cipher createDecryptingCipher(final Key key,
@@ -41,7 +43,7 @@ public interface Decryption {
         Objects.requireNonNull(key, "key hasn't been set");
         Objects.requireNonNull(transformation, "transformation hasn't been set");
         try {
-            final var cipher = Cipher.getInstance(transformation, "BC");
+            final var cipher = Cipher.getInstance(transformation, BouncyCastleFipsProvider.PROVIDER_NAME);
             if (Objects.nonNull(params)) {
                 cipher.init(
                         Cipher.DECRYPT_MODE,

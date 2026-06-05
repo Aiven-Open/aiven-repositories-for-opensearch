@@ -28,6 +28,8 @@ dependencies {
     }
 
 
+    testImplementation "org.bouncycastle:bc-fips:2.1.2"
+
     testImplementation project(':repository-commons').sourceSets.test.output
     testImplementation project(':repository-commons').sourceSets.integrationTest.java
 
