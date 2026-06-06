@@ -64,6 +64,15 @@ public class RepositoryBlobContainer extends AbstractBlobContainer {
     }
 
     @Override
+    public void writeBlobWithMetadata(final String blobName,
+                                      final InputStream inputStream,
+                                      final long blobSize,
+                                      final boolean failIfAlreadyExists,
+                                      final Map<String, String> metadata) throws IOException {
+        storageIO.write(blobPath(blobName), inputStream, blobSize, failIfAlreadyExists);
+    }
+
+    @Override
     public InputStream readBlob(final String blobName,
                                 final long position,
                                 final long length) throws IOException {
