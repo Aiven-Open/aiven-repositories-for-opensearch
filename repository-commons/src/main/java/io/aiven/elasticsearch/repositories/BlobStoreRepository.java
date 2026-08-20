@@ -17,6 +17,7 @@
 package io.aiven.elasticsearch.repositories;
 
 import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.util.Objects;
 
 import org.opensearch.cluster.metadata.RepositoryMetadata;
@@ -67,24 +68,42 @@ public class BlobStoreRepository<C, S extends CommonSettings.ClientSettings>
 
     @Override
     protected BlobStore createBlobStore() throws Exception {
-        final var storageIo =
-                repositorySettingsProvider
-                        .repositoryStorageIOProvider()
-                        .createStorageIO(basePath().buildAsString(), metadata.settings());
+        return new AivenBlobStore();
+    }
 
-        return new BlobStore() {
-            @Override
-            public BlobContainer blobContainer(final BlobPath path) {
-                return new RepositoryBlobContainer(path, storageIo);
+    // blobContainer() stays as cheap as every other BlobStore's, same as the stock S3 plugin's
+    // S3BlobStore: it reuses storageIo until repositorySettingsProvider hands back a genuinely
+    // different provider instance, which only happens once per real reload() (credential rotation).
+    private final class AivenBlobStore implements BlobStore {
+
+        private RepositoryStorageIOProvider<C, S> appliedProvider;
+
+        private RepositoryStorageIOProvider.StorageIO storageIo;
+
+        @Override
+        public BlobContainer blobContainer(final BlobPath path) {
+            return new RepositoryBlobContainer(path, currentStorageIo());
+        }
+
+        @Override
+        public void close() throws IOException {
+            if (Objects.nonNull(repositorySettingsProvider.repositoryStorageIOProvider())) {
+                repositorySettingsProvider.repositoryStorageIOProvider().close();
             }
+        }
 
-            @Override
-            public void close() throws IOException {
-                if (Objects.nonNull(repositorySettingsProvider.repositoryStorageIOProvider())) {
-                    repositorySettingsProvider.repositoryStorageIOProvider().close();
+        private synchronized RepositoryStorageIOProvider.StorageIO currentStorageIo() {
+            try {
+                final var provider = repositorySettingsProvider.repositoryStorageIOProvider();
+                if (provider != appliedProvider) {
+                    storageIo = provider.createStorageIO(basePath().buildAsString(), metadata.settings());
+                    appliedProvider = provider;
                 }
+                return storageIo;
+            } catch (final IOException e) {
+                throw new UncheckedIOException("Failed to create storage IO for repository", e);
             }
-        };
+        }
     }
 
 }
