@@ -17,6 +17,7 @@
 package io.aiven.elasticsearch.repositories;
 
 import java.io.IOException;
+import java.io.UncheckedIOException;
 
 import org.opensearch.cluster.metadata.RepositoryMetadata;
 import org.opensearch.cluster.service.ClusterService;
@@ -75,25 +76,46 @@ public class BlobStoreRepository<C, S extends CommonSettings.ClientSettings>
 
     @Override
     protected BlobStore createBlobStore() throws Exception {
-        final var storageIo = repositorySettingsProvider.createStorageIO(
-            basePath().buildAsString(), repositoryName, metadata.settings());
+        return new AivenBlobStore();
+    }
 
-        return new BlobStore() {
-            @Override
-            public BlobContainer blobContainer(final BlobPath path) {
-                return new RepositoryBlobContainer(path, storageIo);
-            }
+    // blobContainer() stays as cheap as every other BlobStore's, same as the stock S3 plugin's
+    // S3BlobStore: it reuses storageIo until repositorySettingsProvider's generation() moves past
+    // what was last applied, which only happens once per real reload() (credential rotation).
+    private final class AivenBlobStore implements BlobStore {
 
-            @Override
-            public void reload(final RepositoryMetadata repositoryMetadata) {
-                // TODO Optionally we should support reloading a single repository only.
-            }
+        private int appliedGeneration = -1;
 
-            @Override
-            public void close() throws IOException {
-                repositorySettingsProvider.closeRepository(repositoryName);
+        private RepositoryStorageIOProvider.StorageIO storageIo;
+
+        @Override
+        public BlobContainer blobContainer(final BlobPath path) {
+            return new RepositoryBlobContainer(path, currentStorageIo());
+        }
+
+        @Override
+        public void reload(final RepositoryMetadata repositoryMetadata) {
+            // TODO Optionally we should support reloading a single repository only.
+        }
+
+        @Override
+        public void close() throws IOException {
+            repositorySettingsProvider.closeRepository(repositoryName);
+        }
+
+        private synchronized RepositoryStorageIOProvider.StorageIO currentStorageIo() {
+            try {
+                final var generation = repositorySettingsProvider.generation();
+                if (generation != appliedGeneration) {
+                    storageIo = repositorySettingsProvider.createStorageIO(
+                        basePath().buildAsString(), repositoryName, metadata.settings());
+                    appliedGeneration = generation;
+                }
+                return storageIo;
+            } catch (final IOException e) {
+                throw new UncheckedIOException("Failed to create storage IO for repository", e);
             }
-        };
+        }
     }
 
 }
