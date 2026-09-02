@@ -40,6 +40,8 @@ public abstract class RepositorySettingsService<T, S extends CommonSettings.Clie
     /** Map of client settings per client name. Used to create clients as needed. */
     private volatile Map<String, S> clientsSettings = Collections.emptyMap();
 
+    private volatile int generation;
+
     private final ConcurrentMap<String, RepositoryStorageIOProvider<T, S>> repositoryStorages = newConcurrentMap();
 
     public RepositorySettingsService() {
@@ -61,6 +63,11 @@ public abstract class RepositorySettingsService<T, S extends CommonSettings.Clie
             return;
         }
         clientsSettings = getEffectiveClientSettings(settings);
+        generation++;
+    }
+
+    public int generation() {
+        return generation;
     }
 
     public Map<String, RepositoryStorageIOProvider<T, S>> getRepositoryStorages() {
