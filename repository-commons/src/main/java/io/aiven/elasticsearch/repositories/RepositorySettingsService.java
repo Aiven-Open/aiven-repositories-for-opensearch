@@ -47,15 +47,24 @@ public abstract class RepositorySettingsService<T, S extends CommonSettings.Clie
     public RepositorySettingsService() {
     }
 
-    public synchronized RepositoryStorageIOProvider.StorageIO createStorageIO(
+    public RepositoryStorageIOProvider.StorageIO createStorageIO(
         final String basePath,
         final String repositoryName,
         final Settings repositorySettings
     ) throws IOException {
+        return createStorageIO(basePath, repositoryName, repositorySettings, false);
+    }
+
+    public synchronized RepositoryStorageIOProvider.StorageIO createStorageIO(
+        final String basePath,
+        final String repositoryName,
+        final Settings repositorySettings,
+        final boolean clear
+    ) throws IOException {
         final String clientName = CLIENT_NAME.get(repositorySettings);
         final var ioProvider = repositoryStorages.computeIfAbsent(repositoryName,
                                                                  r -> createRepositoryStorageIOProvider());
-        return ioProvider.createStorageIO(basePath, clientsSettings.get(clientName), repositorySettings);
+        return ioProvider.createStorageIO(basePath, clientsSettings.get(clientName), repositorySettings, clear);
     }
 
     public synchronized void reload(final Settings settings) throws IOException {

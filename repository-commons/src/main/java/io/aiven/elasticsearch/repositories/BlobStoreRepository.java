@@ -106,8 +106,9 @@ public class BlobStoreRepository<C, S extends CommonSettings.ClientSettings>
             try {
                 final var generation = repositorySettingsProvider.generation();
                 if (generation != blobStoreGeneration) {
+                    final var clear = enryptedStorageIo != null;
                     enryptedStorageIo = repositorySettingsProvider.createStorageIO(
-                        basePath().buildAsString(), repositoryName, metadata.settings());
+                        basePath().buildAsString(), repositoryName, metadata.settings(), clear);
                     blobStoreGeneration = generation;
                 }
                 return enryptedStorageIo;

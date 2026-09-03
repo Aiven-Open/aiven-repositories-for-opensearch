@@ -145,6 +145,41 @@ public class GcsRepositoryPluginTest extends RsaKeyAwareTest {
     }
 
     @Test
+    public void testCachedClientIsRebuiltOnlyWhenClearIsRequested() throws Exception {
+        final var secureSettings = new DummySecureSettings();
+        createSecureSettings(secureSettings,
+                             "default",
+                             new ByteArrayInputStream(serviceAccountFileContent(projectIdDefault)),
+                             Files.newInputStream(publicKeyPem),
+                             Files.newInputStream(privateKeyPem));
+
+        final var repositorySettings = Settings.builder()
+                                               .put(CommonSettings.RepositorySettings.BASE_PATH.getKey(), "base_path/")
+                                               .put(CommonSettings.RepositorySettings.CLIENT_NAME.getKey(), "default")
+                                               .put(GcsRepositoryStorageIOProvider.BUCKET_NAME.getKey(), "bucket/name")
+                                               .build();
+
+        plugin = new TestGcsRepositoryPlugin(createSettings("default").setSecureSettings(secureSettings).build());
+        final RepositorySettingsService<?, ?> service = plugin.getRepositorySettingsProvider();
+
+        final var initialIo = service.createStorageIO("/", "repo1", repositorySettings);
+
+        final var reloaded = new DummySecureSettings();
+        createSecureSettings(reloaded,
+                             "default",
+                             new ByteArrayInputStream(serviceAccountFileContent(projectIdBtar)),
+                             Files.newInputStream(publicKeyPem),
+                             Files.newInputStream(privateKeyPem));
+        service.reload(createSettings("default").setSecureSettings(reloaded).build());
+
+        final var staleIo = service.createStorageIO("/", "repo1", repositorySettings);
+        assertSame(((TestStorageIO) initialIo).storage, ((TestStorageIO) staleIo).storage);
+
+        final var rebuiltIo = service.createStorageIO("/", "repo1", repositorySettings, true);
+        assertNotSame(((TestStorageIO) initialIo).storage, ((TestStorageIO) rebuiltIo).storage);
+    }
+
+    @Test
     public void testRepositorySettingsBackwardsCompatibility() throws Exception {
         // All settings must fall back to the "default" client if not explicitly set otherwise.
         final Path credentialsFile = tempDir.resolve(CREDENTIALS_JSON);

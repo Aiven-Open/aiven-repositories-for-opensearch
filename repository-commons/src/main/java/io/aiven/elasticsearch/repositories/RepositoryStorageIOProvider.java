@@ -58,8 +58,13 @@ public abstract class RepositoryStorageIOProvider<C, S extends CommonSettings.Cl
     public StorageIO createStorageIO(
         final String basePath,
         final S clientSettings,
-        final Settings repositorySettings
+        final Settings repositorySettings,
+        final boolean clear
     ) throws IOException {
+        if (clear) {
+            close();
+        }
+
         final var bufferSize = Math.toIntExact(BUFFER_SIZE_SETTING.get(repositorySettings).getBytes());
         final var encProviderAndClient =
                 Permissions.doPrivileged(() -> {
