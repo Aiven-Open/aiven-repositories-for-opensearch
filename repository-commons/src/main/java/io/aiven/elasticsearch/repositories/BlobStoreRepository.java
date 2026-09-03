@@ -17,6 +17,7 @@
 package io.aiven.elasticsearch.repositories;
 
 import java.io.IOException;
+import java.io.UncheckedIOException;
 
 import org.opensearch.cluster.metadata.RepositoryMetadata;
 import org.opensearch.cluster.service.ClusterService;
@@ -75,25 +76,45 @@ public class BlobStoreRepository<C, S extends CommonSettings.ClientSettings>
 
     @Override
     protected BlobStore createBlobStore() throws Exception {
-        final var storageIo = repositorySettingsProvider.createStorageIO(
-            basePath().buildAsString(), repositoryName, metadata.settings());
+        return new AivenBlobStore();
+    }
 
-        return new BlobStore() {
-            @Override
-            public BlobContainer blobContainer(final BlobPath path) {
-                return new RepositoryBlobContainer(path, storageIo);
-            }
+    private final class AivenBlobStore implements BlobStore {
+        private int blobStoreGeneration = -1;
+        private RepositoryStorageIOProvider.StorageIO enryptedStorageIo;
 
-            @Override
-            public void reload(final RepositoryMetadata repositoryMetadata) {
-                // TODO Optionally we should support reloading a single repository only.
-            }
+        @Override
+        public BlobContainer blobContainer(final BlobPath path) {
+            return new RepositoryBlobContainer(path, currentStorageIo());
+        }
 
-            @Override
-            public void close() throws IOException {
-                repositorySettingsProvider.closeRepository(repositoryName);
+        @Override
+        public void reload(final RepositoryMetadata repositoryMetadata) {
+            // This is called when the isSystemRepository = true (only for remote storage repositories),
+            // otherwise the repository is recreated with the new settings.
+
+            // the repositoryMetadata is synced across the cluster
+            // the reload plugin is called in turn only from prune leader, so we can safely reload the storageIO
+        }
+
+        @Override
+        public void close() throws IOException {
+            repositorySettingsProvider.closeRepository(repositoryName);
+        }
+
+        private synchronized RepositoryStorageIOProvider.StorageIO currentStorageIo() {
+            try {
+                final var generation = repositorySettingsProvider.generation();
+                if (generation != blobStoreGeneration) {
+                    enryptedStorageIo = repositorySettingsProvider.createStorageIO(
+                        basePath().buildAsString(), repositoryName, metadata.settings());
+                    blobStoreGeneration = generation;
+                }
+                return enryptedStorageIo;
+            } catch (final IOException e) {
+                throw new UncheckedIOException("Failed to create storage IO for repository", e);
             }
-        };
+        }
     }
 
 }
