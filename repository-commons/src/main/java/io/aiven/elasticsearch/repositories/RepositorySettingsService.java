@@ -55,16 +55,32 @@ public abstract class RepositorySettingsService<T, S extends CommonSettings.Clie
         return createStorageIO(basePath, repositoryName, repositorySettings, false);
     }
 
-    public synchronized RepositoryStorageIOProvider.StorageIO createStorageIO(
+    public RepositoryStorageIOProvider.StorageIO createStorageIO(
         final String basePath,
         final String repositoryName,
         final Settings repositorySettings,
         final boolean clear
     ) throws IOException {
+        return createStorageIO(basePath, repositoryName, repositorySettings, clear, false);
+    }
+
+    public synchronized RepositoryStorageIOProvider.StorageIO createStorageIO(
+        final String basePath,
+        final String repositoryName,
+        final Settings repositorySettings,
+        final boolean clear,
+        final boolean hasCryptoSettings
+    ) throws IOException {
         final String clientName = CLIENT_NAME.get(repositorySettings);
         final var ioProvider = repositoryStorages.computeIfAbsent(repositoryName,
                                                                  r -> createRepositoryStorageIOProvider());
-        return ioProvider.createStorageIO(basePath, clientsSettings.get(clientName), repositorySettings, clear);
+        return ioProvider.createStorageIO(
+            basePath, clientsSettings.get(clientName), repositorySettings, clear, hasCryptoSettings);
+    }
+
+    /** Whether repositories of this type can be registered with {@code crypto_settings}. */
+    protected boolean supportsCryptoSettings() {
+        return false;
     }
 
     public synchronized void reload(final Settings settings) throws IOException {

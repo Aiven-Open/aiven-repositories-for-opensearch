@@ -22,14 +22,12 @@ import java.io.ByteArrayInputStream;
 import java.io.Closeable;
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.OutputStream;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 
 import org.opensearch.common.collect.Tuple;
 import org.opensearch.common.settings.Settings;
-import org.opensearch.common.util.io.Streams;
 
 import io.aiven.elasticsearch.repositories.io.CryptoIOProvider;
 import io.aiven.elasticsearch.repositories.metadata.EncryptedRepositoryMetadata;
@@ -61,8 +59,24 @@ public abstract class RepositoryStorageIOProvider<C, S extends CommonSettings.Cl
         final Settings repositorySettings,
         final boolean clear
     ) throws IOException {
+        return createStorageIO(basePath, clientSettings, repositorySettings, clear, false);
+    }
+
+    public StorageIO createStorageIO(
+        final String basePath,
+        final S clientSettings,
+        final Settings repositorySettings,
+        final boolean clear,
+        final boolean hasCryptoSettings
+    ) throws IOException {
         if (clear) {
             close();
+        }
+
+        if (hasCryptoSettings) {
+            final var client = Permissions.doPrivileged(
+                    () -> clientProvider.buildClientIfNeeded(clientSettings, repositorySettings).v2());
+            return createStorageIOFor(client, repositorySettings, CryptoIOProvider.UNENCRYPTED);
         }
 
         final var bufferSize = Math.toIntExact(BUFFER_SIZE_SETTING.get(repositorySettings).getBytes());
@@ -79,31 +93,23 @@ public abstract class RepositoryStorageIOProvider<C, S extends CommonSettings.Cl
         );
     }
 
+    /**
+     * Returning {@code false} means every repository without {@code crypto_settings}
+     * must already have {@value #REPOSITORY_METADATA_FILE_NAME}.
+     */
+    protected boolean createsEncryptionKeyIfMissing() {
+        return true;
+    }
+
     private void createOrRestoreEncryptionKey(final C client,
                                               final EncryptionKeyProvider encryptionKeyProvider,
                                               final String basePath,
                                               final Settings repositorySettings) throws IOException {
         
         final var repositoryMetadataFilePath = basePath + REPOSITORY_METADATA_FILE_NAME;
-        final var encKeyRepoMetadata =
-                 // restore a repository metadata file which contains the encryption key
-                 // encrypted without compression and use different Cipher compare to
-                 // regular backup files, that's why CryptoIOProvider reads/writes directly to
-                 // the storage without compression and encryption, and it doesn't use encryption key and buffer size
-                 createStorageIOFor(client, repositorySettings, new CryptoIOProvider(null, 0) {
-                 
-                     @Override
-                     public InputStream decryptAndDecompress(final InputStream in) throws IOException {
-                         return in;
-                     }
-                     
-                     @Override
-                     public long compressAndEncrypt(final InputStream in,
-                         final OutputStream out) throws IOException {
-                         return Streams.copy(in, out);
-                     }
-                     
-                 });
+        // The repository metadata file holds the encryption key wrapped with RSA, so it is
+        // read and written as is, without the AES and zstd layer used for regular blobs.
+        final var encKeyRepoMetadata = createStorageIOFor(client, repositorySettings, CryptoIOProvider.UNENCRYPTED);
         final var repositoryMetadata = new EncryptedRepositoryMetadata(encryptionKeyProvider);
             
         if (Objects.isNull(encryptionKey)) {
@@ -112,6 +118,11 @@ public abstract class RepositoryStorageIOProvider<C, S extends CommonSettings.Cl
                 try (final var in = encKeyRepoMetadata.read(repositoryMetadataFilePath)) {
                     encryptionKey = repositoryMetadata.deserialize(in.readAllBytes());
                 }
+            } else if (!createsEncryptionKeyIfMissing()) {
+                throw new IllegalArgumentException(
+                    "No crypto_settings and no " + REPOSITORY_METADATA_FILE_NAME + " at [" + basePath
+                        + "]. New repositories of this type must set crypto_settings"
+                );
             } else {
                 LOGGER.info("Create new encryption key for repository. Path: {}", repositoryMetadataFilePath);
                 encryptionKey = encryptionKeyProvider.createKey();
@@ -161,6 +172,10 @@ public abstract class RepositoryStorageIOProvider<C, S extends CommonSettings.Cl
         List<String> listDirectories(final String path) throws IOException;
 
         Map<String, Long> listFiles(final String path, final String prefix) throws IOException;
+
+        default InputStream read(final String blobName, final long position, final long length) throws IOException {
+            throw new UnsupportedOperationException("Ranged read is not supported by " + getClass().getSimpleName());
+        }
     }
 
 }

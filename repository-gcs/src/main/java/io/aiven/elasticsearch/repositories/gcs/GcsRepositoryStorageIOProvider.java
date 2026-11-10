@@ -47,6 +47,7 @@ import com.google.cloud.storage.Storage;
 import com.google.cloud.storage.StorageException;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.io.ByteStreams;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -76,6 +77,11 @@ public class GcsRepositoryStorageIOProvider
                 GcsRepositoryPlugin.REPOSITORY_TYPE, BUCKET_NAME, repositorySettings);
         final var bucketName = BUCKET_NAME.get(repositorySettings);
         return new GcsStorageIO(storage, bucketName, cryptoIOProvider);
+    }
+
+    @Override
+    protected boolean createsEncryptionKeyIfMissing() {
+        return false;
     }
 
     public static class GcsStorageIO implements StorageIO {
@@ -113,6 +119,26 @@ public class GcsRepositoryStorageIOProvider
                     return cryptoIOProvider.decryptAndDecompress(Channels.newInputStream(reader));
                 } catch (final StorageException e) {
                     throw new IOException("Failed to read blob [" + blobName + "]");
+                }
+            });
+        }
+
+        @Override
+        public InputStream read(final String blobName, final long position, final long length) throws IOException {
+            if (cryptoIOProvider != CryptoIOProvider.UNENCRYPTED) {
+                throw new UnsupportedOperationException(
+                    "Ranged read of blob [" + blobName + "] requires a repository with crypto_settings");
+            }
+            return Permissions.doPrivileged(() -> {
+                try {
+                    final int maxAttempts = storage.getOptions().getRetrySettings().getMaxAttempts();
+                    final BlobId blobId = BlobId.of(bucketName, blobName);
+                    final var channel = storage.reader(blobId);
+                    channel.seek(position);
+                    final var reader = new GcsRetryableReadChannel(channel, blobId, maxAttempts);
+                    return ByteStreams.limit(Channels.newInputStream(reader), length);
+                } catch (final StorageException e) {
+                    throw new IOException("Failed to read blob [" + blobName + "] at position " + position, e);
                 }
             });
         }

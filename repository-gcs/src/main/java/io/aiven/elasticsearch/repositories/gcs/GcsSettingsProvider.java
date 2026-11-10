@@ -43,4 +43,9 @@ public class GcsSettingsProvider extends RepositorySettingsService<Storage, GcsC
         return new GcsRepositoryStorageIOProvider();
     }
 
+    @Override
+    protected boolean supportsCryptoSettings() {
+        return true;
+    }
+
 }

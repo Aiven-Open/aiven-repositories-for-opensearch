@@ -30,6 +30,8 @@ dependencies {
     testImplementation "org.bouncycastle:bc-fips:2.1.2"
     testImplementation project(':repository-commons').sourceSets.test.output
     testImplementation project(':repository-commons').sourceSets.integrationTest.java
+    testImplementation project(':crypto-cipher')
+    testImplementation project(':crypto-provider')
 
     integrationTestImplementation "com.google.cloud:google-cloud-storage:$gcsVerison"
     integrationTestImplementation project(':repository-commons').sourceSets.integrationTest.output

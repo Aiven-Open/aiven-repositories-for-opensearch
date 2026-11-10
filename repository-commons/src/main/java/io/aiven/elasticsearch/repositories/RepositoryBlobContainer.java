@@ -76,7 +76,8 @@ public class RepositoryBlobContainer extends AbstractBlobContainer {
     public InputStream readBlob(final String blobName,
                                 final long position,
                                 final long length) throws IOException {
-        throw new UnsupportedOperationException("Couldn't decrypt by position");
+        logger.debug("Read blob: {}, position: {}, length: {}", blobPath(blobName), position, length);
+        return storageIO.read(blobPath(blobName), position, length);
     }
 
     @Override

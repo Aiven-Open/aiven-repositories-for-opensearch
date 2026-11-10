@@ -46,6 +46,20 @@ public class CryptoIOProvider implements Encryption, Decryption {
 
     static final int BUFFER_SIZE = 16 * 1024;
 
+    public static final CryptoIOProvider UNENCRYPTED = new CryptoIOProvider(null, 0) {
+
+        @Override
+        public InputStream decryptAndDecompress(final InputStream in) {
+            return in;
+        }
+
+        @Override
+        public long compressAndEncrypt(final InputStream in, final OutputStream out) throws IOException {
+            return Streams.copy(in, out);
+        }
+
+    };
+
     private final SecretKey encryptionKey;
 
     private final int bufferSize;

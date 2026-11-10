@@ -75,9 +75,8 @@ class RepositoryBlobContainerTest {
 
     @Test
     void readBlobWithPosition() throws IOException {
-        assertThrows(
-                UnsupportedOperationException.class, () -> repositoryBlobContainer
-                        .readBlob("some_blob", 0, 100));
+        repositoryBlobContainer.readBlob("some_blob", 10, 100);
+        verify(mockedStorageIO).read(DEFAULT_PATH.buildAsString() + "some_blob", 10, 100);
     }
 
     @Test

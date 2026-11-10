@@ -30,6 +30,7 @@ import org.opensearch.core.compress.Compressor;
 import org.opensearch.core.compress.CompressorRegistry;
 import org.opensearch.core.xcontent.NamedXContentRegistry;
 import org.opensearch.indices.recovery.RecoverySettings;
+import org.opensearch.repositories.RepositoryException;
 
 public class BlobStoreRepository<C, S extends CommonSettings.ClientSettings>
         extends org.opensearch.repositories.blobstore.BlobStoreRepository
@@ -46,6 +47,9 @@ public class BlobStoreRepository<C, S extends CommonSettings.ClientSettings>
                                final RecoverySettings recoverySettings,
                                final RepositorySettingsService<C, S> repositorySettingsProvider) {
         super(metadata, namedXContentRegistry, clusterService, recoverySettings);
+        if (metadata.cryptoMetadata() != null && !repositorySettingsProvider.supportsCryptoSettings()) {
+            throw new RepositoryException(metadata.name(), "crypto_settings are not supported by this repository type");
+        }
         this.repositorySettingsProvider = repositorySettingsProvider;
         this.repositoryName = metadata.name();
         final String basePath = BASE_PATH.get(metadata.settings());
@@ -108,7 +112,8 @@ public class BlobStoreRepository<C, S extends CommonSettings.ClientSettings>
                 if (generation != blobStoreGeneration) {
                     final var clear = enryptedStorageIo != null;
                     enryptedStorageIo = repositorySettingsProvider.createStorageIO(
-                        basePath().buildAsString(), repositoryName, metadata.settings(), clear);
+                        basePath().buildAsString(), repositoryName, metadata.settings(), clear,
+                        metadata.cryptoMetadata() != null);
                     blobStoreGeneration = generation;
                 }
                 return enryptedStorageIo;

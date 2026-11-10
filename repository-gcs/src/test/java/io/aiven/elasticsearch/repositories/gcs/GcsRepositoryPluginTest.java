@@ -49,6 +49,7 @@ import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNotSame;
 import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class GcsRepositoryPluginTest extends RsaKeyAwareTest {
@@ -180,6 +181,34 @@ public class GcsRepositoryPluginTest extends RsaKeyAwareTest {
     }
 
     @Test
+    public void testNewRepositoryWithoutCryptoSettingsIsRefused() throws Exception {
+        final var secureSettings = new DummySecureSettings();
+        createSecureSettings(secureSettings,
+                             "default",
+                             new ByteArrayInputStream(serviceAccountFileContent(projectIdDefault)),
+                             Files.newInputStream(publicKeyPem),
+                             Files.newInputStream(privateKeyPem));
+        plugin = new TestGcsRepositoryPlugin(createSettings("default").setSecureSettings(secureSettings).build());
+        final var clientSettings = plugin.getRepositorySettingsProvider().getClientsSettings().get("default");
+        final var repositorySettings = Settings.builder()
+                                               .put(CommonSettings.RepositorySettings.BASE_PATH.getKey(), "base_path/")
+                                               .put(GcsRepositoryStorageIOProvider.BUCKET_NAME.getKey(), "bucket/name")
+                                               .build();
+        final var provider = new EmptyBucketGcsRepositoryStorageIOProvider();
+
+        assertThrows(IllegalArgumentException.class,
+            () -> provider.createStorageIO("base_path/", clientSettings, repositorySettings, false, false));
+        assertInstanceOf(TestStorageIO.class,
+            provider.createStorageIO("base_path/", clientSettings, repositorySettings, false, true));
+        provider.close();
+    }
+
+    @Test
+    public void testCryptoSettingsAreSupported() {
+        assertTrue(new GcsSettingsProvider().supportsCryptoSettings());
+    }
+
+    @Test
     public void testRepositorySettingsBackwardsCompatibility() throws Exception {
         // All settings must fall back to the "default" client if not explicitly set otherwise.
         final Path credentialsFile = tempDir.resolve(CREDENTIALS_JSON);
@@ -262,6 +291,20 @@ public class GcsRepositoryPluginTest extends RsaKeyAwareTest {
     }
 
     private static class TestGcsRepositoryStorageIOProvider extends GcsRepositoryStorageIOProvider {
+        @Override
+        protected StorageIO createStorageIOFor(final Storage storage,
+                                               final Settings repositorySettings,
+                                               final CryptoIOProvider cryptoIOProvider) {
+            return new TestStorageIO(storage);
+        }
+
+        @Override
+        protected boolean createsEncryptionKeyIfMissing() {
+            return true;
+        }
+    }
+
+    private static class EmptyBucketGcsRepositoryStorageIOProvider extends GcsRepositoryStorageIOProvider {
         @Override
         protected StorageIO createStorageIOFor(final Storage storage,
                                                final Settings repositorySettings,

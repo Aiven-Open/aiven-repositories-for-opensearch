@@ -125,19 +125,7 @@ allprojects {
     }
 
     dependencies {
-        implementation("com.fasterxml.jackson.core:jackson-databind:$jacksonDatabind") {
-            exclude group: "com.fasterxml.jackson.core", module: "jackson-core"
-        }
-
         compileOnly "org.opensearch:opensearch:$opensearchVersion"
-
-        implementation("org.apache.logging.log4j:log4j-slf4j-impl:2.17.1") {
-            exclude group: "org.slf4j", module: "slf4j-api"
-            exclude group: "org.apache.logging.log4j", module: "log4j-api"
-            exclude group: "org.apache.logging.log4j", module: "log4j-core"
-        }
-
-        implementation "org.slf4j:slf4j-api:$slf4jVersion"
 
         testImplementation "org.mockito:mockito-core:4.3.0"
         testImplementation "org.mockito:mockito-junit-jupiter:4.3.0"
@@ -149,4 +137,20 @@ allprojects {
         integrationTestImplementation sourceSets.test.output
     }
 
+}
+
+configure(subprojects.findAll { it.name.startsWith("repository-") }) {
+    dependencies {
+        implementation("com.fasterxml.jackson.core:jackson-databind:$jacksonDatabind") {
+            exclude group: "com.fasterxml.jackson.core", module: "jackson-core"
+        }
+
+        implementation("org.apache.logging.log4j:log4j-slf4j-impl:2.17.1") {
+            exclude group: "org.slf4j", module: "slf4j-api"
+            exclude group: "org.apache.logging.log4j", module: "log4j-api"
+            exclude group: "org.apache.logging.log4j", module: "log4j-core"
+        }
+
+        implementation "org.slf4j:slf4j-api:$slf4jVersion"
+    }
 }
