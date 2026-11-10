@@ -79,11 +79,6 @@ public class GcsRepositoryStorageIOProvider
         return new GcsStorageIO(storage, bucketName, cryptoIOProvider);
     }
 
-    @Override
-    protected boolean createsEncryptionKeyIfMissing() {
-        return false;
-    }
-
     public static class GcsStorageIO implements StorageIO {
 
         private final Storage storage;
@@ -126,8 +121,14 @@ public class GcsRepositoryStorageIOProvider
         @Override
         public InputStream read(final String blobName, final long position, final long length) throws IOException {
             if (cryptoIOProvider != CryptoIOProvider.UNENCRYPTED) {
-                throw new UnsupportedOperationException(
-                    "Ranged read of blob [" + blobName + "] requires a repository with crypto_settings");
+                final var in = read(blobName);
+                try {
+                    in.skipNBytes(position);
+                } catch (final IOException e) {
+                    in.close();
+                    throw e;
+                }
+                return ByteStreams.limit(in, length);
             }
             return Permissions.doPrivileged(() -> {
                 try {

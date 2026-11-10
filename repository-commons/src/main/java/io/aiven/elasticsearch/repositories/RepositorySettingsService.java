@@ -78,6 +78,18 @@ public abstract class RepositorySettingsService<T, S extends CommonSettings.Clie
             basePath, clientsSettings.get(clientName), repositorySettings, clear, hasCryptoSettings);
     }
 
+    /** See {@link RepositoryStorageIOProvider#createRepositoryKeyStorageIO}. */
+    public synchronized RepositoryStorageIOProvider.StorageIO createRepositoryKeyStorageIO(
+        final String basePath,
+        final String repositoryName,
+        final Settings repositorySettings
+    ) throws IOException {
+        final String clientName = CLIENT_NAME.get(repositorySettings);
+        final var ioProvider = repositoryStorages.computeIfAbsent(repositoryName,
+                                                                 r -> createRepositoryStorageIOProvider());
+        return ioProvider.createRepositoryKeyStorageIO(basePath, clientsSettings.get(clientName), repositorySettings);
+    }
+
     /** Whether repositories of this type can be registered with {@code crypto_settings}. */
     protected boolean supportsCryptoSettings() {
         return false;

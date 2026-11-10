@@ -94,11 +94,44 @@ public abstract class RepositoryStorageIOProvider<C, S extends CommonSettings.Cl
     }
 
     /**
-     * Returning {@code false} means every repository without {@code crypto_settings}
-     * must already have {@value #REPOSITORY_METADATA_FILE_NAME}.
+     * Storage IO for the blobs a repository with {@code crypto_settings} holds from before it had them:
+     * compressed and encrypted with the key from {@value #REPOSITORY_METADATA_FILE_NAME}.
+     * Returns {@code null} when the base path has no such file. Never creates the file.
      */
-    protected boolean createsEncryptionKeyIfMissing() {
-        return true;
+    public StorageIO createRepositoryKeyStorageIO(
+        final String basePath,
+        final S clientSettings,
+        final Settings repositorySettings
+    ) throws IOException {
+        final var bufferSize = Math.toIntExact(BUFFER_SIZE_SETTING.get(repositorySettings).getBytes());
+        final var client = Permissions.doPrivileged(() -> {
+            final var c = clientProvider.buildClientIfNeeded(clientSettings, repositorySettings);
+            if (Objects.isNull(encryptionKey)) {
+                encryptionKey = readEncryptionKey(c.v2(), c.v1(), basePath, repositorySettings);
+            }
+            return c.v2();
+        });
+        if (Objects.isNull(encryptionKey)) {
+            return null;
+        }
+        return createStorageIOFor(client, repositorySettings, new CryptoIOProvider(encryptionKey, bufferSize));
+    }
+
+    private SecretKey readEncryptionKey(final C client,
+                                        final EncryptionKeyProvider encryptionKeyProvider,
+                                        final String basePath,
+                                        final Settings repositorySettings) throws IOException {
+        final var repositoryMetadataFilePath = basePath + REPOSITORY_METADATA_FILE_NAME;
+        // The repository metadata file holds the encryption key wrapped with RSA, so it is
+        // read and written as is, without the AES and zstd layer used for regular blobs.
+        final var encKeyRepoMetadata = createStorageIOFor(client, repositorySettings, CryptoIOProvider.UNENCRYPTED);
+        if (!encKeyRepoMetadata.exists(repositoryMetadataFilePath)) {
+            return null;
+        }
+        LOGGER.info("Restore encryption key for repository. Path: {}", repositoryMetadataFilePath);
+        try (final var in = encKeyRepoMetadata.read(repositoryMetadataFilePath)) {
+            return new EncryptedRepositoryMetadata(encryptionKeyProvider).deserialize(in.readAllBytes());
+        }
     }
 
     private void createOrRestoreEncryptionKey(final C client,
@@ -107,29 +140,19 @@ public abstract class RepositoryStorageIOProvider<C, S extends CommonSettings.Cl
                                               final Settings repositorySettings) throws IOException {
         
         final var repositoryMetadataFilePath = basePath + REPOSITORY_METADATA_FILE_NAME;
-        // The repository metadata file holds the encryption key wrapped with RSA, so it is
-        // read and written as is, without the AES and zstd layer used for regular blobs.
         final var encKeyRepoMetadata = createStorageIOFor(client, repositorySettings, CryptoIOProvider.UNENCRYPTED);
         final var repositoryMetadata = new EncryptedRepositoryMetadata(encryptionKeyProvider);
             
         if (Objects.isNull(encryptionKey)) {
-            if (encKeyRepoMetadata.exists(repositoryMetadataFilePath)) {
-                LOGGER.info("Restore encryption key for repository. Path: {}", repositoryMetadataFilePath);
-                try (final var in = encKeyRepoMetadata.read(repositoryMetadataFilePath)) {
-                    encryptionKey = repositoryMetadata.deserialize(in.readAllBytes());
-                }
-            } else if (!createsEncryptionKeyIfMissing()) {
-                throw new IllegalArgumentException(
-                    "No crypto_settings and no " + REPOSITORY_METADATA_FILE_NAME + " at [" + basePath
-                        + "]. New repositories of this type must set crypto_settings"
-                );
-            } else {
-                LOGGER.info("Create new encryption key for repository. Path: {}", repositoryMetadataFilePath);
-                encryptionKey = encryptionKeyProvider.createKey();
-                final var repoMetadata = repositoryMetadata.serialize(encryptionKey);
-                encKeyRepoMetadata.write(repositoryMetadataFilePath, new ByteArrayInputStream(repoMetadata),
-                        repoMetadata.length, true);
+            encryptionKey = readEncryptionKey(client, encryptionKeyProvider, basePath, repositorySettings);
+            if (Objects.nonNull(encryptionKey)) {
+                return;
             }
+            LOGGER.info("Create new encryption key for repository. Path: {}", repositoryMetadataFilePath);
+            encryptionKey = encryptionKeyProvider.createKey();
+            final var repoMetadata = repositoryMetadata.serialize(encryptionKey);
+            encKeyRepoMetadata.write(repositoryMetadataFilePath, new ByteArrayInputStream(repoMetadata),
+                    repoMetadata.length, true);
         } else if (!encKeyRepoMetadata.exists(repositoryMetadataFilePath)) {
             // While plugin does not support it directly we are fine in having same encryption key in all repositories.
             // This bit makes sure used encryption key is written to the all repositories metadata file.

@@ -45,6 +45,7 @@ import org.junit.jupiter.api.Test;
 import static io.aiven.elasticsearch.repositories.RepositoryStorageIOProvider.REPOSITORY_METADATA_FILE_NAME;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
@@ -67,7 +68,7 @@ class RepositoryStorageIOProviderTest extends RsaKeyAwareTest {
 
     @Test
     void withCryptoSettingsWritesBytesAsIsAndSkipsRepositoryMetadata() throws IOException {
-        final var storageIO = new TestStorageIOProvider(false)
+        final var storageIO = new TestStorageIOProvider()
             .createStorageIO(BASE_PATH, clientSettings, Settings.EMPTY, false, true);
 
         storageIO.write(BASE_PATH + "blob", new ByteArrayInputStream(CONTENT), CONTENT.length, false);
@@ -77,32 +78,45 @@ class RepositoryStorageIOProviderTest extends RsaKeyAwareTest {
     }
 
     @Test
-    void refusesNewRepositoryWithoutCryptoSettings() {
-        final var provider = new TestStorageIOProvider(false);
-
-        assertThrows(IllegalArgumentException.class,
-            () -> provider.createStorageIO(BASE_PATH, clientSettings, Settings.EMPTY, false, false));
-        assertTrue(bucket.isEmpty());
-    }
-
-    @Test
-    void createsEncryptionKeyForNewRepositoryWhenAllowed() throws IOException {
-        new TestStorageIOProvider(true).createStorageIO(BASE_PATH, clientSettings, Settings.EMPTY, false, false);
+    void withoutCryptoSettingsCreatesEncryptionKeyForNewRepository() throws IOException {
+        new TestStorageIOProvider().createStorageIO(BASE_PATH, clientSettings, Settings.EMPTY, false, false);
 
         assertTrue(bucket.containsKey(BASE_PATH + REPOSITORY_METADATA_FILE_NAME));
     }
 
     @Test
-    void readsExistingRepositoryWhenKeyCreationIsDisabled() throws IOException {
-        final var writer = new TestStorageIOProvider(true)
+    void withoutCryptoSettingsReadsWhatAnotherNodeWrote() throws IOException {
+        final var writer = new TestStorageIOProvider()
             .createStorageIO(BASE_PATH, clientSettings, Settings.EMPTY, false, false);
         writer.write(BASE_PATH + "blob", new ByteArrayInputStream(CONTENT), CONTENT.length, false);
 
-        final var reader = new TestStorageIOProvider(false)
+        final var reader = new TestStorageIOProvider()
             .createStorageIO(BASE_PATH, clientSettings, Settings.EMPTY, false, false);
         try (final var in = reader.read(BASE_PATH + "blob")) {
             assertArrayEquals(CONTENT, in.readAllBytes());
         }
+    }
+
+    @Test
+    void repositoryKeyStorageIOReadsBlobsWrittenWithoutCryptoSettings() throws IOException {
+        final var writer = new TestStorageIOProvider()
+            .createStorageIO(BASE_PATH, clientSettings, Settings.EMPTY, false, false);
+        writer.write(BASE_PATH + "blob", new ByteArrayInputStream(CONTENT), CONTENT.length, false);
+
+        final var provider = new TestStorageIOProvider();
+        provider.createStorageIO(BASE_PATH, clientSettings, Settings.EMPTY, false, true);
+        final var reader = provider.createRepositoryKeyStorageIO(BASE_PATH, clientSettings, Settings.EMPTY);
+        try (final var in = reader.read(BASE_PATH + "blob")) {
+            assertArrayEquals(CONTENT, in.readAllBytes());
+        }
+    }
+
+    @Test
+    void noRepositoryKeyStorageIOWithoutRepositoryMetadata() throws IOException {
+        final var provider = new TestStorageIOProvider();
+
+        assertNull(provider.createRepositoryKeyStorageIO(BASE_PATH, clientSettings, Settings.EMPTY));
+        assertTrue(bucket.isEmpty());
     }
 
     @Test
@@ -159,16 +173,8 @@ class RepositoryStorageIOProviderTest extends RsaKeyAwareTest {
 
     private final class TestStorageIOProvider extends RepositoryStorageIOProvider<Object, TestClientSettings> {
 
-        private final boolean createsEncryptionKeyIfMissing;
-
-        TestStorageIOProvider(final boolean createsEncryptionKeyIfMissing) {
+        TestStorageIOProvider() {
             super(new TestClientProvider());
-            this.createsEncryptionKeyIfMissing = createsEncryptionKeyIfMissing;
-        }
-
-        @Override
-        protected boolean createsEncryptionKeyIfMissing() {
-            return createsEncryptionKeyIfMissing;
         }
 
         @Override

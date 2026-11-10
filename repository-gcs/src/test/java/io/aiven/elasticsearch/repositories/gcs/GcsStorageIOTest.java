@@ -18,7 +18,10 @@ package io.aiven.elasticsearch.repositories.gcs;
 
 import javax.crypto.spec.SecretKeySpec;
 
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.security.Security;
 import java.util.Arrays;
 import java.util.Map;
 import java.util.Random;
@@ -32,6 +35,7 @@ import com.google.cloud.storage.StorageOptions;
 import com.google.cloud.storage.spi.StorageRpcFactory;
 import com.google.cloud.storage.spi.v1.StorageRpc;
 import com.google.common.collect.ImmutableMap;
+import org.bouncycastle.jcajce.provider.BouncyCastleFipsProvider;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -39,7 +43,6 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
-import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyLong;
@@ -75,12 +78,7 @@ class GcsStorageIOTest {
 
     @Test
     void readWithPositionSeeksAndStopsAfterLength() throws IOException {
-        when(storageRpcMock.read(any(StorageObject.class), eq(EMPTY_RPC_OPTIONS), anyLong(), anyInt()))
-            .thenAnswer(invocation -> {
-                final int position = Math.toIntExact((long) invocation.getArgument(2));
-                final int chunkSize = invocation.getArgument(3);
-                return Tuple.of("etag", Arrays.copyOfRange(BLOB, position, Math.min(BLOB.length, position + chunkSize)));
-            });
+        storeObject(BLOB);
         final var storageIO = new GcsRepositoryStorageIOProvider.GcsStorageIO(
             storage, "bucket", CryptoIOProvider.UNENCRYPTED);
 
@@ -91,10 +89,25 @@ class GcsStorageIOTest {
     }
 
     @Test
-    void readWithPositionIsRefusedForRepositoryWithoutCryptoSettings() {
-        final var cryptoIOProvider = new CryptoIOProvider(new SecretKeySpec(new byte[32], "AES"), 1024);
+    void readWithPositionDecryptsBlobEncryptedWithRepositoryKey() throws IOException {
+        Security.addProvider(new BouncyCastleFipsProvider());
+        final var cryptoIOProvider = new CryptoIOProvider(new SecretKeySpec(Arrays.copyOf(BLOB, 32), "AES"), 1024);
+        final var stored = new ByteArrayOutputStream();
+        cryptoIOProvider.compressAndEncrypt(new ByteArrayInputStream(BLOB), stored);
+        storeObject(stored.toByteArray());
         final var storageIO = new GcsRepositoryStorageIOProvider.GcsStorageIO(storage, "bucket", cryptoIOProvider);
 
-        assertThrows(UnsupportedOperationException.class, () -> storageIO.read("blob", 0, 10));
+        try (final var in = storageIO.read("blob", 1_000_000, 500)) {
+            assertArrayEquals(Arrays.copyOfRange(BLOB, 1_000_000, 1_000_500), in.readAllBytes());
+        }
+    }
+
+    private void storeObject(final byte[] object) {
+        when(storageRpcMock.read(any(StorageObject.class), eq(EMPTY_RPC_OPTIONS), anyLong(), anyInt()))
+            .thenAnswer(invocation -> {
+                final int position = Math.toIntExact((long) invocation.getArgument(2));
+                final int chunkSize = invocation.getArgument(3);
+                return Tuple.of("etag", Arrays.copyOfRange(object, position, Math.min(object.length, position + chunkSize)));
+            });
     }
 }

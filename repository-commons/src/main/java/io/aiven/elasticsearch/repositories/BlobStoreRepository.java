@@ -18,6 +18,7 @@ package io.aiven.elasticsearch.repositories;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
+import java.util.Map;
 
 import org.opensearch.cluster.metadata.RepositoryMetadata;
 import org.opensearch.cluster.service.ClusterService;
@@ -29,6 +30,7 @@ import org.opensearch.core.common.unit.ByteSizeValue;
 import org.opensearch.core.compress.Compressor;
 import org.opensearch.core.compress.CompressorRegistry;
 import org.opensearch.core.xcontent.NamedXContentRegistry;
+import org.opensearch.crypto.CryptoHandlerRegistry;
 import org.opensearch.indices.recovery.RecoverySettings;
 import org.opensearch.repositories.RepositoryException;
 
@@ -40,6 +42,7 @@ public class BlobStoreRepository<C, S extends CommonSettings.ClientSettings>
 
     private final BlobPath basePath;
     private final String repositoryName;
+    private volatile AivenBlobStore aivenBlobStore;
 
     public BlobStoreRepository(final RepositoryMetadata metadata,
                                final NamedXContentRegistry namedXContentRegistry,
@@ -80,16 +83,81 @@ public class BlobStoreRepository<C, S extends CommonSettings.ClientSettings>
 
     @Override
     protected BlobStore createBlobStore() throws Exception {
-        return new AivenBlobStore();
+        final var store = new AivenBlobStore();
+        aivenBlobStore = store;
+        return store;
+    }
+
+    @Override
+    public BlobStore blobStore(final boolean serverSideEncryptionEnabled) {
+        final var store = super.blobStore(serverSideEncryptionEnabled);
+        if (metadata.cryptoMetadata() == null) {
+            return store;
+        }
+        return new MixedFormatBlobStore(store);
+    }
+
+    private final class MixedFormatBlobStore implements BlobStore {
+        private final BlobStore encryptedBlobStore;
+
+        private MixedFormatBlobStore(final BlobStore encryptedBlobStore) {
+            this.encryptedBlobStore = encryptedBlobStore;
+        }
+
+        @Override
+        public BlobContainer blobContainer(final BlobPath path) {
+            final var encryptedBlobContainer = encryptedBlobStore.blobContainer(path);
+            final var repositoryKeyStorageIo = aivenBlobStore.currentRepositoryKeyStorageIo();
+            if (repositoryKeyStorageIo == null) {
+                return encryptedBlobContainer;
+            }
+            return new MixedFormatBlobContainer(
+                encryptedBlobContainer,
+                aivenBlobStore.blobContainer(path),
+                new RepositoryBlobContainer(path, repositoryKeyStorageIo),
+                CryptoHandlerRegistry.getInstance().fetchCryptoHandler(metadata.cryptoMetadata()),
+                this::blobContainer);
+        }
+
+        @Override
+        public void reload(final RepositoryMetadata repositoryMetadata) {
+            encryptedBlobStore.reload(repositoryMetadata);
+        }
+
+        @Override
+        public Map<String, Long> stats() {
+            return encryptedBlobStore.stats();
+        }
+
+        @Override
+        public Map<Metric, Map<String, Long>> extendedStats() {
+            return encryptedBlobStore.extendedStats();
+        }
+
+        @Override
+        public boolean isBlobMetadataEnabled() {
+            return encryptedBlobStore.isBlobMetadataEnabled();
+        }
+
+        @Override
+        public void close() throws IOException {
+            encryptedBlobStore.close();
+        }
     }
 
     private final class AivenBlobStore implements BlobStore {
         private int blobStoreGeneration = -1;
         private RepositoryStorageIOProvider.StorageIO enryptedStorageIo;
+        private RepositoryStorageIOProvider.StorageIO repositoryKeyStorageIo;
 
         @Override
         public BlobContainer blobContainer(final BlobPath path) {
             return new RepositoryBlobContainer(path, currentStorageIo());
+        }
+
+        private synchronized RepositoryStorageIOProvider.StorageIO currentRepositoryKeyStorageIo() {
+            currentStorageIo();
+            return repositoryKeyStorageIo;
         }
 
         @Override
@@ -114,6 +182,10 @@ public class BlobStoreRepository<C, S extends CommonSettings.ClientSettings>
                     enryptedStorageIo = repositorySettingsProvider.createStorageIO(
                         basePath().buildAsString(), repositoryName, metadata.settings(), clear,
                         metadata.cryptoMetadata() != null);
+                    repositoryKeyStorageIo = metadata.cryptoMetadata() == null
+                        ? null
+                        : repositorySettingsProvider.createRepositoryKeyStorageIO(
+                            basePath().buildAsString(), repositoryName, metadata.settings());
                     blobStoreGeneration = generation;
                 }
                 return enryptedStorageIo;
