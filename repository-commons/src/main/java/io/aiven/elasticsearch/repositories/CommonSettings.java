@@ -119,7 +119,6 @@ public interface CommonSettings {
                         Setting.Property.NodeScope,
                         Setting.Property.Dynamic);
 
-
         static void checkSettings(final String repoType, final Setting<String> setting, final Settings settings) {
             if (!setting.exists(settings)) {
                 throw new RepositoryException(repoType, setting.getKey() + " hasn't been defined");

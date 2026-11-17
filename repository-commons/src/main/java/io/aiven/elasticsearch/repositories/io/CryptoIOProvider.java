@@ -46,6 +46,7 @@ public class CryptoIOProvider implements Encryption, Decryption {
 
     static final int BUFFER_SIZE = 16 * 1024;
 
+    /** We use unencrypted, because the encryption is done by the cipher stream. */
     public static final CryptoIOProvider UNENCRYPTED = new CryptoIOProvider(null, 0) {
 
         @Override
