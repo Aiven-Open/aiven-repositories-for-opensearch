@@ -22,6 +22,7 @@ import java.io.ByteArrayInputStream;
 import java.io.Closeable;
 import java.io.IOException;
 import java.io.InputStream;
+import java.security.KeyPair;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -59,24 +60,8 @@ public abstract class RepositoryStorageIOProvider<C, S extends CommonSettings.Cl
         final Settings repositorySettings,
         final boolean clear
     ) throws IOException {
-        return createStorageIO(basePath, clientSettings, repositorySettings, clear, false);
-    }
-
-    public StorageIO createStorageIO(
-        final String basePath,
-        final S clientSettings,
-        final Settings repositorySettings,
-        final boolean clear,
-        final boolean hasCryptoSettings
-    ) throws IOException {
         if (clear) {
             close();
-        }
-
-        if (hasCryptoSettings) {
-            final var client = Permissions.doPrivileged(
-                    () -> clientProvider.buildClientIfNeeded(clientSettings, repositorySettings).v2());
-            return createStorageIOFor(client, repositorySettings, CryptoIOProvider.UNENCRYPTED);
         }
 
         final var bufferSize = Math.toIntExact(BUFFER_SIZE_SETTING.get(repositorySettings).getBytes());
@@ -93,9 +78,26 @@ public abstract class RepositoryStorageIOProvider<C, S extends CommonSettings.Cl
         );
     }
 
+    public StorageIO createStoredStorageIO(
+        final S clientSettings,
+        final Settings repositorySettings,
+        final boolean clear
+    ) throws IOException {
+        if (clear) {
+            close();
+        }
+        final var client = Permissions.doPrivileged(
+                () -> clientProvider.buildClientIfNeeded(clientSettings, repositorySettings).v2());
+        return createStorageIOFor(client, repositorySettings, CryptoIOProvider.UNENCRYPTED);
+    }
+
+    public KeyPair keyPair(final S clientSettings, final Settings repositorySettings) throws IOException {
+        return Permissions.doPrivileged(
+                () -> clientProvider.buildClientIfNeeded(clientSettings, repositorySettings).v1().keyPair());
+    }
+
     /**
-     * Storage IO for the blobs a repository with {@code crypto_settings} holds from before it had them:
-     * compressed and encrypted with the key from {@value #REPOSITORY_METADATA_FILE_NAME}.
+     * Storage IO for the blobs compressed and encrypted with the key from {@value #REPOSITORY_METADATA_FILE_NAME}.
      * Returns {@code null} when the base path has no such file. Never creates the file.
      */
     public StorageIO createRepositoryKeyStorageIO(

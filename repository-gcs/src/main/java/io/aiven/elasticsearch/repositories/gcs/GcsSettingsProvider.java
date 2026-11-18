@@ -17,10 +17,15 @@
 package io.aiven.elasticsearch.repositories.gcs;
 
 import java.io.IOException;
+import java.security.KeyPair;
 import java.util.Map;
 
+import org.opensearch.common.crypto.CryptoHandler;
 import org.opensearch.common.settings.Settings;
 
+import io.aiven.elasticsearch.crypto.cipher.AwsMessageFormatCryptoPlugin;
+import io.aiven.elasticsearch.crypto.provider.RsaKeyProviderPlugin;
+import io.aiven.elasticsearch.crypto.provider.RsaMasterKeyProvider;
 import io.aiven.elasticsearch.repositories.Permissions;
 import io.aiven.elasticsearch.repositories.RepositorySettingsService;
 import io.aiven.elasticsearch.repositories.RepositoryStorageIOProvider;
@@ -44,8 +49,14 @@ public class GcsSettingsProvider extends RepositorySettingsService<Storage, GcsC
     }
 
     @Override
-    protected boolean supportsCryptoSettings() {
+    public boolean supportsEncryptionFormatV2() {
         return true;
+    }
+
+    @Override
+    protected CryptoHandler<?, ?> createCryptoHandler(final KeyPair keyPair, final String keyProviderName) {
+        return new AwsMessageFormatCryptoPlugin().getOrCreateCryptoHandler(
+            new RsaMasterKeyProvider(keyPair), keyProviderName, RsaKeyProviderPlugin.TYPE, () -> { });
     }
 
 }

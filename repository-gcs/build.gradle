@@ -20,6 +20,8 @@ ext {
 
 dependencies {
     implementation project(':repository-commons')
+    implementation project(':crypto-cipher')
+    implementation project(':crypto-provider')
 
     implementation("com.google.cloud:google-cloud-storage:$gcsVerison") {
         exclude group: "com.fasterxml.jackson.core", module: "jackson-core"
@@ -30,8 +32,6 @@ dependencies {
     testImplementation "org.bouncycastle:bc-fips:2.1.2"
     testImplementation project(':repository-commons').sourceSets.test.output
     testImplementation project(':repository-commons').sourceSets.integrationTest.java
-    testImplementation project(':crypto-cipher')
-    testImplementation project(':crypto-provider')
 
     integrationTestImplementation "com.google.cloud:google-cloud-storage:$gcsVerison"
     integrationTestImplementation project(':repository-commons').sourceSets.integrationTest.output

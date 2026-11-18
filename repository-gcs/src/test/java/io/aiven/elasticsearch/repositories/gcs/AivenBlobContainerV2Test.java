@@ -33,8 +33,9 @@ import java.util.stream.Collectors;
 import org.opensearch.common.blobstore.BlobContainer;
 import org.opensearch.common.blobstore.EncryptedBlobContainer;
 import org.opensearch.common.collect.Tuple;
+import org.opensearch.common.crypto.CryptoHandler;
 
-import io.aiven.elasticsearch.repositories.MixedFormatBlobContainer;
+import io.aiven.elasticsearch.repositories.AivenBlobContainerV2;
 import io.aiven.elasticsearch.repositories.RepositoryBlobContainer;
 import io.aiven.elasticsearch.repositories.RepositoryStorageIOProvider;
 import io.aiven.elasticsearch.repositories.io.CryptoIOProvider;
@@ -49,7 +50,7 @@ import static io.aiven.elasticsearch.repositories.gcs.CryptoSettingsBlobIdentity
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
-class MixedFormatBlobContainerTest {
+class AivenBlobContainerV2Test {
 
     private static final CryptoIOProvider REPOSITORY_KEY_CRYPTO =
         new CryptoIOProvider(new SecretKeySpec(randomBytes(32), "AES"), 8192);
@@ -59,7 +60,7 @@ class MixedFormatBlobContainerTest {
         "before-small", randomBytes(10),
         "before-empty", new byte[0]);
 
-    private static final Map<String, byte[]> WRITTEN_WITH_CRYPTO_SETTINGS = Map.of(
+    private static final Map<String, byte[]> WRITTEN_IN_FORMAT_V2 = Map.of(
         "after-large", randomBytes(2 * FRAME_LENGTH + 4321),
         "after-empty", new byte[0]);
 
@@ -73,6 +74,11 @@ class MixedFormatBlobContainerTest {
         CryptoSettingsBlobIdentityTest.generateKeys();
     }
 
+    static CryptoHandler<?, ?> newNodeCryptoHandler() {
+        return new GcsSettingsProvider()
+            .createCryptoHandler(CryptoSettingsBlobIdentityTest.keyPair, CryptoSettingsBlobIdentityTest.KEY_PROVIDER_NAME);
+    }
+
     @BeforeEach
     void setUp() throws IOException {
         final var repositoryKeyContainer = new RepositoryBlobContainer(PATH, new InMemoryStorageIO(REPOSITORY_KEY_CRYPTO));
@@ -82,16 +88,18 @@ class MixedFormatBlobContainerTest {
         }
 
         final var storedContainer = new RepositoryBlobContainer(PATH, new InMemoryStorageIO(CryptoIOProvider.UNENCRYPTED));
-        final var cryptoHandler = CryptoSettingsBlobIdentityTest.newNodeCryptoHandler();
-        container = new MixedFormatBlobContainer(
-            new EncryptedBlobContainer<>(storedContainer, cryptoHandler),
+        final var cryptoHandler = newNodeCryptoHandler();
+        final var encryptedContainer = new EncryptedBlobContainer<>(storedContainer, cryptoHandler);
+        container = new AivenBlobContainerV2(
+            encryptedContainer,
             storedContainer,
             repositoryKeyContainer,
+            encryptedContainer,
             cryptoHandler,
             path -> {
                 throw new UnsupportedOperationException();
             });
-        for (final var blob : WRITTEN_WITH_CRYPTO_SETTINGS.entrySet()) {
+        for (final var blob : WRITTEN_IN_FORMAT_V2.entrySet()) {
             container.writeBlob(blob.getKey(), new ByteArrayInputStream(blob.getValue()), blob.getValue().length, true);
         }
     }
@@ -125,19 +133,19 @@ class MixedFormatBlobContainerTest {
     }
 
     @Test
-    void writesOnlyCryptoSettingsFormat() throws IOException {
+    void writesFormatV2() throws IOException {
         final var stored = bucket.get(PATH.buildAsString() + "after-large");
 
-        try (final var in = CryptoSettingsBlobIdentityTest.newNodeCryptoHandler()
+        try (final var in = newNodeCryptoHandler()
             .createDecryptingStream(new ByteArrayInputStream(stored))) {
-            assertArrayEquals(WRITTEN_WITH_CRYPTO_SETTINGS.get("after-large"), in.readAllBytes());
+            assertArrayEquals(WRITTEN_IN_FORMAT_V2.get("after-large"), in.readAllBytes());
         }
     }
 
     @Test
-    void listsPlaintextLengthForCryptoSettingsAndStoredLengthForRepositoryKey() throws IOException {
+    void listsPlaintextLengthForFormatV2AndStoredLengthForVersion1() throws IOException {
         final var expected = new HashMap<String, Long>();
-        WRITTEN_WITH_CRYPTO_SETTINGS.forEach((name, bytes) -> expected.put(name, (long) bytes.length));
+        WRITTEN_IN_FORMAT_V2.forEach((name, bytes) -> expected.put(name, (long) bytes.length));
         WRITTEN_WITH_REPOSITORY_KEY.keySet()
             .forEach(name -> expected.put(name, (long) bucket.get(PATH.buildAsString() + name).length));
 
@@ -149,7 +157,7 @@ class MixedFormatBlobContainerTest {
 
     private static Map<String, byte[]> allBlobs() {
         final var blobs = new HashMap<>(WRITTEN_WITH_REPOSITORY_KEY);
-        blobs.putAll(WRITTEN_WITH_CRYPTO_SETTINGS);
+        blobs.putAll(WRITTEN_IN_FORMAT_V2);
         return blobs;
     }
 

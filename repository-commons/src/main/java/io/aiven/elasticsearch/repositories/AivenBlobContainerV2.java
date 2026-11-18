@@ -35,12 +35,12 @@ import org.opensearch.common.crypto.CryptoHandler;
 import org.opensearch.common.crypto.EncryptedHeaderContentSupplier;
 
 /**
- * Blob container of a repository with {@code crypto_settings} whose base path also holds blobs written before it had
- * them. Writes always go through core encryption. Each read picks the format from the first bytes of the blob.
+ * Blob container whose base path holds blobs in both formats. Each read picks the format from the first bytes of
+ * the blob.
  */
-public class MixedFormatBlobContainer implements BlobContainer {
+public class AivenBlobContainerV2 implements BlobContainer {
 
-    // Blobs written through crypto_settings start with an AWS Encryption SDK message format version 2 header:
+    // Blobs encrypted by core start with an AWS Encryption SDK message format version 2 header:
     // version 0x02, suite 0x0478, a 32-byte message id, an empty encryption context and one encrypted data key.
     // Blobs encrypted with the repository key start with a random 16-byte IV, so they match these 7 fixed bytes
     // with probability 2^-56.
@@ -51,6 +51,8 @@ public class MixedFormatBlobContainer implements BlobContainer {
     private final BlobContainer storedBlobContainer;
 
     private final BlobContainer repositoryKeyBlobContainer;
+
+    private final BlobContainer writeBlobContainer;
 
     private final CryptoHandler<?, ?> cryptoHandler;
 
@@ -63,14 +65,16 @@ public class MixedFormatBlobContainer implements BlobContainer {
      * @param cryptoHandler              the handler of {@code encryptedBlobContainer}
      * @param childContainers            creates the container for a child path
      */
-    public MixedFormatBlobContainer(final BlobContainer encryptedBlobContainer,
+    public AivenBlobContainerV2(final BlobContainer encryptedBlobContainer,
                                     final BlobContainer storedBlobContainer,
                                     final BlobContainer repositoryKeyBlobContainer,
+                                    final BlobContainer writeBlobContainer,
                                     final CryptoHandler<?, ?> cryptoHandler,
                                     final Function<BlobPath, BlobContainer> childContainers) {
         this.encryptedBlobContainer = encryptedBlobContainer;
         this.storedBlobContainer = storedBlobContainer;
         this.repositoryKeyBlobContainer = repositoryKeyBlobContainer;
+        this.writeBlobContainer = writeBlobContainer;
         this.cryptoHandler = cryptoHandler;
         this.childContainers = childContainers;
     }
@@ -87,7 +91,7 @@ public class MixedFormatBlobContainer implements BlobContainer {
 
     @Override
     public InputStream readBlob(final String blobName) throws IOException {
-        if (hasCryptoSettingsFormat(blobName)) {
+        if (isFormatV2(blobName)) {
             return encryptedBlobContainer.readBlob(blobName);
         }
         return repositoryKeyBlobContainer.readBlob(blobName);
@@ -95,7 +99,7 @@ public class MixedFormatBlobContainer implements BlobContainer {
 
     @Override
     public InputStream readBlob(final String blobName, final long position, final long length) throws IOException {
-        if (hasCryptoSettingsFormat(blobName)) {
+        if (isFormatV2(blobName)) {
             return encryptedBlobContainer.readBlob(blobName, position, length);
         }
         return repositoryKeyBlobContainer.readBlob(blobName, position, length);
@@ -111,7 +115,7 @@ public class MixedFormatBlobContainer implements BlobContainer {
                           final InputStream inputStream,
                           final long blobSize,
                           final boolean failIfAlreadyExists) throws IOException {
-        encryptedBlobContainer.writeBlob(blobName, inputStream, blobSize, failIfAlreadyExists);
+        writeBlobContainer.writeBlob(blobName, inputStream, blobSize, failIfAlreadyExists);
     }
 
     @Override
@@ -120,7 +124,7 @@ public class MixedFormatBlobContainer implements BlobContainer {
                                       final long blobSize,
                                       final boolean failIfAlreadyExists,
                                       final Map<String, String> metadata) throws IOException {
-        encryptedBlobContainer.writeBlobWithMetadata(blobName, inputStream, blobSize, failIfAlreadyExists, metadata);
+        writeBlobContainer.writeBlobWithMetadata(blobName, inputStream, blobSize, failIfAlreadyExists, metadata);
     }
 
     @Override
@@ -130,7 +134,7 @@ public class MixedFormatBlobContainer implements BlobContainer {
                                       final boolean failIfAlreadyExists,
                                       final Map<String, String> metadata,
                                       final CryptoMetadata cryptoMetadata) throws IOException {
-        encryptedBlobContainer.writeBlobWithMetadata(
+        writeBlobContainer.writeBlobWithMetadata(
             blobName, inputStream, blobSize, failIfAlreadyExists, metadata, cryptoMetadata);
     }
 
@@ -139,7 +143,7 @@ public class MixedFormatBlobContainer implements BlobContainer {
                                 final InputStream inputStream,
                                 final long blobSize,
                                 final boolean failIfAlreadyExists) throws IOException {
-        encryptedBlobContainer.writeBlobAtomic(blobName, inputStream, blobSize, failIfAlreadyExists);
+        writeBlobContainer.writeBlobAtomic(blobName, inputStream, blobSize, failIfAlreadyExists);
     }
 
     @Override
@@ -179,7 +183,7 @@ public class MixedFormatBlobContainer implements BlobContainer {
             @Override
             public long length() {
                 try {
-                    if (hasCryptoSettingsFormat(stored.name())) {
+                    if (isFormatV2(stored.name())) {
                         return new EncryptedBlobMetadata<>(stored, cryptoHandler, headerSupplier(stored.name())).length();
                     }
                 } catch (final IOException e) {
@@ -203,7 +207,7 @@ public class MixedFormatBlobContainer implements BlobContainer {
         };
     }
 
-    private boolean hasCryptoSettingsFormat(final String blobName) throws IOException {
+    private boolean isFormatV2(final String blobName) throws IOException {
         final byte[] prefix;
         try (final var in = storedBlobContainer.readBlob(blobName, 0, HEADER_PREFIX_LENGTH)) {
             prefix = in.readNBytes(HEADER_PREFIX_LENGTH);

@@ -119,6 +119,20 @@ public interface CommonSettings {
                         Setting.Property.NodeScope,
                         Setting.Property.Dynamic);
 
+        Setting<Boolean> ENCRYPTION_FORMAT_V2 =
+                Setting.boolSetting(
+                        "encryption_format_v2",
+                        false,
+                        Setting.Property.NodeScope,
+                        Setting.Property.Dynamic);
+
+        Setting<String> KEY_PROVIDER_NAME =
+                Setting.simpleString(
+                        "key_provider_name",
+                        "aiven_backup",
+                        Setting.Property.NodeScope,
+                        Setting.Property.Dynamic);
+
         static void checkSettings(final String repoType, final Setting<String> setting, final Settings settings) {
             if (!setting.exists(settings)) {
                 throw new RepositoryException(repoType, setting.getKey() + " hasn't been defined");

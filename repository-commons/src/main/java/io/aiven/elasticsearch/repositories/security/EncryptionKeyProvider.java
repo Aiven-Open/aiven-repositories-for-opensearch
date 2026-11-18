@@ -69,6 +69,10 @@ public final class EncryptionKeyProvider
         return aesKeyGenerator.generateKey();
     }
 
+    public KeyPair keyPair() {
+        return rsaKeyPair;
+    }
+
     public byte[] encryptKey(final SecretKey secretKey) {
         try {
             final var cipher = createEncryptingCipher(rsaKeyPair.getPublic(), CIPHER_TRANSFORMATION);

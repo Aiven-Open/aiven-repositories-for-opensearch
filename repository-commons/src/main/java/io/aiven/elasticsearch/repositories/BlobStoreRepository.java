@@ -18,21 +18,23 @@ package io.aiven.elasticsearch.repositories;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
-import java.util.Map;
 
 import org.opensearch.cluster.metadata.RepositoryMetadata;
 import org.opensearch.cluster.service.ClusterService;
 import org.opensearch.common.blobstore.BlobContainer;
 import org.opensearch.common.blobstore.BlobPath;
 import org.opensearch.common.blobstore.BlobStore;
+import org.opensearch.common.blobstore.EncryptedBlobContainer;
+import org.opensearch.common.crypto.CryptoHandler;
 import org.opensearch.core.common.Strings;
 import org.opensearch.core.common.unit.ByteSizeValue;
 import org.opensearch.core.compress.Compressor;
 import org.opensearch.core.compress.CompressorRegistry;
 import org.opensearch.core.xcontent.NamedXContentRegistry;
-import org.opensearch.crypto.CryptoHandlerRegistry;
 import org.opensearch.indices.recovery.RecoverySettings;
 import org.opensearch.repositories.RepositoryException;
+
+import io.aiven.elasticsearch.repositories.RepositoryStorageIOProvider.StorageIO;
 
 public class BlobStoreRepository<C, S extends CommonSettings.ClientSettings>
         extends org.opensearch.repositories.blobstore.BlobStoreRepository
@@ -42,7 +44,7 @@ public class BlobStoreRepository<C, S extends CommonSettings.ClientSettings>
 
     private final BlobPath basePath;
     private final String repositoryName;
-    private volatile AivenBlobStoreV2 aivenBlobStoreV2;
+    private final boolean encryptionFormatV2;
 
     public BlobStoreRepository(final RepositoryMetadata metadata,
                                final NamedXContentRegistry namedXContentRegistry,
@@ -50,8 +52,13 @@ public class BlobStoreRepository<C, S extends CommonSettings.ClientSettings>
                                final RecoverySettings recoverySettings,
                                final RepositorySettingsService<C, S> repositorySettingsProvider) {
         super(metadata, namedXContentRegistry, clusterService, recoverySettings);
-        if (metadata.cryptoMetadata() != null && !repositorySettingsProvider.supportsCryptoSettings()) {
+        if (metadata.cryptoMetadata() != null) {
             throw new RepositoryException(metadata.name(), "crypto_settings are not supported by this repository type");
+        }
+        this.encryptionFormatV2 = ENCRYPTION_FORMAT_V2.get(metadata.settings());
+        if (encryptionFormatV2 && !repositorySettingsProvider.supportsEncryptionFormatV2()) {
+            throw new RepositoryException(
+                metadata.name(), ENCRYPTION_FORMAT_V2.getKey() + " is not supported by this repository type");
         }
         this.repositorySettingsProvider = repositorySettingsProvider;
         this.repositoryName = metadata.name();
@@ -83,78 +90,35 @@ public class BlobStoreRepository<C, S extends CommonSettings.ClientSettings>
 
     @Override
     protected BlobStore createBlobStore() throws Exception {
-        if (metadata.cryptoMetadata() == null) {
-            return new AivenBlobStore();
-        }
-        final var store = new AivenBlobStoreV2();
-        aivenBlobStoreV2 = store;
-        return store;
+        return new AivenBlobStore();
     }
 
-    @Override
-    public BlobStore blobStore(final boolean serverSideEncryptionEnabled) {
-        final var store = super.blobStore(serverSideEncryptionEnabled);
-        if (metadata.cryptoMetadata() == null) {
-            return store;
-        }
-        return new MixedFormatBlobStore(store);
-    }
-
-    private final class MixedFormatBlobStore implements BlobStore {
-        private final BlobStore encryptedBlobStore;
-
-        private MixedFormatBlobStore(final BlobStore encryptedBlobStore) {
-            this.encryptedBlobStore = encryptedBlobStore;
-        }
-
-        @Override
-        public BlobContainer blobContainer(final BlobPath path) {
-            final var encryptedBlobContainer = encryptedBlobStore.blobContainer(path);
-            final var repositoryKeyStorageIo = aivenBlobStoreV2.currentRepositoryKeyStorageIo();
-            if (repositoryKeyStorageIo == null) {
-                return encryptedBlobContainer;
-            }
-            return new MixedFormatBlobContainer(
-                encryptedBlobContainer,
-                aivenBlobStoreV2.blobContainer(path),
-                new RepositoryBlobContainer(path, repositoryKeyStorageIo),
-                CryptoHandlerRegistry.getInstance().fetchCryptoHandler(metadata.cryptoMetadata()),
-                this::blobContainer);
-        }
-
-        @Override
-        public void reload(final RepositoryMetadata repositoryMetadata) {
-            encryptedBlobStore.reload(repositoryMetadata);
-        }
-
-        @Override
-        public Map<String, Long> stats() {
-            return encryptedBlobStore.stats();
-        }
-
-        @Override
-        public Map<Metric, Map<String, Long>> extendedStats() {
-            return encryptedBlobStore.extendedStats();
-        }
-
-        @Override
-        public boolean isBlobMetadataEnabled() {
-            return encryptedBlobStore.isBlobMetadataEnabled();
-        }
-
-        @Override
-        public void close() throws IOException {
-            encryptedBlobStore.close();
-        }
+    private record Storage(StorageIO stored, StorageIO repositoryKey, CryptoHandler<?, ?> cryptoHandler) {
     }
 
     private final class AivenBlobStore implements BlobStore {
         private int blobStoreGeneration = -1;
-        private RepositoryStorageIOProvider.StorageIO storageIo;
+        private Storage storage;
 
         @Override
         public BlobContainer blobContainer(final BlobPath path) {
-            return new RepositoryBlobContainer(path, currentStorageIo());
+            final var current = currentStorage();
+            if (current.cryptoHandler() == null) {
+                return new RepositoryBlobContainer(path, current.repositoryKey());
+            }
+            final var stored = new RepositoryBlobContainer(path, current.stored());
+            final var encrypted = new EncryptedBlobContainer<>(stored, current.cryptoHandler());
+            if (current.repositoryKey() == null) {
+                return encrypted;
+            }
+            final var repositoryKey = new RepositoryBlobContainer(path, current.repositoryKey());
+            return new AivenBlobContainerV2(
+                encrypted,
+                stored,
+                repositoryKey,
+                encryptionFormatV2 ? encrypted : repositoryKey,
+                current.cryptoHandler(),
+                this::blobContainer);
         }
 
         @Override
@@ -168,62 +132,48 @@ public class BlobStoreRepository<C, S extends CommonSettings.ClientSettings>
 
         @Override
         public void close() throws IOException {
+            synchronized (this) {
+                closeCryptoHandler();
+            }
             repositorySettingsProvider.closeRepository(repositoryName);
         }
 
-        private synchronized RepositoryStorageIOProvider.StorageIO currentStorageIo() {
+        private synchronized Storage currentStorage() {
+            final var generation = repositorySettingsProvider.generation();
+            if (generation == blobStoreGeneration) {
+                return storage;
+            }
+            final var clear = storage != null;
             try {
-                final var generation = repositorySettingsProvider.generation();
-                if (generation != blobStoreGeneration) {
-                    storageIo = repositorySettingsProvider.createStorageIO(
-                        basePath().buildAsString(), repositoryName, metadata.settings(), storageIo != null, false);
-                    blobStoreGeneration = generation;
-                }
-                return storageIo;
+                closeCryptoHandler();
+                storage = repositorySettingsProvider.supportsEncryptionFormatV2()
+                    ? createStorageV2(clear)
+                    : new Storage(null, createStorageIO(clear), null);
             } catch (final IOException e) {
                 throw new UncheckedIOException("Failed to create storage IO for repository", e);
             }
-        }
-    }
-
-    /** For repositories with {@code crypto_settings}: stores bytes as they are, opensearch encrypts above this store. */
-    private final class AivenBlobStoreV2 implements BlobStore {
-        private int blobStoreGeneration = -1;
-        private RepositoryStorageIOProvider.StorageIO storageIo;
-        private RepositoryStorageIOProvider.StorageIO repositoryKeyStorageIo;
-
-        @Override
-        public BlobContainer blobContainer(final BlobPath path) {
-            return new RepositoryBlobContainer(path, currentStorageIo());
+            blobStoreGeneration = generation;
+            return storage;
         }
 
-        @Override
-        public void close() throws IOException {
-            repositorySettingsProvider.closeRepository(repositoryName);
+        private Storage createStorageV2(final boolean clear) throws IOException {
+            final var stored = repositorySettingsProvider.createStoredStorageIO(repositoryName, metadata.settings(), clear);
+            final var repositoryKey = encryptionFormatV2
+                ? repositorySettingsProvider.createRepositoryKeyStorageIO(
+                    basePath().buildAsString(), repositoryName, metadata.settings())
+                : createStorageIO(false);
+            final var cryptoHandler = repositorySettingsProvider.createCryptoHandler(repositoryName, metadata.settings());
+            return new Storage(stored, repositoryKey, cryptoHandler);
         }
 
-        private synchronized RepositoryStorageIOProvider.StorageIO currentStorageIo() {
-            refreshStorageIo();
-            return storageIo;
+        private StorageIO createStorageIO(final boolean clear) throws IOException {
+            return repositorySettingsProvider.createStorageIO(
+                basePath().buildAsString(), repositoryName, metadata.settings(), clear);
         }
 
-        private synchronized RepositoryStorageIOProvider.StorageIO currentRepositoryKeyStorageIo() {
-            refreshStorageIo();
-            return repositoryKeyStorageIo;
-        }
-
-        private void refreshStorageIo() {
-            try {
-                final var generation = repositorySettingsProvider.generation();
-                if (generation != blobStoreGeneration) {
-                    storageIo = repositorySettingsProvider.createStorageIO(
-                        basePath().buildAsString(), repositoryName, metadata.settings(), storageIo != null, true);
-                    repositoryKeyStorageIo = repositorySettingsProvider.createRepositoryKeyStorageIO(
-                        basePath().buildAsString(), repositoryName, metadata.settings());
-                    blobStoreGeneration = generation;
-                }
-            } catch (final IOException e) {
-                throw new UncheckedIOException("Failed to create storage IO for repository", e);
+        private void closeCryptoHandler() throws IOException {
+            if (storage != null && storage.cryptoHandler() != null) {
+                storage.cryptoHandler().close();
             }
         }
     }

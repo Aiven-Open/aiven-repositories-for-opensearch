@@ -67,9 +67,8 @@ class RepositoryStorageIOProviderTest extends RsaKeyAwareTest {
     }
 
     @Test
-    void withCryptoSettingsWritesBytesAsIsAndSkipsRepositoryMetadata() throws IOException {
-        final var storageIO = new TestStorageIOProvider()
-            .createStorageIO(BASE_PATH, clientSettings, Settings.EMPTY, false, true);
+    void storedStorageIOWritesBytesAsIsAndSkipsRepositoryMetadata() throws IOException {
+        final var storageIO = new TestStorageIOProvider().createStoredStorageIO(clientSettings, Settings.EMPTY, false);
 
         storageIO.write(BASE_PATH + "blob", new ByteArrayInputStream(CONTENT), CONTENT.length, false);
 
@@ -78,33 +77,39 @@ class RepositoryStorageIOProviderTest extends RsaKeyAwareTest {
     }
 
     @Test
-    void withoutCryptoSettingsCreatesEncryptionKeyForNewRepository() throws IOException {
-        new TestStorageIOProvider().createStorageIO(BASE_PATH, clientSettings, Settings.EMPTY, false, false);
+    void keyPairIsTheClientKeyPair() throws IOException {
+        final var keyPair = new TestStorageIOProvider().keyPair(clientSettings, Settings.EMPTY);
+
+        assertArrayEquals(rsaKeyPair.getPublic().getEncoded(), keyPair.getPublic().getEncoded());
+        assertArrayEquals(rsaKeyPair.getPrivate().getEncoded(), keyPair.getPrivate().getEncoded());
+        assertTrue(bucket.isEmpty());
+    }
+
+    @Test
+    void createsEncryptionKeyForNewRepository() throws IOException {
+        new TestStorageIOProvider().createStorageIO(BASE_PATH, clientSettings, Settings.EMPTY, false);
 
         assertTrue(bucket.containsKey(BASE_PATH + REPOSITORY_METADATA_FILE_NAME));
     }
 
     @Test
-    void withoutCryptoSettingsReadsWhatAnotherNodeWrote() throws IOException {
-        final var writer = new TestStorageIOProvider()
-            .createStorageIO(BASE_PATH, clientSettings, Settings.EMPTY, false, false);
+    void readsWhatAnotherNodeWrote() throws IOException {
+        final var writer = new TestStorageIOProvider().createStorageIO(BASE_PATH, clientSettings, Settings.EMPTY, false);
         writer.write(BASE_PATH + "blob", new ByteArrayInputStream(CONTENT), CONTENT.length, false);
 
-        final var reader = new TestStorageIOProvider()
-            .createStorageIO(BASE_PATH, clientSettings, Settings.EMPTY, false, false);
+        final var reader = new TestStorageIOProvider().createStorageIO(BASE_PATH, clientSettings, Settings.EMPTY, false);
         try (final var in = reader.read(BASE_PATH + "blob")) {
             assertArrayEquals(CONTENT, in.readAllBytes());
         }
     }
 
     @Test
-    void repositoryKeyStorageIOReadsBlobsWrittenWithoutCryptoSettings() throws IOException {
-        final var writer = new TestStorageIOProvider()
-            .createStorageIO(BASE_PATH, clientSettings, Settings.EMPTY, false, false);
+    void repositoryKeyStorageIOReadsVersion1Blobs() throws IOException {
+        final var writer = new TestStorageIOProvider().createStorageIO(BASE_PATH, clientSettings, Settings.EMPTY, false);
         writer.write(BASE_PATH + "blob", new ByteArrayInputStream(CONTENT), CONTENT.length, false);
 
         final var provider = new TestStorageIOProvider();
-        provider.createStorageIO(BASE_PATH, clientSettings, Settings.EMPTY, false, true);
+        provider.createStoredStorageIO(clientSettings, Settings.EMPTY, false);
         final var reader = provider.createRepositoryKeyStorageIO(BASE_PATH, clientSettings, Settings.EMPTY);
         try (final var in = reader.read(BASE_PATH + "blob")) {
             assertArrayEquals(CONTENT, in.readAllBytes());
@@ -120,21 +125,37 @@ class RepositoryStorageIOProviderTest extends RsaKeyAwareTest {
     }
 
     @Test
-    void blobStoreRepositoryRefusesCryptoSettingsWhenTypeDoesNotSupportThem() {
+    void blobStoreRepositoryRefusesCryptoSettings() {
+        final var metadata = new RepositoryMetadata(
+            "repo", "aiven-test", Settings.EMPTY, new CryptoMetadata("default", "aiven-rsa", Settings.EMPTY));
+
+        assertThrows(RepositoryException.class, () -> newBlobStoreRepository(metadata));
+    }
+
+    @Test
+    void blobStoreRepositoryRefusesEncryptionFormatV2WhenTypeDoesNotSupportIt() {
+        final var metadata = new RepositoryMetadata(
+            "repo",
+            "aiven-test",
+            Settings.builder().put(CommonSettings.RepositorySettings.ENCRYPTION_FORMAT_V2.getKey(), true).build());
+
+        assertThrows(RepositoryException.class, () -> newBlobStoreRepository(metadata));
+    }
+
+    private static BlobStoreRepository<Object, TestClientSettings> newBlobStoreRepository(
+        final RepositoryMetadata metadata
+    ) {
         final var clusterService = mock(ClusterService.class);
         when(clusterService.getClusterApplierService()).thenReturn(mock(ClusterApplierService.class));
         when(clusterService.getSettings()).thenReturn(Settings.EMPTY);
         when(clusterService.getClusterSettings())
             .thenReturn(new ClusterSettings(Settings.EMPTY, ClusterSettings.BUILT_IN_CLUSTER_SETTINGS));
-        final var metadata = new RepositoryMetadata(
-            "repo", "aiven-test", Settings.EMPTY, new CryptoMetadata("default", "aiven-rsa", Settings.EMPTY));
-
-        assertThrows(RepositoryException.class, () -> new BlobStoreRepository<>(
+        return new BlobStoreRepository<>(
             metadata,
             NamedXContentRegistry.EMPTY,
             clusterService,
             mock(RecoverySettings.class),
-            new TestSettingsService()));
+            new TestSettingsService());
     }
 
     private static final class TestClientSettings implements CommonSettings.ClientSettings {

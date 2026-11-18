@@ -180,8 +180,8 @@ public class GcsRepositoryPluginTest extends RsaKeyAwareTest {
     }
 
     @Test
-    public void testCryptoSettingsAreSupported() {
-        assertTrue(new GcsSettingsProvider().supportsCryptoSettings());
+    public void testEncryptionFormatV2IsSupported() {
+        assertTrue(new GcsSettingsProvider().supportsEncryptionFormatV2());
     }
 
     @Test

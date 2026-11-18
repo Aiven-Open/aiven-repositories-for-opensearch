@@ -18,10 +18,12 @@ package io.aiven.elasticsearch.repositories;
 
 import java.io.Closeable;
 import java.io.IOException;
+import java.security.KeyPair;
 import java.util.Collections;
 import java.util.Map;
 import java.util.concurrent.ConcurrentMap;
 
+import org.opensearch.common.crypto.CryptoHandler;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.repositories.RepositoryException;
 
@@ -29,6 +31,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import static io.aiven.elasticsearch.repositories.CommonSettings.RepositorySettings.CLIENT_NAME;
+import static io.aiven.elasticsearch.repositories.CommonSettings.RepositorySettings.KEY_PROVIDER_NAME;
 import static org.opensearch.common.util.concurrent.ConcurrentCollections.newConcurrentMap;
 
 /**
@@ -55,27 +58,24 @@ public abstract class RepositorySettingsService<T, S extends CommonSettings.Clie
         return createStorageIO(basePath, repositoryName, repositorySettings, false);
     }
 
-    public RepositoryStorageIOProvider.StorageIO createStorageIO(
+    public synchronized RepositoryStorageIOProvider.StorageIO createStorageIO(
         final String basePath,
         final String repositoryName,
         final Settings repositorySettings,
         final boolean clear
     ) throws IOException {
-        return createStorageIO(basePath, repositoryName, repositorySettings, clear, false);
+        final String clientName = CLIENT_NAME.get(repositorySettings);
+        return ioProvider(repositoryName)
+            .createStorageIO(basePath, clientsSettings.get(clientName), repositorySettings, clear);
     }
 
-    public synchronized RepositoryStorageIOProvider.StorageIO createStorageIO(
-        final String basePath,
+    public synchronized RepositoryStorageIOProvider.StorageIO createStoredStorageIO(
         final String repositoryName,
         final Settings repositorySettings,
-        final boolean clear,
-        final boolean hasCryptoSettings
+        final boolean clear
     ) throws IOException {
         final String clientName = CLIENT_NAME.get(repositorySettings);
-        final var ioProvider = repositoryStorages.computeIfAbsent(repositoryName,
-                                                                 r -> createRepositoryStorageIOProvider());
-        return ioProvider.createStorageIO(
-            basePath, clientsSettings.get(clientName), repositorySettings, clear, hasCryptoSettings);
+        return ioProvider(repositoryName).createStoredStorageIO(clientsSettings.get(clientName), repositorySettings, clear);
     }
 
     /** See {@link RepositoryStorageIOProvider#createRepositoryKeyStorageIO}. */
@@ -85,14 +85,29 @@ public abstract class RepositorySettingsService<T, S extends CommonSettings.Clie
         final Settings repositorySettings
     ) throws IOException {
         final String clientName = CLIENT_NAME.get(repositorySettings);
-        final var ioProvider = repositoryStorages.computeIfAbsent(repositoryName,
-                                                                 r -> createRepositoryStorageIOProvider());
-        return ioProvider.createRepositoryKeyStorageIO(basePath, clientsSettings.get(clientName), repositorySettings);
+        return ioProvider(repositoryName)
+            .createRepositoryKeyStorageIO(basePath, clientsSettings.get(clientName), repositorySettings);
     }
 
-    /** Whether repositories of this type can be registered with {@code crypto_settings}. */
-    protected boolean supportsCryptoSettings() {
+    public synchronized CryptoHandler<?, ?> createCryptoHandler(
+        final String repositoryName,
+        final Settings repositorySettings
+    ) throws IOException {
+        final String clientName = CLIENT_NAME.get(repositorySettings);
+        final var keyPair = ioProvider(repositoryName).keyPair(clientsSettings.get(clientName), repositorySettings);
+        return createCryptoHandler(keyPair, KEY_PROVIDER_NAME.get(repositorySettings));
+    }
+
+    public boolean supportsEncryptionFormatV2() {
         return false;
+    }
+
+    protected CryptoHandler<?, ?> createCryptoHandler(final KeyPair keyPair, final String keyProviderName) {
+        throw new UnsupportedOperationException(getClass().getSimpleName() + " doesn't support encryption format v2");
+    }
+
+    private RepositoryStorageIOProvider<T, S> ioProvider(final String repositoryName) {
+        return repositoryStorages.computeIfAbsent(repositoryName, r -> createRepositoryStorageIOProvider());
     }
 
     public synchronized void reload(final Settings settings) throws IOException {
