@@ -39,6 +39,8 @@ final class FrameReader extends InputStream {
 
     private final HeaderReader headerReader;
 
+    private final boolean endsAfterFinalFrame;
+
     private MessageHeader header;
 
     private long sequenceNumber;
@@ -53,9 +55,12 @@ final class FrameReader extends InputStream {
 
     private int position;
 
-    /** Reads a whole message: the header, then every frame up to and including the final frame. */
+    /**
+     * Reads a whole message: the header, then every frame up to and including the final frame.
+     * Fails if any bytes follow the final frame.
+     */
     FrameReader(final InputStream in, final HeaderReader headerReader) {
-        this(in, null, headerReader, 1, 0, Long.MAX_VALUE);
+        this(in, null, headerReader, true, 1, 0, Long.MAX_VALUE);
     }
 
     /**
@@ -67,18 +72,20 @@ final class FrameReader extends InputStream {
                 final long firstSequenceNumber,
                 final long bytesToSkip,
                 final long length) {
-        this(in, header, null, firstSequenceNumber, bytesToSkip, length);
+        this(in, header, null, false, firstSequenceNumber, bytesToSkip, length);
     }
 
     private FrameReader(final InputStream in,
                         final MessageHeader header,
                         final HeaderReader headerReader,
+                        final boolean endsAfterFinalFrame,
                         final long firstSequenceNumber,
                         final long bytesToSkip,
                         final long length) {
         this.in = new DataInputStream(in);
         this.header = header;
         this.headerReader = headerReader;
+        this.endsAfterFinalFrame = endsAfterFinalFrame;
         this.sequenceNumber = firstSequenceNumber;
         this.bytesToSkip = bytesToSkip;
         this.bytesRemaining = length;
@@ -133,8 +140,9 @@ final class FrameReader extends InputStream {
         }
         final var ciphertextAndTag = new byte[contentLength + MessageFormat.TAG_LENGTH];
         in.readFully(ciphertextAndTag);
+        final byte[] framePlaintext;
         try {
-            plaintext = MessageFormat.open(
+            framePlaintext = MessageFormat.open(
                 header.frameKey(),
                 iv,
                 MessageFormat.frameAad(header.messageId(), finalFrame, sequenceNumber, contentLength),
@@ -142,10 +150,18 @@ final class FrameReader extends InputStream {
         } catch (final GeneralSecurityException e) {
             throw new IOException("Frame " + sequenceNumber + " failed authentication", e);
         }
+        checkEndOfMessage(finalFrame);
+        plaintext = framePlaintext;
         sequenceNumber++;
         finalFrameRead = finalFrame;
         position = (int) Math.min(bytesToSkip, plaintext.length);
         bytesToSkip -= position;
+    }
+
+    private void checkEndOfMessage(final boolean finalFrame) throws IOException {
+        if (finalFrame && endsAfterFinalFrame && in.read() != -1) {
+            throw new IOException("Unexpected bytes after final frame " + sequenceNumber);
+        }
     }
 
     @Override

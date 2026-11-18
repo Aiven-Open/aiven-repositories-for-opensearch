@@ -222,6 +222,16 @@ class AwsMessageFormatCryptoHandlerTest extends CipherTestSupport {
         assertThrows(IOException.class, () -> decrypt(handler, Arrays.copyOf(ciphertext, headerLength + 3 * FRAME_SIZE)));
     }
 
+    @ParameterizedTest
+    @ValueSource(ints = {3 * F + 7, 3 * F, 0})
+    void bytesAfterFinalFrameAreRefused(final int length) throws IOException {
+        final var handler = handler(F);
+        final var ciphertext = encrypt(handler, randomBytes(length));
+
+        final var e = assertThrows(IOException.class, () -> decrypt(handler, Arrays.copyOf(ciphertext, ciphertext.length + 1)));
+        assertTrue(e.getMessage().contains("Unexpected bytes after final frame"), e.getMessage());
+    }
+
     @Test
     void blobForAnotherKeyPairIsRefused() throws IOException {
         final var ciphertext = encrypt(handler(otherKeyPair, F), randomBytes(10));

@@ -31,7 +31,7 @@ import com.amazonaws.encryptionsdk.model.KeyBlob;
  * Version 2 message header with an empty encryption context and exactly one encrypted data key.
  * Holds the keys derived for the message, so it serves both for writing and for reading a blob.
  */
-final class MessageHeader {
+public final class MessageHeader {
 
     @FunctionalInterface
     interface DataKeyDecryptor {
