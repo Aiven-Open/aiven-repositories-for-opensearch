@@ -82,7 +82,8 @@ public class RepositoryBlobContainer extends AbstractBlobContainer {
                                       final CryptoMetadata cryptoMetadata) throws IOException {
         if (cryptoMetadata != null) {
             throw new IllegalArgumentException("Index crypto settings are not supported by this repository type, got key provider ["
-                + cryptoMetadata.keyProviderName() + "] for blob [" + blobName + "]. Use upstream repository-gcs to write encrypted blobs.");
+                + cryptoMetadata.keyProviderName() + "] for blob [" + blobName + "]. "
+                + "Use upstream repository-gcs to write encrypted blobs.");
         }
         writeBlobWithMetadata(blobName, inputStream, blobSize, failIfAlreadyExists, metadata);
     }
