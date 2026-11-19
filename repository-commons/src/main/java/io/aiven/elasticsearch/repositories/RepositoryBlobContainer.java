@@ -23,6 +23,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
+import org.opensearch.cluster.metadata.CryptoMetadata;
 import org.opensearch.common.blobstore.BlobContainer;
 import org.opensearch.common.blobstore.BlobMetadata;
 import org.opensearch.common.blobstore.BlobPath;
@@ -70,6 +71,20 @@ public class RepositoryBlobContainer extends AbstractBlobContainer {
                                       final boolean failIfAlreadyExists,
                                       final Map<String, String> metadata) throws IOException {
         storageIO.write(blobPath(blobName), inputStream, blobSize, failIfAlreadyExists);
+    }
+
+    @Override
+    public void writeBlobWithMetadata(final String blobName,
+                                      final InputStream inputStream,
+                                      final long blobSize,
+                                      final boolean failIfAlreadyExists,
+                                      final Map<String, String> metadata,
+                                      final CryptoMetadata cryptoMetadata) throws IOException {
+        if (cryptoMetadata != null) {
+            throw new IllegalArgumentException("Index crypto settings are not supported by this repository type, got key provider ["
+                + cryptoMetadata.keyProviderName() + "] for blob [" + blobName + "]. Use upstream repository-gcs to write encrypted blobs.");
+        }
+        writeBlobWithMetadata(blobName, inputStream, blobSize, failIfAlreadyExists, metadata);
     }
 
     @Override

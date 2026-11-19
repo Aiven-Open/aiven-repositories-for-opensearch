@@ -22,9 +22,11 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import org.opensearch.cluster.metadata.CryptoMetadata;
 import org.opensearch.common.blobstore.BlobPath;
 import org.opensearch.common.blobstore.BlobStoreException;
 import org.opensearch.common.collect.Tuple;
+import org.opensearch.common.settings.Settings;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -35,8 +37,10 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import static io.aiven.elasticsearch.repositories.RepositoryStorageIOProvider.StorageIO;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.eq;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -96,6 +100,26 @@ class RepositoryBlobContainerTest {
                         nullStream,
                         100L,
                         false);
+    }
+
+    @Test
+    void writeBlobWithMetadataWithoutCryptoMetadata() throws IOException {
+        final var nullStream = InputStream.nullInputStream();
+
+        repositoryBlobContainer.writeBlobWithMetadata("some_blob", nullStream, 100L, false, null, null);
+
+        verify(mockedStorageIO).write(DEFAULT_PATH.buildAsString() + "some_blob", nullStream, 100L, false);
+    }
+
+    @Test
+    void writeBlobWithMetadataRefusesCryptoMetadata() {
+        final var cryptoMetadata = new CryptoMetadata("index_key", "aws-kms", Settings.EMPTY);
+
+        final var e = assertThrows(IllegalArgumentException.class, () -> repositoryBlobContainer.writeBlobWithMetadata(
+            "some_blob", InputStream.nullInputStream(), 100L, false, null, cryptoMetadata));
+
+        assertTrue(e.getMessage().contains("index_key"), e.getMessage());
+        verifyNoInteractions(mockedStorageIO);
     }
 
     @Test
