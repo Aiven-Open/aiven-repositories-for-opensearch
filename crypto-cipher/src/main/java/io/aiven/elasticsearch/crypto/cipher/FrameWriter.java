@@ -20,6 +20,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.nio.ByteBuffer;
 import java.security.GeneralSecurityException;
+import java.util.Arrays;
 import java.util.Objects;
 
 /**
@@ -108,7 +109,7 @@ final class FrameWriter extends InputStream {
             return false;
         }
         final var frameLength = header.frameLength();
-        final var plaintext = source.readNBytes(frameLength);
+        final var plaintext = readFrame(frameLength);
         if (plaintext.length == frameLength) {
             buffer = encryptFrame(false, plaintext);
         } else if (writesFinalFrame) {
@@ -123,6 +124,19 @@ final class FrameWriter extends InputStream {
         }
         sequenceNumber++;
         return true;
+    }
+
+    private byte[] readFrame(final int frameLength) throws IOException {
+        final var frame = new byte[frameLength];
+        var length = 0;
+        while (length < frameLength) {
+            final var n = source.read(frame, length, frameLength - length);
+            if (n == -1) {
+                return Arrays.copyOf(frame, length);
+            }
+            length += n;
+        }
+        return frame;
     }
 
     private byte[] encryptFrame(final boolean finalFrame, final byte[] plaintext) throws IOException {
