@@ -17,6 +17,7 @@ rootProject.name = "aiven-elasticsearch-repositories"
 
 include "repository-commons"
 include "repository-gcs"
+include "repository-gcs-jmh"
 include "repository-s3"
 include "repository-azure"
 include "crypto-provider"

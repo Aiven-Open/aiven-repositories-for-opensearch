@@ -1,0 +1,391 @@
+/*
+ * Copyright 2026 Aiven Oy
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+plugins {
+    id "me.champeau.jmh" version "0.7.4"
+}
+
+ext {
+    asyncProfilerVersion = "4.6"
+}
+
+tasks.matching { it.name in ["distTar", "distZip", "installDist"] }.configureEach { enabled = false }
+
+dependencies {
+    jmhImplementation project(':repository-gcs')
+    jmhImplementation project(':repository-commons')
+    jmhImplementation "com.google.cloud:google-cloud-storage:1.113.15"
+    jmhImplementation "org.opensearch:opensearch:$opensearchVersion"
+    jmhImplementation "org.bouncycastle:bc-fips:2.1.2"
+    jmhImplementation "com.github.luben:zstd-jni:1.5.5-5"
+    jmhImplementation "org.mockito:mockito-core:4.3.0"
+    jmhImplementation project(':repository-commons').sourceSets.test.output
+}
+
+def osName = System.getProperty("os.name").toLowerCase(Locale.ROOT)
+def asyncProfilerPlatform = osName.contains("mac") ? "macos"
+    : System.getProperty("os.arch") == "aarch64" ? "linux-arm64" : "linux-x64"
+
+configurations {
+    asyncProfiler { transitive = false }
+    asyncProfilerLinux { transitive = false }
+    jfrConverter { transitive = false }
+}
+
+dependencies {
+    asyncProfiler "tools.profiler:async-profiler:$asyncProfilerVersion:$asyncProfilerPlatform"
+    asyncProfilerLinux "tools.profiler:async-profiler:$asyncProfilerVersion:linux-arm64"
+    asyncProfilerLinux "tools.profiler:async-profiler:$asyncProfilerVersion:linux-x64"
+    jfrConverter "tools.profiler:jfr-converter:$asyncProfilerVersion"
+}
+
+def asyncProfilerDir = layout.buildDirectory.dir("async-profiler")
+def asyncProfilerReports = layout.buildDirectory.dir("reports/jmh/async")
+def remoteRuns = layout.buildDirectory.dir("jmh-remote/runs")
+def linuxEvents = ["cpu", "wall", "alloc", "lock"]
+// async-profiler can't sample wall clock together with cpu on macOS.
+def profiledEvents = asyncProfilerPlatform == "macos" ? ["cpu", "alloc", "lock"] : linuxEvents
+def asyncProfilerOptions = { libPath, dir, events ->
+    def wall = events.contains("wall") ? ";rawCommand=wall=20ms" : ""
+    "async:libPath=$libPath;output=jfr;event=cpu;alloc=1m;lock=10us$wall;dir=$dir".toString()
+}
+
+def benchmarkInclude = findProperty("jmhInclude") ?: ".*Benchmark"
+def benchmarkParams = [
+    backend      : "jmhBackend",
+    blobSize     : "jmhBlobSize",
+    payload      : "jmhPayload",
+    rangeSize    : "jmhRangeSize",
+    rangePosition: "jmhRangePosition",
+].findAll { param, property -> project.hasProperty(property) }
+    .collectEntries { param, property -> [param, findProperty(property).split(",") as List] }
+def g1RegionSize = findProperty("jmhG1RegionSize") ?: "4m"
+benchmarkParams.g1RegionSize = [g1RegionSize]
+def benchmarkHeap = findProperty("jmhHeap") ?: "4g"
+def benchmarkThreads = (findProperty("jmhThreads") ?: "1") as int
+def benchmarkShort = project.hasProperty("jmhShort")
+def resultsFileName = "results-g1-${g1RegionSize}-threads-${benchmarkThreads}.json"
+def benchmarkJvmArgs = ["-XX:+UnlockDiagnosticVMOptions", "-XX:+DebugNonSafepoints", "-Xmx$benchmarkHeap", "-XX:G1HeapRegionSize=$g1RegionSize"]
+    .collect { it.toString() }
+
+def extractAsyncProfiler = tasks.register("extractAsyncProfiler", Copy) {
+    from({ zipTree(configurations.asyncProfiler.singleFile) }) {
+        include "**/libasyncProfiler.*"
+        eachFile { path = name }
+    }
+    into asyncProfilerDir
+    includeEmptyDirs = false
+}
+
+def userHome = System.getProperty("user.home")
+def gcsCredentialsPath = findProperty("gcsCredentialsPath") ?: System.getenv("GOOGLE_APPLICATION_CREDENTIALS") ?: ""
+def benchmarkSystemProperties = [
+    "bench.gcs.bucket"           : findProperty("gcsBucketName") ?: "",
+    "bench.gcs.credentials"      : gcsCredentialsPath,
+    "bench.gcs.base_path"        : findProperty("gcsBasePath") ?: "jmh",
+    "bench.rsa.public_key_file"  : findProperty("rsaPublicKeyFile") ?: "$userHome/.config/aiven-jmh/public.pem",
+    "bench.rsa.private_key_file" : findProperty("rsaPrivateKeyFile") ?: "$userHome/.config/aiven-jmh/private.pem",
+]
+
+jmh {
+    jmhVersion = "1.37"
+    includes = [benchmarkInclude]
+    benchmarkParams.each { param, values -> benchmarkParameters.put(param, objects.listProperty(String).value(values)) }
+    threads = benchmarkThreads
+    resultsFile = layout.buildDirectory.file("results/jmh/$resultsFileName")
+    if (benchmarkShort) {
+        fork = 1
+        warmupIterations = 1
+        warmup = "1s"
+        iterations = 1
+        timeOnIteration = "1s"
+    }
+    jvmArgsAppend = benchmarkJvmArgs + benchmarkSystemProperties.collect { key, value -> "-D$key=$value".toString() }
+    def libPath = findProperty("asyncProfilerLib") ?: asyncProfilerDir.get().file("libasyncProfiler.so").asFile
+    profilers = [asyncProfilerOptions(libPath, asyncProfilerReports.get().asFile, profiledEvents), "gc"]
+    resultFormat = "JSON"
+}
+
+// BC-FIPS verifies the checksum of its own jar, so it can't be repackaged into the JMH jar.
+def bcFipsJar = configurations.jmhRuntimeClasspath.filter { it.name.startsWith("bc-fips-") }
+
+tasks.named("jmhJar") {
+    exclude "org/bouncycastle/**"
+}
+
+tasks.named("jmh") {
+    dependsOn extractAsyncProfiler
+    jmhClasspath.from(bcFipsJar)
+}
+
+interface InjectedExecOperations {
+    @javax.inject.Inject
+    ExecOperations getExecOperations()
+}
+
+tasks.register("jmhHeatmaps") {
+    description = "Converts the local and fetched remote async-profiler recordings to cpu, wall (Linux only), alloc and lock heatmaps."
+    group = "benchmark"
+    def injected = project.objects.newInstance(InjectedExecOperations)
+    def converterClasspath = configurations.jfrConverter
+    def recordings = [(asyncProfilerReports): profiledEvents, (remoteRuns): linuxEvents]
+    doLast {
+        recordings.each { dir, events -> fileTree(dir) { include "**/*.jfr" }.each { jfr ->
+            events.each { event ->
+                injected.execOperations.javaexec {
+                    classpath = converterClasspath
+                    mainClass = "one.convert.Main"
+                    args "--$event", "-o", "heatmap", jfr, new File(jfr.parentFile, "heatmap-${event}.html")
+                }
+            }
+        } }
+    }
+}
+
+tasks.register("jmhCleanGcs", JavaExec) {
+    description = "Deletes the benchmark data under gcsBasePath in gcsBucketName."
+    group = "benchmark"
+    classpath = sourceSets.jmh.runtimeClasspath
+    mainClass = "io.aiven.elasticsearch.repositories.gcs.GcsBenchmarkCleanup"
+    systemProperties benchmarkSystemProperties
+}
+
+class RunnerConnection {
+    ExecOperations exec
+    List<String> ssh
+    String target
+
+    String run(String command, InputStream input = null) {
+        def output = new ByteArrayOutputStream()
+        exec.exec {
+            commandLine(ssh + [target, command])
+            standardOutput = output
+            if (input != null) {
+                standardInput = input
+            }
+        }
+        output.toString().trim()
+    }
+
+    boolean reachable() {
+        exec.exec {
+            commandLine(ssh + ["-o", "ConnectTimeout=5", target, "true"])
+            ignoreExitValue = true
+            errorOutput = OutputStream.nullOutputStream()
+        }.exitValue == 0
+    }
+
+    void rsync(String source, String destination, List<String> options = []) {
+        exec.exec { commandLine(["rsync", "-az", "-e", ssh.join(" ")] + options + [source, destination]) }
+    }
+}
+
+def runnerHost = findProperty("runnerHost")
+def runnerUser = findProperty("runnerUser") ?: "jmh"
+def runnerTarget = "$runnerUser@$runnerHost"
+def runnerSshKey = file(findProperty("runnerSshKey") ?: "$userHome/.config/aiven-jmh/runner-key")
+def runnerKnownHosts = file("$userHome/.config/aiven-jmh/known_hosts")
+def runnerSsh = [
+    "ssh", "-i", runnerSshKey, "-p", findProperty("runnerPort") ?: "22",
+    "-o", "BatchMode=yes", "-o", "IdentitiesOnly=yes",
+    "-o", "StrictHostKeyChecking=accept-new", "-o", "UserKnownHostsFile=$runnerKnownHosts",
+    "-o", "ControlMaster=auto", "-o", "ControlPath=/tmp/aiven-jmh-ssh-%C", "-o", "ControlPersist=60",
+].collect { it.toString() }
+def runnerRun = findProperty("runnerRun")
+def runnerConnection = { ExecOperations exec, String host = runnerHost ->
+    if (!host) {
+        throw new GradleException("Pass the runner address with -PrunnerHost=<ip>")
+    }
+    new RunnerConnection(exec: exec, ssh: runnerSsh, target: "$runnerUser@$host")
+}
+def latestRun = { RunnerConnection runner ->
+    def runId = runnerRun ?: runner.run("ls -1 aiven-jmh/runs 2>/dev/null | tail -n 1")
+    if (!runId) {
+        throw new GradleException("No benchmark runs on $runnerHost")
+    }
+    runId
+}
+def shellQuote = { String value -> "'" + value.replace("'", "'\\''") + "'" }
+
+def jmhRemoteStage = tasks.register("jmhRemoteStage", Copy) {
+    from(tasks.named("jmhJar")) { rename { "jmh.jar" } }
+    from(bcFipsJar) { rename { "bc-fips.jar" } }
+    from("src/jmh/remote/run-benchmarks.sh")
+    from({ configurations.asyncProfilerLinux.collect { zipTree(it) } }) { include "linux-*/libasyncProfiler.so" }
+    into layout.buildDirectory.dir("jmh-remote/upload")
+}
+
+tasks.register("jmhRemote") {
+    description = "Starts the JMH benchmarks on -PrunnerHost as a systemd unit that also samples Linux metrics."
+    group = "benchmark"
+    dependsOn jmhRemoteStage
+    def injected = project.objects.newInstance(InjectedExecOperations)
+    def uploadDir = layout.buildDirectory.dir("jmh-remote/upload")
+    def secrets = [
+        "public.pem" : file(benchmarkSystemProperties["bench.rsa.public_key_file"]),
+        "private.pem": file(benchmarkSystemProperties["bench.rsa.private_key_file"]),
+    ]
+    def usesGcs = benchmarkParams.backend?.contains("gcs")
+    def gcsCredentials = usesGcs ? gcsCredentialsPath : null
+    def systemProperties = benchmarkSystemProperties + [
+        "bench.gcs.credentials"      : gcsCredentials ? "@RUN_DIR@/secrets/gcs-credentials.json" : "",
+        "bench.rsa.public_key_file"  : "@RUN_DIR@/secrets/public.pem",
+        "bench.rsa.private_key_file" : "@RUN_DIR@/secrets/private.pem",
+        "bench.trial_log"            : "@RUN_DIR@/metrics/trials.log",
+    ]
+    def jvmArgs = benchmarkJvmArgs + ["-Xlog:gc*,gc+humongous=debug:file=@RUN_DIR@/gc/gc-%p.log:time,uptimemillis,level,tags"] +
+        systemProperties.collect { key, value -> "-D$key=$value".toString() }
+    def jmhArgs = [benchmarkInclude, "-t", "$benchmarkThreads"]
+    benchmarkParams.each { param, values -> jmhArgs += ["-p", "$param=${values.join(",")}"] }
+    if (benchmarkShort) {
+        jmhArgs += ["-f", "1", "-wi", "1", "-w", "1s", "-i", "1", "-r", "1s"]
+    }
+    jmhArgs += [
+        "-jvmArgsAppend", jvmArgs.join(" "),
+        "-prof", asyncProfilerOptions("@PROFILER_LIB@", "@RUN_DIR@/async", linuxEvents), "-prof", "gc",
+        "-rf", "json", "-rff", "@RUN_DIR@/results/$resultsFileName",
+    ]
+    def unitProperties = [AllowedCPUs: findProperty("runnerCpus"), MemoryMax: findProperty("runnerMemory")]
+        .findAll { it.value }.collect { key, value -> "--property=$key=$value" }
+    doLast {
+        def runner = runnerConnection(injected.execOperations)
+        if (usesGcs) {
+            if (!systemProperties["bench.gcs.bucket"]) {
+                throw new GradleException("The gcs backend needs -PgcsBucketName=<bucket>")
+            }
+            if (!gcsCredentials || new groovy.json.JsonSlurper().parse(file(gcsCredentials)).type != "service_account") {
+                throw new GradleException("The gcs backend on the runner needs -PgcsCredentialsPath or GOOGLE_APPLICATION_CREDENTIALS pointing at a service account key")
+            }
+            secrets["gcs-credentials.json"] = file(gcsCredentials)
+        }
+        def runId = java.time.LocalDateTime.now().format(java.time.format.DateTimeFormatter.ofPattern("yyyyMMdd-HHmmss"))
+        def runDir = "aiven-jmh/runs/$runId"
+        runner.run("""
+            set -e
+            sudo -n true || { echo 'systemd-run needs passwordless sudo' >&2; exit 1; }
+            active=\$(sudo -n systemctl list-units --no-legend --plain --state=active,activating 'aiven-jmh-*.service')
+            if [ -n "\$active" ]; then echo "Another benchmark run is active: \$active" >&2; exit 1; fi
+            mkdir -p aiven-jmh/upload $runDir/lib $runDir/secrets && chmod 700 $runDir/secrets
+        """.stripIndent())
+        runner.rsync("${uploadDir.get().asFile}/", "$runnerTarget:aiven-jmh/upload/")
+        secrets.each { name, secret ->
+            secret.withInputStream { runner.run("umask 077 && cat > $runDir/secrets/$name", it) }
+        }
+        runner.run("cp -R aiven-jmh/upload/. $runDir/lib/ && sudo -n systemd-run --quiet --collect --unit=aiven-jmh-$runId " +
+            "--uid=\$(id -u) --gid=\$(id -g) ${unitProperties.join(" ")} " +
+            "/bin/bash \$HOME/$runDir/lib/run-benchmarks.sh \$HOME/$runDir " + jmhArgs.collect { shellQuote(it.toString()) }.join(" "))
+        println "Started $runId on $runnerHost. Fetch it with ./gradlew :repository-gcs-jmh:jmhRemoteFetch -PrunnerHost=$runnerHost"
+    }
+}
+
+tasks.register("jmhRemoteFetch") {
+    description = "Copies the latest run (or -PrunnerRun) from -PrunnerHost into build/jmh-remote/runs."
+    group = "benchmark"
+    def injected = project.objects.newInstance(InjectedExecOperations)
+    def runs = remoteRuns
+    doLast {
+        def runner = runnerConnection(injected.execOperations)
+        def runId = latestRun(runner)
+        def runDir = "aiven-jmh/runs/$runId"
+        def state = runner.run("sudo -n systemctl is-active aiven-jmh-${runId}.service || true")
+        if (state != "active" && state != "activating") {
+            runner.run("rm -f $runDir/secrets/*")
+        }
+        def exitStatus = runner.run("cat $runDir/status 2>/dev/null || true")
+        def destination = runs.get().dir(runId).asFile
+        destination.mkdirs()
+        runner.rsync("$runnerTarget:$runDir/", destination.path, ["--exclude=/lib", "--exclude=/secrets"])
+        println "$runId is $state${exitStatus ? ", exit status $exitStatus" : ""}. Copied to $destination"
+    }
+}
+
+tasks.register("jmhRemoteStop") {
+    description = "Stops the latest run (or -PrunnerRun) on -PrunnerHost."
+    group = "benchmark"
+    def injected = project.objects.newInstance(InjectedExecOperations)
+    doLast {
+        def runner = runnerConnection(injected.execOperations)
+        def runId = latestRun(runner)
+        runner.run("sudo -n systemctl stop aiven-jmh-${runId}.service")
+        println "Stopped $runId"
+    }
+}
+
+def gcpProject = findProperty("gcpProject")
+def runnerName = findProperty("runnerName") ?: "aiven-jmh-" + System.getProperty("user.name").toLowerCase(Locale.ROOT).replaceAll("[^a-z0-9]+", "-")
+def runnerZone = findProperty("runnerZone") ?: "europe-west1-c"
+def gcloud = { ExecOperations exec, List args, boolean ignoreFailure = false ->
+    def output = new ByteArrayOutputStream()
+    def result = exec.exec {
+        commandLine(["gcloud"] + args + (gcpProject ? ["--project=$gcpProject"] : []))
+        standardOutput = output
+        ignoreExitValue = ignoreFailure
+    }
+    result.exitValue == 0 ? output.toString().trim() : null
+}
+
+tasks.register("jmhRunnerCreate") {
+    description = "Creates the GCE runner -PrunnerName and opens SSH to this machine's public address."
+    group = "benchmark"
+    def injected = project.objects.newInstance(InjectedExecOperations)
+    def machineType = findProperty("runnerMachineType") ?: "n2d-standard-4"
+    def imageFamily = machineType ==~ /(c4a|t2a)-.*/ ? "debian-13-arm64" : "debian-13"
+    def diskType = machineType ==~ /(c4|c4a|c4d|n4|n4d)-.*/ ? "hyperdisk-balanced" : "pd-balanced"
+    def sshSource = findProperty("runnerSshSource")
+    doLast {
+        def exec = injected.execOperations
+        if (!runnerSshKey.exists()) {
+            runnerSshKey.parentFile.mkdirs()
+            exec.exec { commandLine "ssh-keygen", "-q", "-t", "ed25519", "-N", "", "-C", "aiven-jmh", "-f", runnerSshKey }
+        }
+        def publicKey = new File("${runnerSshKey}.pub").text.trim()
+        def source = sshSource ?: new URL("https://checkip.amazonaws.com").text.trim() + "/32"
+        gcloud(exec, ["compute", "firewall-rules", "create", "$runnerName-ssh", "--network=default", "--allow=tcp:22",
+                      "--target-tags=$runnerName", "--source-ranges=$source"])
+        gcloud(exec, ["compute", "instances", "create", runnerName, "--zone=$runnerZone", "--machine-type=$machineType",
+                      "--image-family=$imageFamily", "--image-project=debian-cloud",
+                      "--boot-disk-size=50GB", "--boot-disk-type=$diskType", "--network=default", "--tags=$runnerName",
+                      "--no-service-account", "--no-scopes", "--labels=purpose=aiven-jmh",
+                      "--metadata=enable-oslogin=FALSE,ssh-keys=$runnerUser:$publicKey"])
+        def host = gcloud(exec, ["compute", "instances", "describe", runnerName, "--zone=$runnerZone",
+                                 "--format=get(networkInterfaces[0].accessConfigs[0].natIP)"])
+        if (runnerKnownHosts.exists()) {
+            exec.exec { commandLine "ssh-keygen", "-q", "-R", host, "-f", runnerKnownHosts; ignoreExitValue = true }
+        }
+        def runner = runnerConnection(exec, host)
+        def attempts = 0
+        while (!runner.reachable()) {
+            if (++attempts == 36) {
+                throw new GradleException("$runnerName at $host doesn't accept SSH as $runnerUser after 3 minutes")
+            }
+            sleep(5000)
+        }
+        println "$runnerName ($machineType, $runnerZone) is at $host. Run the benchmarks with\n" +
+            "./gradlew :repository-gcs-jmh:jmhRemote -PrunnerHost=$host -PjmhBackend=gcs -PgcsBucketName=<bucket> -PgcsCredentialsPath=<key.json>"
+    }
+}
+
+tasks.register("jmhRunnerDelete") {
+    description = "Deletes the GCE runner -PrunnerName and its SSH firewall rule."
+    group = "benchmark"
+    def injected = project.objects.newInstance(InjectedExecOperations)
+    doLast {
+        def exec = injected.execOperations
+        gcloud(exec, ["compute", "instances", "delete", runnerName, "--zone=$runnerZone", "--quiet"])
+        gcloud(exec, ["compute", "firewall-rules", "delete", "$runnerName-ssh", "--quiet"], true)
+        println "Deleted $runnerName"
+    }
+}

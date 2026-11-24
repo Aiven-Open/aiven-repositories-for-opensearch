@@ -100,6 +100,9 @@ public interface CommonSettings {
         // to use 5TB maximum storage limit we need to improve our logic and use more than one IV
         // In case of AES/GCM maximum size is teh same since it is extension of CTR with hashing,
         // but from security point of view GCM better
+        //
+        // NOTE for V2: This limit no longer valid for V2, since we use frames and each frame has
+        // its own IV, so 64GB limit is per frame only.
         Setting<ByteSizeValue> CHUNK_SIZE =
                 Setting.byteSizeSetting(
                         "chunk_size",
