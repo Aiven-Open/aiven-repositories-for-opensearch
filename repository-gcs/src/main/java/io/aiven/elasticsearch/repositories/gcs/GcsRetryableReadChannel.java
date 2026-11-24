@@ -84,6 +84,8 @@ public class GcsRetryableReadChannel implements ReadableByteChannel {
                     } else { /* we don't know the cause */
                         throw ex;
                     }
+                } else if (ex.getCause() instanceof StorageException) {
+                    restoreReaderOrFail((StorageException) ex.getCause());
                 } else {
                     restoreReaderOrFail(StorageException.translate(ex));
                 }

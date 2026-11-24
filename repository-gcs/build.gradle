@@ -15,7 +15,8 @@
  */
 
 ext {
-    gcsVerison = "1.113.15"
+    // Don't bump the version to 2.63 as the protobuf-java dependency is not compatible.
+    gcsVerison = "2.60.0"
 }
 
 dependencies {
@@ -24,9 +25,54 @@ dependencies {
     implementation project(':crypto-provider')
 
     implementation("com.google.cloud:google-cloud-storage:$gcsVerison") {
+        // provided by OpenSearch core
         exclude group: "com.fasterxml.jackson.core", module: "jackson-core"
         exclude group: "com.google.protobuf", module: "protobuf-java"
         exclude group: "javax.annotation", module: "javax.annotation-api"
+
+        // only the HTTP (JSON API) transport is used: drop gRPC, XML API, metrics exporters
+        // and alternative HTTP transports, keeping the set close to the upstream repository-gcs plugin
+        exclude group: "io.grpc", module: "grpc-alts"
+        exclude group: "io.grpc", module: "grpc-auth"
+        exclude group: "io.grpc", module: "grpc-context"
+        exclude group: "io.grpc", module: "grpc-core"
+        exclude group: "io.grpc", module: "grpc-googleapis"
+        exclude group: "io.grpc", module: "grpc-grpclb"
+        exclude group: "io.grpc", module: "grpc-inprocess"
+        exclude group: "io.grpc", module: "grpc-netty-shaded"
+        exclude group: "io.grpc", module: "grpc-opentelemetry"
+        exclude group: "io.grpc", module: "grpc-protobuf"
+        exclude group: "io.grpc", module: "grpc-protobuf-lite"
+        exclude group: "io.grpc", module: "grpc-rls"
+        exclude group: "io.grpc", module: "grpc-services"
+        exclude group: "io.grpc", module: "grpc-stub"
+        exclude group: "io.grpc", module: "grpc-util"
+        exclude group: "io.grpc", module: "grpc-xds"
+        exclude group: "com.google.api", module: "gax-grpc"
+        exclude group: "com.google.api.grpc", module: "gapic-google-cloud-storage-v2"
+        exclude group: "com.google.api.grpc", module: "grpc-google-cloud-storage-v2"
+        exclude group: "com.google.api.grpc", module: "proto-google-cloud-monitoring-v3"
+        exclude group: "com.google.cloud", module: "google-cloud-core-grpc"
+        exclude group: "com.google.cloud", module: "google-cloud-monitoring"
+        exclude group: "com.google.cloud.opentelemetry"
+        exclude group: "io.opentelemetry", module: "opentelemetry-sdk"
+        exclude group: "io.opentelemetry", module: "opentelemetry-sdk-common"
+        exclude group: "io.opentelemetry", module: "opentelemetry-sdk-extension-autoconfigure-spi"
+        exclude group: "io.opentelemetry", module: "opentelemetry-sdk-logs"
+        exclude group: "io.opentelemetry", module: "opentelemetry-sdk-metrics"
+        exclude group: "io.opentelemetry", module: "opentelemetry-sdk-trace"
+        exclude group: "io.opentelemetry.contrib"
+        exclude group: "io.opentelemetry.semconv"
+        exclude group: "com.fasterxml.jackson.dataformat", module: "jackson-dataformat-xml"
+        exclude group: "com.fasterxml.jackson.datatype", module: "jackson-datatype-jsr310"
+        exclude group: "com.fasterxml.woodstox"
+        exclude group: "org.codehaus.woodstox"
+        exclude group: "com.google.http-client", module: "google-http-client-apache-v2"
+        exclude group: "org.conscrypt"
+        exclude group: "com.google.re2j"
+        exclude group: "io.perfmark"
+        exclude group: "com.google.android"
+        exclude group: "org.codehaus.mojo"
     }
 
     testImplementation "org.bouncycastle:bc-fips:2.1.2"

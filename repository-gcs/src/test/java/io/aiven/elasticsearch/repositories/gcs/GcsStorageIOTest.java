@@ -21,20 +21,19 @@ import javax.crypto.spec.SecretKeySpec;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.nio.ByteBuffer;
 import java.security.Security;
 import java.util.Arrays;
-import java.util.Map;
 import java.util.Random;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import io.aiven.elasticsearch.repositories.io.CryptoIOProvider;
 
-import com.google.api.services.storage.model.StorageObject;
-import com.google.cloud.Tuple;
+import com.google.cloud.NoCredentials;
+import com.google.cloud.ReadChannel;
+import com.google.cloud.storage.BlobId;
 import com.google.cloud.storage.Storage;
 import com.google.cloud.storage.StorageOptions;
-import com.google.cloud.storage.spi.StorageRpcFactory;
-import com.google.cloud.storage.spi.v1.StorageRpc;
-import com.google.common.collect.ImmutableMap;
 import org.bouncycastle.jcajce.provider.BouncyCastleFipsProvider;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -44,16 +43,15 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyLong;
-import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
 class GcsStorageIOTest {
 
-    private static final Map<StorageRpc.Option, ?> EMPTY_RPC_OPTIONS = ImmutableMap.of();
+    private static final BlobId BLOB_ID = BlobId.of("bucket", "blob");
 
     private static final byte[] BLOB = new byte[3 * 1024 * 1024];
 
@@ -62,30 +60,30 @@ class GcsStorageIOTest {
     }
 
     @Mock
-    private StorageRpcFactory rpcFactoryMock;
+    private Storage storage;
 
     @Mock
-    private StorageRpc storageRpcMock;
-
-    private Storage storage;
+    private ReadChannel channel;
 
     @BeforeEach
     void setUp() {
-        when(rpcFactoryMock.create(any(StorageOptions.class))).thenReturn(storageRpcMock);
-        storage = new StorageOptions.DefaultStorageFactory()
-            .create(StorageOptions.newBuilder().setServiceRpcFactory(rpcFactoryMock).build());
+        when(storage.getOptions()).thenReturn(StorageOptions.newBuilder()
+            .setProjectId("test")
+            .setCredentials(NoCredentials.getInstance())
+            .build());
+        when(storage.reader(BLOB_ID)).thenReturn(channel);
     }
 
     @Test
     void readWithPositionSeeksAndStopsAfterLength() throws IOException {
         storeObject(BLOB);
         final var storageIO = new GcsRepositoryStorageIOProvider.GcsStorageIO(
-            storage, "bucket", CryptoIOProvider.UNENCRYPTED);
+            storage, BLOB_ID.getBucket(), CryptoIOProvider.UNENCRYPTED);
 
-        try (final var in = storageIO.read("blob", 1_000_000, 500)) {
+        try (final var in = storageIO.read(BLOB_ID.getName(), 1_000_000, 500)) {
             assertArrayEquals(Arrays.copyOfRange(BLOB, 1_000_000, 1_000_500), in.readAllBytes());
         }
-        verify(storageRpcMock).read(any(StorageObject.class), eq(EMPTY_RPC_OPTIONS), eq(1_000_000L), anyInt());
+        verify(channel).seek(1_000_000);
     }
 
     @Test
@@ -95,19 +93,28 @@ class GcsStorageIOTest {
         final var stored = new ByteArrayOutputStream();
         cryptoIOProvider.compressAndEncrypt(new ByteArrayInputStream(BLOB), stored);
         storeObject(stored.toByteArray());
-        final var storageIO = new GcsRepositoryStorageIOProvider.GcsStorageIO(storage, "bucket", cryptoIOProvider);
+        final var storageIO = new GcsRepositoryStorageIOProvider.GcsStorageIO(
+            storage, BLOB_ID.getBucket(), cryptoIOProvider);
 
-        try (final var in = storageIO.read("blob", 1_000_000, 500)) {
+        try (final var in = storageIO.read(BLOB_ID.getName(), 1_000_000, 500)) {
             assertArrayEquals(Arrays.copyOfRange(BLOB, 1_000_000, 1_000_500), in.readAllBytes());
         }
     }
 
-    private void storeObject(final byte[] object) {
-        when(storageRpcMock.read(any(StorageObject.class), eq(EMPTY_RPC_OPTIONS), anyLong(), anyInt()))
-            .thenAnswer(invocation -> {
-                final int position = Math.toIntExact((long) invocation.getArgument(2));
-                final int chunkSize = invocation.getArgument(3);
-                return Tuple.of("etag", Arrays.copyOfRange(object, position, Math.min(object.length, position + chunkSize)));
-            });
+    private void storeObject(final byte[] object) throws IOException {
+        final var position = new AtomicInteger();
+        lenient().doAnswer(invocation -> {
+            position.set(Math.toIntExact(invocation.<Long>getArgument(0)));
+            return null;
+        }).when(channel).seek(anyLong());
+        when(channel.read(any(ByteBuffer.class))).thenAnswer(invocation -> {
+            final ByteBuffer dst = invocation.getArgument(0);
+            final int length = Math.min(dst.remaining(), object.length - position.get());
+            if (length <= 0) {
+                return -1;
+            }
+            dst.put(object, position.getAndAdd(length), length);
+            return length;
+        });
     }
 }
