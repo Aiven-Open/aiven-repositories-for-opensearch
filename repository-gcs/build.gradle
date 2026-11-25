@@ -22,7 +22,6 @@ dependencies {
     implementation project(':repository-commons')
 
     implementation("com.google.cloud:google-cloud-storage:$gcsVerison") {
-        exclude group: "com.fasterxml.jackson.core", module: "jackson-core"
         exclude group: "com.google.protobuf", module: "protobuf-java"
         exclude group: "javax.annotation", module: "javax.annotation-api"
     }

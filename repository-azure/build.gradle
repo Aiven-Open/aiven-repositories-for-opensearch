@@ -23,29 +23,24 @@ dependencies {
     implementation project(':repository-commons')
 
     implementation("com.azure:azure-core-http-okhttp:$azureStorageOkHttpVerison") {
-        exclude group: "com.fasterxml.jackson.core", module: "jackson-core"
         exclude group: "com.fasterxml.jackson.datatype", module: "jackson-datatype-jsr310"
         exclude group: "com.fasterxml.jackson.dataformat", module: "jackson-dataformat-xml"
     }
     implementation ("com.azure:azure-storage-blob:$azureStorageBlobVerison") {
-        exclude group: "com.fasterxml.jackson.core", module: "jackson-core"
         exclude group: "com.azure", module: "azure-core-http-netty"
         exclude group: "com.fasterxml.jackson.datatype", module: "jackson-datatype-jsr310"
         exclude group: "com.fasterxml.jackson.dataformat", module: "jackson-dataformat-xml"
         exclude group: "io.netty", module: "netty-tcnative-boringssl"
     }
     implementation("com.fasterxml.jackson.datatype:jackson-datatype-jsr310:$jacksonDatabind") {
-        exclude group: "com.fasterxml.jackson.core", module: "jackson-core"
         exclude group: "com.fasterxml.jackson.datatype", module: "jackson-datatype-jsr310"
         exclude group: "com.fasterxml.jackson.dataformat", module: "jackson-dataformat-xml"
     }
     implementation("com.fasterxml.jackson.dataformat:jackson-dataformat-xml:$jacksonDatabind") {
-        exclude group: "com.fasterxml.jackson.core", module: "jackson-core"
         exclude group: "com.fasterxml.jackson.datatype", module: "jackson-datatype-jsr310"
         exclude group: "com.fasterxml.jackson.dataformat", module: "jackson-dataformat-xml"
     }
     implementation("com.fasterxml.jackson.core:jackson-databind:$jacksonDatabind") {
-        exclude group: "com.fasterxml.jackson.core", module: "jackson-core"
         exclude group: "com.fasterxml.jackson.datatype", module: "jackson-datatype-jsr310"
         exclude group: "com.fasterxml.jackson.dataformat", module: "jackson-dataformat-xml"
     }

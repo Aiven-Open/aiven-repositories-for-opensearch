@@ -22,8 +22,6 @@ dependencies {
     implementation project(':repository-commons')
 
     implementation ("com.amazonaws:aws-java-sdk-s3:$awsVerison") {
-        exclude group: "com.fasterxml.jackson.core", module: "jackson-core"
-        exclude group: "com.fasterxml.jackson.dataformat", module: "jackson-dataformat-cbor"
         exclude group: "joda-time", module: "joda-time"
     }
 

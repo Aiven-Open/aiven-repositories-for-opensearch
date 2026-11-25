@@ -46,11 +46,10 @@ allprojects {
 
     ext {
         slf4jVersion = "2.0.17"
-        opensearchVersion = "3.8.0"
-        supportedFromOpenSearchVersion = "3.8.0"
-        // since jackson-core is in the main classpath
-        // plz keep the same version as for OpenSearch
-        jacksonDatabind = "2.22.1"
+        opensearchVersion = "3.10.0"
+        supportedFromOpenSearchVersion = "3.10.0"
+        // OpenSearch 3.10+ ships only Jackson 3 (tools.jackson), so plugins bundle their own Jackson 2
+        jacksonDatabind = "2.22.4"
     }
 
 
@@ -125,9 +124,7 @@ allprojects {
     }
 
     dependencies {
-        implementation("com.fasterxml.jackson.core:jackson-databind:$jacksonDatabind") {
-            exclude group: "com.fasterxml.jackson.core", module: "jackson-core"
-        }
+        implementation "com.fasterxml.jackson.core:jackson-databind:$jacksonDatabind"
 
         compileOnly "org.opensearch:opensearch:$opensearchVersion"
 
