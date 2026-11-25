@@ -16,11 +16,14 @@
 
 package io.aiven.elasticsearch.repositories.gcs;
 
+import javax.net.ssl.SSLContext;
+
 import java.io.IOException;
 import java.lang.management.ManagementFactory;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
+import java.security.NoSuchAlgorithmException;
 import java.security.Security;
 import java.util.stream.Collectors;
 
@@ -39,6 +42,13 @@ final class BenchmarkEnvironment {
         if (Long.parseLong(actual) != RepositoryState.parseSize(g1RegionSize)) {
             throw new IllegalStateException(
                 "G1HeapRegionSize is " + actual + " bytes, run the fork with -XX:G1HeapRegionSize=" + g1RegionSize);
+        }
+        // The default SSLContext loads the JDK key and trust stores as PKCS#12 from the first provider,
+        // and BC-FIPS refuses to load them without a password, so the GCS client couldn't open TLS connections.
+        try {
+            SSLContext.getDefault();
+        } catch (final NoSuchAlgorithmException e) {
+            throw new IllegalStateException(e);
         }
         Security.insertProviderAt(new BouncyCastleFipsProvider(), 1);
     }
