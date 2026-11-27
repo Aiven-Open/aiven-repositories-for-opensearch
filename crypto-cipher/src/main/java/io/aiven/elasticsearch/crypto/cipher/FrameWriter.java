@@ -163,16 +163,6 @@ final class FrameWriter extends InputStream {
             throw new IOException("Content is too large for frame length " + header.frameLength());
         }
         final var iv = MessageFormat.frameIv(sequenceNumber);
-        final byte[] sealed;
-        try {
-            sealed = MessageFormat.seal(
-                header.frameKey(),
-                iv,
-                MessageFormat.frameAad(header.messageId(), finalFrame, sequenceNumber, plaintext.length),
-                plaintext);
-        } catch (final GeneralSecurityException e) {
-            throw new IOException("Couldn't encrypt frame " + sequenceNumber, e);
-        }
         final var frame = ByteBuffer.allocate(
             (finalFrame ? MessageFormat.FINAL_FRAME_OVERHEAD : MessageFormat.FRAME_OVERHEAD) + plaintext.length);
         if (finalFrame) {
@@ -182,7 +172,18 @@ final class FrameWriter extends InputStream {
         if (finalFrame) {
             frame.putInt(plaintext.length);
         }
-        return frame.put(sealed).array();
+        try {
+            MessageFormat.seal(
+                header.frameKey(),
+                iv,
+                MessageFormat.frameAad(header.messageId(), finalFrame, sequenceNumber, plaintext.length),
+                plaintext,
+                frame.array(),
+                frame.position());
+        } catch (final GeneralSecurityException e) {
+            throw new IOException("Couldn't encrypt frame " + sequenceNumber, e);
+        }
+        return frame.array();
     }
 
     @Override

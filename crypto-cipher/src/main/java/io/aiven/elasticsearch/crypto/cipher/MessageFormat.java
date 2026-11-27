@@ -139,6 +139,16 @@ final class MessageFormat {
         return gcm(Cipher.ENCRYPT_MODE, key, iv, aad).doFinal(plaintext);
     }
 
+    /** Writes the ciphertext followed by the 16-byte tag to {@code output} at {@code outputOffset}. */
+    static void seal(final SecretKey key,
+                     final byte[] iv,
+                     final byte[] aad,
+                     final byte[] plaintext,
+                     final byte[] output,
+                     final int outputOffset) throws GeneralSecurityException {
+        gcm(Cipher.ENCRYPT_MODE, key, iv, aad).doFinal(plaintext, 0, plaintext.length, output, outputOffset);
+    }
+
     /** Takes the ciphertext followed by the 16-byte tag. Throws {@code AEADBadTagException} if authentication fails. */
     static byte[] open(final SecretKey key,
                        final byte[] iv,
