@@ -65,8 +65,15 @@ public class GcsRepositoryStorageIOProvider
 
     private static final Logger LOGGER = LoggerFactory.getLogger(GcsRepositoryStorageIOProvider.class);
 
+    private final GcsClientProvider gcsClientProvider;
+
     public GcsRepositoryStorageIOProvider() {
-        super(new GcsClientProvider());
+        this(new GcsClientProvider());
+    }
+
+    private GcsRepositoryStorageIOProvider(final GcsClientProvider gcsClientProvider) {
+        super(gcsClientProvider);
+        this.gcsClientProvider = gcsClientProvider;
     }
 
     @Override
@@ -76,7 +83,7 @@ public class GcsRepositoryStorageIOProvider
         CommonSettings.RepositorySettings.checkSettings(
                 GcsRepositoryPlugin.REPOSITORY_TYPE, BUCKET_NAME, repositorySettings);
         final var bucketName = BUCKET_NAME.get(repositorySettings);
-        return new GcsStorageIO(storage, bucketName, cryptoIOProvider);
+        return new GcsStorageIO(storage, bucketName, cryptoIOProvider, gcsClientProvider.uploadChunkSize());
     }
 
     public static class GcsStorageIO implements StorageIO {
@@ -87,10 +94,20 @@ public class GcsRepositoryStorageIOProvider
 
         private final CryptoIOProvider cryptoIOProvider;
 
+        private final int uploadChunkSize;
+
         public GcsStorageIO(final Storage storage, final String bucketName, final CryptoIOProvider cryptoIOProvider) {
+            this(storage, bucketName, cryptoIOProvider, GcsClientSettings.MAX_UPLOAD_CHUNK_SIZE);
+        }
+
+        public GcsStorageIO(final Storage storage,
+                            final String bucketName,
+                            final CryptoIOProvider cryptoIOProvider,
+                            final int uploadChunkSize) {
             this.storage = storage;
             this.bucketName = bucketName;
             this.cryptoIOProvider = cryptoIOProvider;
+            this.uploadChunkSize = uploadChunkSize;
         }
 
         @Override
@@ -172,6 +189,9 @@ public class GcsRepositoryStorageIOProvider
                     
                     Permissions.doPrivileged(() -> {
                         final var writeChannel = storage.writer(blobInfo, writeOptions);
+                        if (blobSize > 0) {
+                            writeChannel.setChunkSize((int) Math.min(blobSize, uploadChunkSize));
+                        }
                         cryptoIOProvider.compressAndEncrypt(
                                 inputStream,
                                 Channels.newOutputStream(new WritableByteChannel() {

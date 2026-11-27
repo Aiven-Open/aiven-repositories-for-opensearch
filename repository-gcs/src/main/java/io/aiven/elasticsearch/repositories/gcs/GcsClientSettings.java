@@ -18,6 +18,7 @@ package io.aiven.elasticsearch.repositories.gcs;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.lang.management.ManagementFactory;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
@@ -26,10 +27,14 @@ import java.util.concurrent.TimeUnit;
 import org.opensearch.common.settings.Setting;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.core.common.settings.SecureString;
+import org.opensearch.core.common.unit.ByteSizeValue;
 
 import io.aiven.elasticsearch.repositories.CommonSettings;
 
 import com.google.auth.oauth2.GoogleCredentials;
+import com.sun.management.HotSpotDiagnosticMXBean;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import static io.aiven.elasticsearch.repositories.CommonSettings.ClientSettings.getConfigValue;
 import static io.aiven.elasticsearch.repositories.CommonSettings.ClientSettings.readInputStream;
@@ -131,6 +136,29 @@ public class GcsClientSettings implements CommonSettings.ClientSettings {
                     key -> Setting.intSetting(key, 0, Setting.Property.NodeScope)
             );
 
+    static final int MIN_UPLOAD_CHUNK_SIZE = 256 * 1024;
+
+    static final int MAX_UPLOAD_CHUNK_SIZE = 16 * 1024 * 1024;
+
+    static final int UPLOAD_CHUNK_SIZE_FLOOR = 4 * 1024 * 1024;
+
+    /**
+     * Upper bound of the heap buffer the GCS SDK allocates for every resumable upload. A blob smaller than this gets a
+     * buffer of its own size. The default depends on the G1 region size of this JVM.
+     */
+    public static final Setting.AffixSetting<ByteSizeValue> UPLOAD_CHUNK_SIZE =
+            Setting.affixKeySetting(
+                    GCS_PREFIX,
+                    "upload_chunk_size",
+                    key -> Setting.byteSizeSetting(key,
+                            s -> uploadChunkSizeFor(g1RegionSize()) + "b",
+                            new ByteSizeValue(MIN_UPLOAD_CHUNK_SIZE),
+                            new ByteSizeValue(MAX_UPLOAD_CHUNK_SIZE),
+                            Setting.Property.NodeScope)
+            );
+
+    private static final Logger LOGGER = LoggerFactory.getLogger(GcsClientSettings.class);
+
     private final byte[] publicKey;
 
     private final byte[] privateKey;
@@ -156,6 +184,8 @@ public class GcsClientSettings implements CommonSettings.ClientSettings {
 
     private final int proxyPort;
 
+    private final int uploadChunkSize;
+
     private GcsClientSettings(final byte[] publicKey,
                               final byte[] privateKey,
                               final String projectId,
@@ -166,7 +196,8 @@ public class GcsClientSettings implements CommonSettings.ClientSettings {
                               final String proxyHost,
                               final int proxyPort,
                               final String proxyUsername,
-                              final char[] proxyUserPassword) {
+                              final char[] proxyUserPassword,
+                              final int uploadChunkSize) {
         this.publicKey = publicKey;
         this.privateKey = privateKey;
         this.projectId = projectId;
@@ -178,6 +209,7 @@ public class GcsClientSettings implements CommonSettings.ClientSettings {
         this.proxyPort = proxyPort;
         this.proxyUsername = proxyUsername;
         this.proxyUserPassword = proxyUserPassword;
+        this.uploadChunkSize = uploadChunkSize;
     }
 
     public static Map<String, GcsClientSettings> create(final Settings settings) throws IOException {
@@ -215,8 +247,37 @@ public class GcsClientSettings implements CommonSettings.ClientSettings {
                 getConfigValue(settings, clientName, PROXY_HOST),
                 getConfigValue(settings, clientName, PROXY_PORT),
                 getConfigValue(settings, clientName, PROXY_USER_NAME).toString(),
-                getConfigValue(settings, clientName, PROXY_USER_PASSWORD).getChars()
+                getConfigValue(settings, clientName, PROXY_USER_PASSWORD).getChars(),
+                Math.toIntExact(getConfigValue(settings, clientName, UPLOAD_CHUNK_SIZE).getBytes())
         );
+    }
+
+    /**
+     * G1 allocates an array of at least half a region as humongous. The SDK rounds the buffer up to 256 KiB, so half a
+     * region minus 256 KiB is the largest buffer that is not humongous. Each full buffer is one upload request, so small
+     * regions use the floor instead: 256 KiB under a multiple of the region size, which leaves room for the array header.
+     */
+    static int uploadChunkSizeFor(final long g1RegionSize) {
+        if (g1RegionSize <= 0) {
+            return MAX_UPLOAD_CHUNK_SIZE;
+        }
+        final long size = Math.max(g1RegionSize / 2, UPLOAD_CHUNK_SIZE_FLOOR) - MIN_UPLOAD_CHUNK_SIZE;
+        return (int) Math.min(size, MAX_UPLOAD_CHUNK_SIZE);
+    }
+
+    /** Returns 0 when the JVM does not run G1 or does not expose the region size. */
+    private static long g1RegionSize() {
+        try {
+            final var diagnostics = ManagementFactory.getPlatformMXBean(HotSpotDiagnosticMXBean.class);
+            if (!Boolean.parseBoolean(diagnostics.getVMOption("UseG1GC").getValue())) {
+                return 0;
+            }
+            return Long.parseLong(diagnostics.getVMOption("G1HeapRegionSize").getValue());
+        } catch (final RuntimeException e) {
+            LOGGER.warn("Couldn't read the G1 region size, the GCS upload chunk size defaults to {} bytes",
+                    MAX_UPLOAD_CHUNK_SIZE, e);
+            return 0;
+        }
     }
 
     private static GoogleCredentials loadCredentials(
@@ -275,6 +336,10 @@ public class GcsClientSettings implements CommonSettings.ClientSettings {
 
     public int getMaxRetries() {
         return maxRetries;
+    }
+
+    public int uploadChunkSize() {
+        return uploadChunkSize;
     }
 
 }

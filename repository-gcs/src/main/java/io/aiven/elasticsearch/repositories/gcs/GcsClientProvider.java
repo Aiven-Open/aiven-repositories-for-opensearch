@@ -47,9 +47,17 @@ final class GcsClientProvider extends ClientProvider<Storage, GcsClientSettings>
 
     static final String HTTP_USER_AGENT = "Aiven GCS Repository";
 
+    private int uploadChunkSize = GcsClientSettings.MAX_UPLOAD_CHUNK_SIZE;
+
+    /** Upload chunk size of the client settings the current client was built with. */
+    int uploadChunkSize() {
+        return uploadChunkSize;
+    }
+
     @Override
     protected Storage buildClient(final GcsClientSettings clientSettings,
                                   final Settings repositorySettings) {
+        uploadChunkSize = clientSettings.uploadChunkSize();
         final StorageOptions.Builder storageOptionsBuilder = StorageOptions.newBuilder();
         if (!Strings.isNullOrEmpty(clientSettings.projectId())) {
             storageOptionsBuilder.setProjectId(clientSettings.projectId());

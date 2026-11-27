@@ -20,4 +20,6 @@ grant {
   permission java.util.PropertyPermission "jdk.tls.rejectClientInitiatedRenegotiation", "write";
 
   permission java.io.FilePermission "<<ALL FILES>>", "read";
+
+  permission java.lang.management.ManagementPermission "monitor";
 };

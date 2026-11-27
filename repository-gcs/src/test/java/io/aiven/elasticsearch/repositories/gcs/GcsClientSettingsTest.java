@@ -31,6 +31,7 @@ import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class GcsClientSettingsTest extends RsaKeyAwareTest {
 
@@ -72,6 +73,66 @@ class GcsClientSettingsTest extends RsaKeyAwareTest {
         assertEquals(2, gcsClientSettings.readTimeout());
 
         assertNotNull(gcsClientSettings.gcsCredentials());
+    }
+
+    @Test
+    void uploadChunkSizeStaysUnderHalfOfLargeRegions() {
+        assertEquals(mib(3.75), GcsClientSettings.uploadChunkSizeFor(mib(8)));
+        assertEquals(mib(7.75), GcsClientSettings.uploadChunkSizeFor(mib(16)));
+        assertEquals(mib(15.75), GcsClientSettings.uploadChunkSizeFor(mib(32)));
+        assertEquals(mib(16), GcsClientSettings.uploadChunkSizeFor(mib(64)));
+    }
+
+    @Test
+    void uploadChunkSizeUsesFloorForSmallRegions() {
+        assertEquals(mib(3.75), GcsClientSettings.uploadChunkSizeFor(mib(1)));
+        assertEquals(mib(3.75), GcsClientSettings.uploadChunkSizeFor(mib(2)));
+        assertEquals(mib(3.75), GcsClientSettings.uploadChunkSizeFor(mib(4)));
+    }
+
+    @Test
+    void uploadChunkSizeDefaultsToSdkDefaultWithoutG1() {
+        assertEquals(mib(16), GcsClientSettings.uploadChunkSizeFor(0));
+    }
+
+    @Test
+    void uploadChunkSizeDefaultsToRuntimeValue() throws IOException {
+        final var settings = createSettings("default")
+                .setSecureSettings(
+                        createSecureSettings(
+                                "default",
+                                getClass().getClassLoader().getResourceAsStream("test_gcs_creds.json"),
+                                Files.newInputStream(publicKeyPem),
+                                Files.newInputStream(privateKeyPem)
+                        )
+                ).build();
+
+        final var uploadChunkSize = GcsClientSettings.create(settings).get("default").uploadChunkSize();
+
+        assertEquals(GcsClientSettings.UPLOAD_CHUNK_SIZE.getConcreteSettingForNamespace("default").get(Settings.EMPTY)
+                .getBytes(), uploadChunkSize);
+        assertTrue(uploadChunkSize >= GcsClientSettings.MIN_UPLOAD_CHUNK_SIZE);
+        assertTrue(uploadChunkSize <= GcsClientSettings.MAX_UPLOAD_CHUNK_SIZE);
+    }
+
+    @Test
+    void uploadChunkSizeCanBeSet() throws IOException {
+        final var settings = createSettings("default")
+                .put(GcsClientSettings.UPLOAD_CHUNK_SIZE.getConcreteSettingForNamespace("default").getKey(), "8mb")
+                .setSecureSettings(
+                        createSecureSettings(
+                                "default",
+                                getClass().getClassLoader().getResourceAsStream("test_gcs_creds.json"),
+                                Files.newInputStream(publicKeyPem),
+                                Files.newInputStream(privateKeyPem)
+                        )
+                ).build();
+
+        assertEquals(mib(8), GcsClientSettings.create(settings).get("default").uploadChunkSize());
+    }
+
+    private static int mib(final double mib) {
+        return (int) (mib * 1024 * 1024);
     }
 
     @Test

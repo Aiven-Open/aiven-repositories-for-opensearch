@@ -55,7 +55,8 @@ public class GcsRepositoryPlugin extends AbstractRepositoryPlugin<Storage, GcsCl
                            GcsClientSettings.PROXY_HOST,
                            GcsClientSettings.PROXY_PORT,
                            GcsClientSettings.PROXY_USER_NAME,
-                           GcsClientSettings.PROXY_USER_PASSWORD);
+                           GcsClientSettings.PROXY_USER_PASSWORD,
+                           GcsClientSettings.UPLOAD_CHUNK_SIZE);
         return settings;
     }
 

@@ -31,7 +31,9 @@ import io.aiven.elasticsearch.repositories.io.CryptoIOProvider;
 
 import com.google.cloud.NoCredentials;
 import com.google.cloud.ReadChannel;
+import com.google.cloud.WriteChannel;
 import com.google.cloud.storage.BlobId;
+import com.google.cloud.storage.BlobInfo;
 import com.google.cloud.storage.Storage;
 import com.google.cloud.storage.StorageOptions;
 import org.bouncycastle.jcajce.provider.BouncyCastleFipsProvider;
@@ -65,13 +67,40 @@ class GcsStorageIOTest {
     @Mock
     private ReadChannel channel;
 
+    @Mock
+    private WriteChannel writeChannel;
+
     @BeforeEach
     void setUp() {
         when(storage.getOptions()).thenReturn(StorageOptions.newBuilder()
             .setProjectId("test")
             .setCredentials(NoCredentials.getInstance())
             .build());
-        when(storage.reader(BLOB_ID)).thenReturn(channel);
+        lenient().when(storage.reader(BLOB_ID)).thenReturn(channel);
+    }
+
+    @Test
+    void writeSizesUploadChunkToBlob() throws IOException {
+        final var written = captureWrites();
+        final var storageIO = new GcsRepositoryStorageIOProvider.GcsStorageIO(
+            storage, BLOB_ID.getBucket(), CryptoIOProvider.NO_OP_CRYPTO_PROVIDER);
+
+        storageIO.write(BLOB_ID.getName(), new ByteArrayInputStream(BLOB), BLOB.length, false);
+
+        verify(writeChannel).setChunkSize(BLOB.length);
+        assertArrayEquals(BLOB, written.toByteArray());
+    }
+
+    @Test
+    void writeCapsUploadChunkAtConfiguredSize() throws IOException {
+        captureWrites();
+        final var uploadChunkSize = 3 * 1024 * 1024 + 768 * 1024;
+        final var storageIO = new GcsRepositoryStorageIOProvider.GcsStorageIO(
+            storage, BLOB_ID.getBucket(), CryptoIOProvider.NO_OP_CRYPTO_PROVIDER, uploadChunkSize);
+
+        storageIO.write(BLOB_ID.getName(), new ByteArrayInputStream(BLOB), 64L * 1024 * 1024, false);
+
+        verify(writeChannel).setChunkSize(uploadChunkSize);
     }
 
     @Test
@@ -99,6 +128,20 @@ class GcsStorageIOTest {
         try (final var in = storageIO.read(BLOB_ID.getName(), 1_000_000, 500)) {
             assertArrayEquals(Arrays.copyOfRange(BLOB, 1_000_000, 1_000_500), in.readAllBytes());
         }
+    }
+
+    private ByteArrayOutputStream captureWrites() throws IOException {
+        final var written = new ByteArrayOutputStream();
+        when(storage.writer(any(BlobInfo.class))).thenReturn(writeChannel);
+        when(writeChannel.write(any(ByteBuffer.class))).thenAnswer(invocation -> {
+            final ByteBuffer src = invocation.getArgument(0);
+            final int length = src.remaining();
+            final var bytes = new byte[length];
+            src.get(bytes);
+            written.write(bytes);
+            return length;
+        });
+        return written;
     }
 
     private void storeObject(final byte[] object) throws IOException {
