@@ -52,7 +52,14 @@ final class FrameWriter extends InputStream {
 
     private boolean finished;
 
+    // Reused for every frame of this stream
+    private byte[] plaintext = EMPTY;
+
+    private byte[] frame = EMPTY;
+
     private byte[] buffer = EMPTY;
+
+    private int bufferLength;
 
     private int position;
 
@@ -82,8 +89,12 @@ final class FrameWriter extends InputStream {
 
     @Override
     public int read() throws IOException {
-        final var one = new byte[1];
-        return read(one, 0, 1) == -1 ? -1 : one[0] & 0xFF;
+        while (position == bufferLength) {
+            if (!fill()) {
+                return -1;
+            }
+        }
+        return buffer[position++] & 0xFF;
     }
 
     @Override
@@ -92,12 +103,12 @@ final class FrameWriter extends InputStream {
         if (len == 0) {
             return 0;
         }
-        while (position == buffer.length) {
+        while (position == bufferLength) {
             if (!fill()) {
                 return -1;
             }
         }
-        final var n = Math.min(len, buffer.length - position);
+        final var n = Math.min(len, bufferLength - position);
         System.arraycopy(buffer, position, b, off, n);
         position += n;
         return n;
@@ -109,22 +120,23 @@ final class FrameWriter extends InputStream {
             headerWritten = true;
             if (writesHeader) {
                 buffer = header.toByteArray();
+                bufferLength = buffer.length;
                 return true;
             }
         }
         if (finished) {
-            buffer = EMPTY;
+            bufferLength = 0;
             return false;
         }
         final var frameLength = header.frameLength();
-        final var plaintext = readFrame(frameLength);
-        if (plaintext.length == frameLength) {
-            buffer = encryptFrame(false, plaintext);
+        final var plaintextLength = readFrame(frameLength);
+        if (plaintextLength == frameLength) {
+            encryptFrame(false, plaintextLength);
         } else if (writesFinalFrame) {
-            buffer = encryptFrame(true, plaintext);
+            encryptFrame(true, plaintextLength);
             finished = true;
-        } else if (plaintext.length == 0) {
-            buffer = EMPTY;
+        } else if (plaintextLength == 0) {
+            bufferLength = 0;
             finished = true;
             return false;
         } else {
@@ -134,56 +146,63 @@ final class FrameWriter extends InputStream {
         return true;
     }
 
-    private byte[] readFrame(final int frameLength) throws IOException {
-        var frame = new byte[remaining < 0 ? frameLength : (int) Math.min(frameLength, remaining)];
+    private int readFrame(final int frameLength) throws IOException {
+        final var expected = remaining < 0 ? frameLength : (int) Math.min(frameLength, remaining);
+        if (plaintext.length < expected) {
+            plaintext = new byte[expected];
+        }
         var length = 0;
         while (length < frameLength) {
-            if (length == frame.length) {
+            if (length == plaintext.length) {
                 final var next = source.read();
                 if (next == -1) {
                     break;
                 }
-                frame = Arrays.copyOf(frame, frameLength);
-                frame[length++] = (byte) next;
+                plaintext = Arrays.copyOf(plaintext, frameLength);
+                plaintext[length++] = (byte) next;
                 continue;
             }
-            final var n = source.read(frame, length, frame.length - length);
+            final var n = source.read(plaintext, length, plaintext.length - length);
             if (n == -1) {
                 break;
             }
             length += n;
         }
         remaining -= length;
-        return length == frame.length ? frame : Arrays.copyOf(frame, length);
+        return length;
     }
 
-    private byte[] encryptFrame(final boolean finalFrame, final byte[] plaintext) throws IOException {
+    private void encryptFrame(final boolean finalFrame, final int plaintextLength) throws IOException {
         if (sequenceNumber > MessageFormat.MAX_SEQUENCE_NUMBER
             || sequenceNumber == MessageFormat.MAX_SEQUENCE_NUMBER && !finalFrame) {
             throw new IOException("Content is too large for frame length " + header.frameLength());
         }
-        final var iv = MessageFormat.frameIv(sequenceNumber);
-        final var frame = ByteBuffer.allocate(
-            (finalFrame ? MessageFormat.FINAL_FRAME_OVERHEAD : MessageFormat.FRAME_OVERHEAD) + plaintext.length);
-        if (finalFrame) {
-            frame.putInt(MessageFormat.FINAL_FRAME_MARKER);
+        if (frame.length < MessageFormat.FINAL_FRAME_OVERHEAD + plaintextLength) {
+            frame = new byte[MessageFormat.FINAL_FRAME_OVERHEAD + plaintext.length];
         }
-        frame.putInt((int) sequenceNumber).put(iv);
+        final var iv = MessageFormat.frameIv(sequenceNumber);
+        final var fields = ByteBuffer.wrap(frame);
         if (finalFrame) {
-            frame.putInt(plaintext.length);
+            fields.putInt(MessageFormat.FINAL_FRAME_MARKER);
+        }
+        fields.putInt((int) sequenceNumber).put(iv);
+        if (finalFrame) {
+            fields.putInt(plaintextLength);
         }
         try {
             MessageFormat.seal(
                 header.frameKey(),
                 iv,
-                MessageFormat.frameAad(header.messageId(), finalFrame, sequenceNumber, plaintext.length),
+                MessageFormat.frameAad(header.messageId(), finalFrame, sequenceNumber, plaintextLength),
                 plaintext,
-                frame.array(),
-                frame.position());
+                plaintextLength,
+                frame,
+                fields.position());
         } catch (final GeneralSecurityException e) {
             throw new IOException("Couldn't encrypt frame " + sequenceNumber, e);
         }
-        return frame.array();
+        buffer = frame;
+        bufferLength = fields.position() + plaintextLength + MessageFormat.TAG_LENGTH;
     }
 
     @Override
@@ -214,11 +233,17 @@ final class FrameWriter extends InputStream {
         headerWritten = false;
         finished = false;
         buffer = EMPTY;
+        bufferLength = 0;
         position = 0;
     }
 
     @Override
     public void close() throws IOException {
+        plaintext = EMPTY;
+        frame = EMPTY;
+        buffer = EMPTY;
+        bufferLength = 0;
+        position = 0;
         source.close();
     }
 }

@@ -290,6 +290,23 @@ class AwsMessageFormatCryptoHandlerTest extends CipherTestSupport {
     }
 
     @Test
+    void singleByteReadsWriteSameBytes() throws IOException {
+        final var handler = handler(F);
+        final var header = handler.initEncryptionMetadata();
+        final var plaintext = randomBytes(3 * F + 5);
+        final var expected = encrypt(handler, header, plaintext);
+
+        final var in = handler.createEncryptingStream(
+            header, new InputStreamContainer(new ByteArrayInputStream(plaintext), plaintext.length, 0)).getInputStream();
+        final var actual = new ByteArrayOutputStream();
+        for (var b = in.read(); b != -1; b = in.read()) {
+            actual.write(b);
+        }
+
+        assertArrayEquals(expected, actual.toByteArray());
+    }
+
+    @Test
     void encryptsWholeSourceThatEndsStreamOnZeroLengthRead() throws IOException {
         final var frameLength = 64 * 1024;
         final var handler = handler(frameLength);
