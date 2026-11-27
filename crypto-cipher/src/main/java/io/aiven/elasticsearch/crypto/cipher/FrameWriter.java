@@ -42,6 +42,10 @@ final class FrameWriter extends InputStream {
 
     private final boolean writesFinalFrame;
 
+    private final long contentLength;
+
+    private long remaining;
+
     private long sequenceNumber;
 
     private boolean headerWritten;
@@ -58,17 +62,21 @@ final class FrameWriter extends InputStream {
      * @param firstSequenceNumber sequence number of the first frame this stream writes, starting from 1
      * @param writesHeader        whether the stream starts with the message header
      * @param writesFinalFrame    whether the source ends the message. If not, the source must hold whole frames.
+     * @param contentLength       expected number of plaintext bytes in the source, or a negative value if unknown
      */
     FrameWriter(final MessageHeader header,
                 final InputStream source,
                 final long firstSequenceNumber,
                 final boolean writesHeader,
-                final boolean writesFinalFrame) {
+                final boolean writesFinalFrame,
+                final long contentLength) {
         this.header = header;
         this.source = source;
         this.firstSequenceNumber = firstSequenceNumber;
         this.writesHeader = writesHeader;
         this.writesFinalFrame = writesFinalFrame;
+        this.contentLength = contentLength;
+        this.remaining = contentLength;
         this.sequenceNumber = firstSequenceNumber;
     }
 
@@ -127,16 +135,26 @@ final class FrameWriter extends InputStream {
     }
 
     private byte[] readFrame(final int frameLength) throws IOException {
-        final var frame = new byte[frameLength];
+        var frame = new byte[remaining < 0 ? frameLength : (int) Math.min(frameLength, remaining)];
         var length = 0;
         while (length < frameLength) {
-            final var n = source.read(frame, length, frameLength - length);
+            if (length == frame.length) {
+                final var next = source.read();
+                if (next == -1) {
+                    break;
+                }
+                frame = Arrays.copyOf(frame, frameLength);
+                frame[length++] = (byte) next;
+                continue;
+            }
+            final var n = source.read(frame, length, frame.length - length);
             if (n == -1) {
-                return Arrays.copyOf(frame, length);
+                break;
             }
             length += n;
         }
-        return frame;
+        remaining -= length;
+        return length == frame.length ? frame : Arrays.copyOf(frame, length);
     }
 
     private byte[] encryptFrame(final boolean finalFrame, final byte[] plaintext) throws IOException {
@@ -190,6 +208,7 @@ final class FrameWriter extends InputStream {
             throw new IOException("Mark is supported only before the first read");
         }
         source.reset();
+        remaining = contentLength;
         sequenceNumber = firstSequenceNumber;
         headerWritten = false;
         finished = false;

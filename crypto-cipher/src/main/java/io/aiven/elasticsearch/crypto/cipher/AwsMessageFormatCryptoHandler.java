@@ -156,7 +156,7 @@ final class AwsMessageFormatCryptoHandler implements CryptoHandler<MessageHeader
     @Override
     public InputStreamContainer createEncryptingStream(final MessageHeader header, final InputStreamContainer stream) {
         return new InputStreamContainer(
-            new FrameWriter(header, stream.getInputStream(), 1, true, true),
+            new FrameWriter(header, stream.getInputStream(), 1, true, true, stream.getContentLength()),
             estimateEncryptedLengthOfEntireContent(header, stream.getContentLength()),
             0);
     }
@@ -176,7 +176,7 @@ final class AwsMessageFormatCryptoHandler implements CryptoHandler<MessageHeader
         }
         final var firstPart = streamIdx == 0;
         return new InputStreamContainer(
-            new FrameWriter(header, stream.getInputStream(), offset / frameLength + 1, firstPart, lastPart),
+            new FrameWriter(header, stream.getInputStream(), offset / frameLength + 1, firstPart, lastPart, length),
             (firstPart ? header.length() : 0) + framesLength(frameLength, length, lastPart),
             firstPart ? 0 : header.length() + framesLength(frameLength, offset, false));
     }
