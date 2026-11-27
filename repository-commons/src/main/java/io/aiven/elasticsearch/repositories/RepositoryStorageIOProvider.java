@@ -88,7 +88,7 @@ public abstract class RepositoryStorageIOProvider<C, S extends CommonSettings.Cl
         }
         final var client = Permissions.doPrivileged(
                 () -> clientProvider.buildClientIfNeeded(clientSettings, repositorySettings).v2());
-        return createStorageIOFor(client, repositorySettings, CryptoIOProvider.UNENCRYPTED);
+        return createStorageIOFor(client, repositorySettings, CryptoIOProvider.NO_OP_CRYPTO_PROVIDER);
     }
 
     public KeyPair keyPair(final S clientSettings, final Settings repositorySettings) throws IOException {
@@ -126,7 +126,7 @@ public abstract class RepositoryStorageIOProvider<C, S extends CommonSettings.Cl
         final var repositoryMetadataFilePath = basePath + REPOSITORY_METADATA_FILE_NAME;
         // The repository metadata file holds the encryption key wrapped with RSA, so it is
         // read and written as is, without the AES and zstd layer used for regular blobs.
-        final var encKeyRepoMetadata = createStorageIOFor(client, repositorySettings, CryptoIOProvider.UNENCRYPTED);
+        final var encKeyRepoMetadata = createStorageIOFor(client, repositorySettings, CryptoIOProvider.NO_OP_CRYPTO_PROVIDER);
         if (!encKeyRepoMetadata.exists(repositoryMetadataFilePath)) {
             return null;
         }
@@ -142,7 +142,7 @@ public abstract class RepositoryStorageIOProvider<C, S extends CommonSettings.Cl
                                               final Settings repositorySettings) throws IOException {
         
         final var repositoryMetadataFilePath = basePath + REPOSITORY_METADATA_FILE_NAME;
-        final var encKeyRepoMetadata = createStorageIOFor(client, repositorySettings, CryptoIOProvider.UNENCRYPTED);
+        final var encKeyRepoMetadata = createStorageIOFor(client, repositorySettings, CryptoIOProvider.NO_OP_CRYPTO_PROVIDER);
         final var repositoryMetadata = new EncryptedRepositoryMetadata(encryptionKeyProvider);
             
         if (Objects.isNull(encryptionKey)) {

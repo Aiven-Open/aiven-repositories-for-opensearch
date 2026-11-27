@@ -222,7 +222,7 @@ class CryptoSettingsBlobIdentityTest {
 
     /**
      * Stores bytes the way {@code GcsStorageIO} does for format version 2: through
-     * {@link CryptoIOProvider#UNENCRYPTED}, with ranged reads of the raw object. Every write first runs once and
+     * {@link CryptoIOProvider#NO_OP_CRYPTO_PROVIDER}, with ranged reads of the raw object. Every write first runs once and
      * rewinds, as a retried resumable upload does.
      */
     private static final class InMemoryStorageIO implements RepositoryStorageIOProvider.StorageIO {
@@ -240,7 +240,7 @@ class CryptoSettingsBlobIdentityTest {
 
         @Override
         public InputStream read(final String blobName) throws IOException {
-            return CryptoIOProvider.UNENCRYPTED.decryptAndDecompress(new ByteArrayInputStream(bucket.get(blobName)));
+            return CryptoIOProvider.NO_OP_CRYPTO_PROVIDER.decryptAndDecompress(new ByteArrayInputStream(bucket.get(blobName)));
         }
 
         @Override
@@ -254,10 +254,10 @@ class CryptoSettingsBlobIdentityTest {
                           final long blobSize,
                           final boolean failIfAlreadyExists) throws IOException {
             inputStream.mark(Integer.MAX_VALUE);
-            CryptoIOProvider.UNENCRYPTED.compressAndEncrypt(inputStream, OutputStream.nullOutputStream());
+            CryptoIOProvider.NO_OP_CRYPTO_PROVIDER.compressAndEncrypt(inputStream, OutputStream.nullOutputStream());
             inputStream.reset();
             final var out = new ByteArrayOutputStream();
-            CryptoIOProvider.UNENCRYPTED.compressAndEncrypt(inputStream, out);
+            CryptoIOProvider.NO_OP_CRYPTO_PROVIDER.compressAndEncrypt(inputStream, out);
             assertEquals(blobSize, out.size(), blobName);
             bucket.put(blobName, out.toByteArray());
         }

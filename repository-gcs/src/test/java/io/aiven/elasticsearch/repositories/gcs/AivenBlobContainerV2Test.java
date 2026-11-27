@@ -87,7 +87,7 @@ class AivenBlobContainerV2Test {
                 blob.getKey(), new ByteArrayInputStream(blob.getValue()), blob.getValue().length, true);
         }
 
-        final var storedContainer = new RepositoryBlobContainer(PATH, new InMemoryStorageIO(CryptoIOProvider.UNENCRYPTED));
+        final var storedContainer = new RepositoryBlobContainer(PATH, new InMemoryStorageIO(CryptoIOProvider.NO_OP_CRYPTO_PROVIDER));
         final var cryptoHandler = newNodeCryptoHandler();
         final var encryptedContainer = new EncryptedBlobContainer<>(storedContainer, cryptoHandler);
         container = new AivenBlobContainerV2(

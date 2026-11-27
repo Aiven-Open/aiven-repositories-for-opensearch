@@ -193,7 +193,7 @@ class BlobStoreRepositoryV2Test {
         public RepositoryStorageIOProvider.StorageIO createStoredStorageIO(final String repositoryName,
                                                                            final Settings repositorySettings,
                                                                            final boolean clear) {
-            return new InMemoryStorageIO(CryptoIOProvider.UNENCRYPTED);
+            return new InMemoryStorageIO(CryptoIOProvider.NO_OP_CRYPTO_PROVIDER);
         }
 
         @Override

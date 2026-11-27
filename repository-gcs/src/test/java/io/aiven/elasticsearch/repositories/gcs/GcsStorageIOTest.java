@@ -78,7 +78,7 @@ class GcsStorageIOTest {
     void readWithPositionSeeksAndStopsAfterLength() throws IOException {
         storeObject(BLOB);
         final var storageIO = new GcsRepositoryStorageIOProvider.GcsStorageIO(
-            storage, BLOB_ID.getBucket(), CryptoIOProvider.UNENCRYPTED);
+            storage, BLOB_ID.getBucket(), CryptoIOProvider.NO_OP_CRYPTO_PROVIDER);
 
         try (final var in = storageIO.read(BLOB_ID.getName(), 1_000_000, 500)) {
             assertArrayEquals(Arrays.copyOfRange(BLOB, 1_000_000, 1_000_500), in.readAllBytes());

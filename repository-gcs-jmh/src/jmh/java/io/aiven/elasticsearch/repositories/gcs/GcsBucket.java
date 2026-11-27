@@ -76,7 +76,7 @@ final class GcsBucket {
     }
 
     void claimBasePath() throws IOException {
-        final var stored = storageIO(CryptoIOProvider.UNENCRYPTED);
+        final var stored = storageIO(CryptoIOProvider.NO_OP_CRYPTO_PROVIDER);
         if (stored.exists(markerPath())) {
             return;
         }
@@ -94,14 +94,14 @@ final class GcsBucket {
 
     void deleteTrialPath(final String trialPath) {
         try {
-            storageIO(CryptoIOProvider.UNENCRYPTED).deleteDirectories(trialPath + "/");
+            storageIO(CryptoIOProvider.NO_OP_CRYPTO_PROVIDER).deleteDirectories(trialPath + "/");
         } catch (final IOException | RuntimeException e) {
             System.err.println("Failed to delete " + location(trialPath) + ", run jmhCleanGcs: " + e);
         }
     }
 
     Tuple<Integer, Long> deleteBasePath() throws IOException {
-        final var stored = storageIO(CryptoIOProvider.UNENCRYPTED);
+        final var stored = storageIO(CryptoIOProvider.NO_OP_CRYPTO_PROVIDER);
         if (!stored.exists(markerPath())) {
             throw new IllegalStateException("No " + MARKER + " object in " + location(basePath) + ", nothing deleted");
         }

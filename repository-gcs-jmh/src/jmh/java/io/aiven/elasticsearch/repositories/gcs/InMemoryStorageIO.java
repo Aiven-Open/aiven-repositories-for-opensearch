@@ -60,7 +60,7 @@ final class InMemoryStorageIO implements StorageIO {
     @Override
     public InputStream read(final String blobName, final long position, final long length) throws IOException {
         final var bytes = blob(blobName);
-        if (cryptoIOProvider == CryptoIOProvider.UNENCRYPTED) {
+        if (cryptoIOProvider == CryptoIOProvider.NO_OP_CRYPTO_PROVIDER) {
             final var start = Math.toIntExact(Math.min(position, bytes.length));
             return new ByteArrayInputStream(bytes, start, Math.toIntExact(Math.min(length, bytes.length - start)));
         }

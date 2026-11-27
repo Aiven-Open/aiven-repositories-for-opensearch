@@ -46,8 +46,15 @@ public class CryptoIOProvider implements Encryption, Decryption {
 
     static final int BUFFER_SIZE = 16 * 1024;
 
-    /** We use unencrypted, because the encryption is done by the cipher stream. */
-    public static final CryptoIOProvider UNENCRYPTED = new CryptoIOProvider(null, 0) {
+    /**
+     * We use NO_OP_CRYPTO_PROVIDER, because the encryption is done by the cipher stream.
+     * So for a V2 write, the data passes through these layers in order:
+     * - AivenBlobContainerV2
+     * - EncryptedBlobContainer, which encrypts with AwsMessageFormatCryptoHandler and RsaMasterKeyProvider (the V2 format)
+     * - RepositoryBlobContainer
+     * - The GCS storage IO with NO_OP_CRYPTO_PROVIDER, which copies the already-encrypted bytes to GCS
+     */
+    public static final CryptoIOProvider NO_OP_CRYPTO_PROVIDER = new CryptoIOProvider(null, 0) {
 
         @Override
         public InputStream decryptAndDecompress(final InputStream in) {

@@ -89,7 +89,7 @@ final class BenchmarkSettingsService extends GcsSettingsProvider {
     }
 
     void writeRepositoryMetadata(final String basePath) throws IOException {
-        final var stored = storage.apply(CryptoIOProvider.UNENCRYPTED);
+        final var stored = storage.apply(CryptoIOProvider.NO_OP_CRYPTO_PROVIDER);
         if (!stored.exists(basePath + REPOSITORY_METADATA_FILE_NAME)) {
             stored.write(basePath + REPOSITORY_METADATA_FILE_NAME, new ByteArrayInputStream(new byte[0]), 0, false);
         }
@@ -99,14 +99,14 @@ final class BenchmarkSettingsService extends GcsSettingsProvider {
     public StorageIO createStoredStorageIO(final String repositoryName,
                                            final Settings repositorySettings,
                                            final boolean clear) {
-        return storage.apply(CryptoIOProvider.UNENCRYPTED);
+        return storage.apply(CryptoIOProvider.NO_OP_CRYPTO_PROVIDER);
     }
 
     @Override
     public StorageIO createRepositoryKeyStorageIO(final String basePath,
                                                   final String repositoryName,
                                                   final Settings repositorySettings) throws IOException {
-        return storage.apply(CryptoIOProvider.UNENCRYPTED).exists(basePath + REPOSITORY_METADATA_FILE_NAME)
+        return storage.apply(CryptoIOProvider.NO_OP_CRYPTO_PROVIDER).exists(basePath + REPOSITORY_METADATA_FILE_NAME)
             ? storage.apply(repositoryKey)
             : null;
     }

@@ -25,6 +25,7 @@ import javax.crypto.spec.SecretKeySpec;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.security.GeneralSecurityException;
+import java.security.InvalidAlgorithmParameterException;
 import java.util.Arrays;
 
 /**
@@ -74,6 +75,10 @@ final class MessageFormat {
 
     private static final String HMAC_SHA512 = "HmacSHA512";
 
+    private static final ThreadLocal<Cipher> GCM = new ThreadLocal<>();
+
+    private static final ThreadLocal<Mac> HMAC = new ThreadLocal<>();
+
     private MessageFormat() {
     }
 
@@ -82,7 +87,11 @@ final class MessageFormat {
     }
 
     static DerivedKeys deriveKeys(final byte[] dataKey, final byte[] messageId) throws GeneralSecurityException {
-        final var mac = Mac.getInstance(HMAC_SHA512);
+        var mac = HMAC.get();
+        if (mac == null) {
+            mac = Mac.getInstance(HMAC_SHA512);
+            HMAC.set(mac);
+        }
         mac.init(new SecretKeySpec(messageId, HMAC_SHA512));
         final var pseudoRandomKey = new SecretKeySpec(mac.doFinal(dataKey), HMAC_SHA512);
         final var frameKeyLabel = ByteBuffer.allocate(2 + DERIVE_KEY_LABEL.length)
@@ -142,9 +151,26 @@ final class MessageFormat {
                               final SecretKey key,
                               final byte[] iv,
                               final byte[] aad) throws GeneralSecurityException {
-        final var cipher = Cipher.getInstance("AES/GCM/NoPadding");
-        cipher.init(mode, key, new GCMParameterSpec(TAG_LENGTH * 8, iv));
+        var cipher = GCM.get();
+        if (cipher == null) {
+            cipher = newGcm();
+        }
+        final var spec = new GCMParameterSpec(TAG_LENGTH * 8, iv);
+        try {
+            cipher.init(mode, key, spec);
+        } catch (final InvalidAlgorithmParameterException e) {
+            // SunJCE refuses to encrypt twice in a row with the same key and IV on one instance. A frame replayed
+            // after FrameWriter.reset() does that with the same plaintext, so a new instance is safe.
+            cipher = newGcm();
+            cipher.init(mode, key, spec);
+        }
         cipher.updateAAD(aad);
+        return cipher;
+    }
+
+    private static Cipher newGcm() throws GeneralSecurityException {
+        final var cipher = Cipher.getInstance("AES/GCM/NoPadding");
+        GCM.set(cipher);
         return cipher;
     }
 }

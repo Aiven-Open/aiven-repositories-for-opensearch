@@ -120,7 +120,7 @@ public class GcsRepositoryStorageIOProvider
 
         @Override
         public InputStream read(final String blobName, final long position, final long length) throws IOException {
-            if (cryptoIOProvider != CryptoIOProvider.UNENCRYPTED) {
+            if (cryptoIOProvider != CryptoIOProvider.NO_OP_CRYPTO_PROVIDER) {
                 final var in = read(blobName);
                 try {
                     in.skipNBytes(position);
