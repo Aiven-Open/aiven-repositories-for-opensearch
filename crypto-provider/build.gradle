@@ -14,6 +14,12 @@
  * limitations under the License.
  */
 
+dependencies {
+    // Provided by OpenSearch at runtime
+    compileOnly "org.bouncycastle:bc-fips:2.1.2"
+    testImplementation "org.bouncycastle:bc-fips:2.1.2"
+}
+
 publishing {
     publications {
         maven(MavenPublication) {

@@ -35,10 +35,7 @@ import com.amazonaws.encryptionsdk.jce.JceMasterKey;
 import org.bouncycastle.jcajce.provider.BouncyCastleFipsProvider;
 import org.junit.jupiter.api.BeforeAll;
 
-/**
- * Runs with {@code BouncyCastleFipsProvider} as the first JCE provider when the system property
- * {@value #BCFIPS_PROPERTY} is {@code true}, which is how the {@code testWithBcFips} task runs every test.
- */
+
 abstract class CipherTestSupport {
 
     static final String BCFIPS_PROPERTY = "aiven.crypto.test.bcfips";
@@ -55,8 +52,12 @@ abstract class CipherTestSupport {
 
     @BeforeAll
     static void setUpProvidersAndKeys() throws Exception {
-        if (Boolean.getBoolean(BCFIPS_PROPERTY) && Security.getProvider(BouncyCastleFipsProvider.PROVIDER_NAME) == null) {
-            Security.insertProviderAt(new BouncyCastleFipsProvider(), 1);
+        if (Security.getProvider(BouncyCastleFipsProvider.PROVIDER_NAME) == null) {
+            if (Boolean.getBoolean(BCFIPS_PROPERTY)) {
+                Security.insertProviderAt(new BouncyCastleFipsProvider(), 1);
+            } else {
+                Security.addProvider(new BouncyCastleFipsProvider());
+            }
         }
         if (keyPair == null) {
             final var generator = KeyPairGenerator.getInstance("RSA");

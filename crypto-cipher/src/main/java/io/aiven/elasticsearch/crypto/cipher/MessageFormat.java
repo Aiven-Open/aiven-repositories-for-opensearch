@@ -25,8 +25,10 @@ import javax.crypto.spec.SecretKeySpec;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.security.GeneralSecurityException;
-import java.security.InvalidAlgorithmParameterException;
+import java.security.Security;
 import java.util.Arrays;
+
+import org.bouncycastle.jcajce.provider.BouncyCastleFipsProvider;
 
 /**
  * Constants and primitives of the AWS Encryption SDK message format, version 2, with the algorithm suite
@@ -75,9 +77,17 @@ final class MessageFormat {
 
     private static final String HMAC_SHA512 = "HmacSHA512";
 
-    private static final ThreadLocal<Cipher> GCM = new ThreadLocal<>();
+    private static final String PROVIDER = BouncyCastleFipsProvider.PROVIDER_NAME;
 
-    private static final ThreadLocal<Mac> HMAC = new ThreadLocal<>();
+    static {
+        if (Security.getProvider(PROVIDER) == null) {
+            Security.addProvider(new BouncyCastleFipsProvider());
+        }
+    }
+
+    static final ThreadLocal<Cipher> GCM = new ThreadLocal<>();
+
+    static final ThreadLocal<Mac> HMAC = new ThreadLocal<>();
 
     private MessageFormat() {
     }
@@ -89,7 +99,7 @@ final class MessageFormat {
     static DerivedKeys deriveKeys(final byte[] dataKey, final byte[] messageId) throws GeneralSecurityException {
         var mac = HMAC.get();
         if (mac == null) {
-            mac = Mac.getInstance(HMAC_SHA512);
+            mac = Mac.getInstance(HMAC_SHA512, PROVIDER);
             HMAC.set(mac);
         }
         mac.init(new SecretKeySpec(messageId, HMAC_SHA512));
@@ -163,24 +173,11 @@ final class MessageFormat {
                               final byte[] aad) throws GeneralSecurityException {
         var cipher = GCM.get();
         if (cipher == null) {
-            cipher = newGcm();
+            cipher = Cipher.getInstance("AES/GCM/NoPadding", PROVIDER);
+            GCM.set(cipher);
         }
-        final var spec = new GCMParameterSpec(TAG_LENGTH * 8, iv);
-        try {
-            cipher.init(mode, key, spec);
-        } catch (final InvalidAlgorithmParameterException e) {
-            // SunJCE refuses to encrypt twice in a row with the same key and IV on one instance. A frame replayed
-            // after FrameWriter.reset() does that with the same plaintext, so a new instance is safe.
-            cipher = newGcm();
-            cipher.init(mode, key, spec);
-        }
+        cipher.init(mode, key, new GCMParameterSpec(TAG_LENGTH * 8, iv));
         cipher.updateAAD(aad);
-        return cipher;
-    }
-
-    private static Cipher newGcm() throws GeneralSecurityException {
-        final var cipher = Cipher.getInstance("AES/GCM/NoPadding");
-        GCM.set(cipher);
         return cipher;
     }
 }

@@ -16,6 +16,7 @@
 
 package io.aiven.elasticsearch.crypto.cipher;
 
+import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.security.Security;
 import java.util.List;
@@ -28,8 +29,8 @@ import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 class MaterialsManagerTest extends CipherTestSupport {
@@ -37,12 +38,22 @@ class MaterialsManagerTest extends CipherTestSupport {
     @Test
     void bouncyCastleIsNotBundled() {
         assertThrows(ClassNotFoundException.class, () -> Class.forName("org.bouncycastle.jce.provider.BouncyCastleProvider"));
+        assertNotNull(Security.getProvider("BCFIPS"));
         if (Boolean.getBoolean(BCFIPS_PROPERTY)) {
-            assertNotNull(Security.getProvider("BCFIPS"));
             assertEquals("BCFIPS", Security.getProviders()[0].getName());
         } else {
-            assertNull(Security.getProvider("BCFIPS"));
+            assertNotEquals("BCFIPS", Security.getProviders()[0].getName());
         }
+    }
+
+    @Test
+    void formatV2CryptoUsesBcFipsWhateverTheProviderOrder() throws IOException {
+        final var handler = handler(SMALL_FRAME_LENGTH);
+        final var plaintext = randomBytes(3 * SMALL_FRAME_LENGTH + 1);
+
+        assertArrayEquals(plaintext, decrypt(handler, encrypt(handler, plaintext)));
+        assertEquals("BCFIPS", MessageFormat.GCM.get().getProvider().getName());
+        assertEquals("BCFIPS", MessageFormat.HMAC.get().getProvider().getName());
     }
 
     @Test

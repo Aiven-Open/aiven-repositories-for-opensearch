@@ -25,12 +25,15 @@ import java.security.KeyPair;
 import java.security.MessageDigest;
 import java.security.PublicKey;
 import java.security.SecureRandom;
+import java.security.Security;
 import java.security.spec.MGF1ParameterSpec;
 import java.util.HexFormat;
 import java.util.Map;
 
 import org.opensearch.common.crypto.DataKeyPair;
 import org.opensearch.common.crypto.MasterKeyProvider;
+
+import org.bouncycastle.jcajce.provider.BouncyCastleFipsProvider;
 
 /**
  * Generates AES-256 data keys and wraps them with an RSA key pair using RSA-OAEP with SHA-256.
@@ -44,6 +47,14 @@ public final class RsaMasterKeyProvider implements MasterKeyProvider {
         new OAEPParameterSpec("SHA-256", "MGF1", MGF1ParameterSpec.SHA256, PSource.PSpecified.DEFAULT);
 
     static final int DATA_KEY_LENGTH = 32;
+
+    private static final String PROVIDER = BouncyCastleFipsProvider.PROVIDER_NAME;
+
+    static {
+        if (Security.getProvider(PROVIDER) == null) {
+            Security.addProvider(new BouncyCastleFipsProvider());
+        }
+    }
 
     private final KeyPair keyPair;
 
@@ -93,7 +104,7 @@ public final class RsaMasterKeyProvider implements MasterKeyProvider {
 
     private byte[] crypt(final int mode, final byte[] input) {
         try {
-            final var cipher = Cipher.getInstance(WRAPPING_TRANSFORMATION);
+            final var cipher = Cipher.getInstance(WRAPPING_TRANSFORMATION, PROVIDER);
             cipher.init(mode, mode == Cipher.ENCRYPT_MODE ? keyPair.getPublic() : keyPair.getPrivate(), OAEP_SHA256);
             return cipher.doFinal(input);
         } catch (final GeneralSecurityException e) {

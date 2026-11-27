@@ -23,6 +23,8 @@ dependencies {
         exclude group: "org.bouncycastle"
     }
 
+    // Provided by OpenSearch at runtime
+    compileOnly "org.bouncycastle:bc-fips:2.1.2"
     testImplementation "org.bouncycastle:bc-fips:2.1.2"
     testImplementation project(":crypto-provider")
 }
